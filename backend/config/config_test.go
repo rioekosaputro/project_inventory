@@ -16,7 +16,7 @@ func clearEnv(t *testing.T) {
 		"APP_ENV", "PORT", "APP_BASE_URL", "CORS_ALLOWED_ORIGINS", "TZ_APP",
 		"DATABASE_URL", "MIGRATE_DATABASE_URL", "DB_POOLER_MODE", "DB_MAX_CONNS",
 		"JWT_ACCESS_SECRET", "JWT_ACCESS_TTL", "JWT_REFRESH_TTL", "AUTH_REFRESH_MODE", "COOKIE_SECURE",
-		"STORAGE_DRIVER", "S3_FORCE_PATH_STYLE",
+		"STORAGE_DRIVER", "S3_FORCE_PATH_STYLE", "TRUSTED_PROXIES",
 	} {
 		t.Setenv(k, "")
 	}
@@ -71,6 +71,33 @@ func TestLoad_InvalidValues(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.key)
 		})
 	}
+}
+
+func TestLoad_RejectsWildcardCORSBecauseOfCredentials(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,*")
+
+	_, err := loadFromEnv()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CORS_ALLOWED_ORIGINS")
+}
+
+func TestLoad_TrustedProxies(t *testing.T) {
+	clearEnv(t)
+
+	cfg, err := loadFromEnv()
+	require.NoError(t, err)
+	assert.Empty(t, cfg.TrustedProxies, "default: tidak ada proxy yang dipercaya")
+
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8, 127.0.0.1")
+	cfg, err = loadFromEnv()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"10.0.0.0/8", "127.0.0.1"}, cfg.TrustedProxies)
+
+	t.Setenv("TRUSTED_PROXIES", "bukan-ip")
+	_, err = loadFromEnv()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TRUSTED_PROXIES")
 }
 
 func TestLoad_NonLocalRequiresStrongSecretAndSecureCookie(t *testing.T) {

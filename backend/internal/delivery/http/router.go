@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"rental-inventory-api/config"
+	"rental-inventory-api/internal/delivery/http/httperr"
+	"rental-inventory-api/internal/delivery/http/middleware"
 )
 
 // ReadinessCheck memeriksa satu dependensi (mis. database). Error berarti belum siap.
@@ -20,15 +22,33 @@ type ReadinessCheck struct {
 
 const readyzTimeout = 3 * time.Second
 
-// NewRouter membangun engine Gin. Middleware lengkap (RequestID, Logger, CORS,
-// security headers) ditambahkan di T0.5.
+// NewRouter membangun engine Gin dengan middleware dasar (plan Bagian 7.5):
+// RequestID → SecurityHeaders → Recover → Logger → CORS.
+// RateLimit, Auth, RBAC, dan Idempotency dipasang per grup route di task berikutnya.
 func NewRouter(cfg *config.Config, logger *slog.Logger, checks ...ReadinessCheck) *gin.Engine {
 	if cfg.AppEnv == config.EnvProduction {
 		gin.SetMode(gin.ReleaseMode)
 	}
+	httperr.Setup()
 
 	r := gin.New()
-	r.Use(gin.Recovery())
+	// Default Gin mempercayai semua proxy → X-Forwarded-For bisa dipalsukan (merusak rate limit per IP).
+	// SetTrustedProxies hanya gagal untuk input tidak valid, yang sudah ditolak oleh config.
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		logger.Error("TRUSTED_PROXIES tidak valid, tidak ada proxy yang dipercaya", "error", err)
+		_ = r.SetTrustedProxies(nil)
+	}
+	r.HandleMethodNotAllowed = true
+	r.NoRoute(httperr.NotFound)
+	r.NoMethod(httperr.MethodNotAllowed)
+
+	r.Use(
+		middleware.RequestID(),
+		middleware.SecurityHeaders(cfg.AppEnv != config.EnvLocal),
+		middleware.Recover(logger),
+		middleware.Logger(logger),
+		middleware.CORS(cfg.CORSAllowedOrigins),
+	)
 
 	r.GET("/healthz", healthz)
 	r.GET("/readyz", readyz(logger, checks))

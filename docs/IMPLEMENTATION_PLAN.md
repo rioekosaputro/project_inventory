@@ -1626,7 +1626,8 @@ handler (Gin)  →  usecase  →  repository (pgx)  →  PostgreSQL
 APP_ENV=local                       # local | staging | production
 PORT=8080
 APP_BASE_URL=http://localhost:5173  # dipakai untuk link verifikasi QR
-CORS_ALLOWED_ORIGINS=http://localhost:5173
+CORS_ALLOWED_ORIGINS=http://localhost:5173   # tidak boleh '*' (cookie refresh memakai credentials)
+TRUSTED_PROXIES=                    # IP/CIDR proxy tepercaya utk X-Forwarded-For; kosong = tidak ada (ditambah di T0.5)
 TZ_APP=Asia/Jakarta
 
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/rental_erp?sslmode=disable
@@ -2001,7 +2002,7 @@ volumes: { pgdata: {} }
   DoD: test integrasi TxManager (commit, rollback saat error, rollback saat panic, nested pakai tx yang sama).
 - [x] **T0.4 Migrasi awal + seed** — `000001`, `000002` (+ `.down.sql`), `cmd/seed` (admin, app_settings, kategori).
   DoD: `make migrate-up && make migrate-down && make migrate-up` bersih.
-- [ ] **T0.5 Fondasi HTTP** — `pkg/response`, `pkg/pagination`, `httperr`, pesan validasi Bahasa Indonesia, middleware RequestID/Recover/Logger/CORS/security headers.
+- [x] **T0.5 Fondasi HTTP** — `pkg/response`, `pkg/pagination`, `httperr`, pesan validasi Bahasa Indonesia, middleware RequestID/Recover/Logger/CORS/security headers.
   DoD: test handler contoh untuk 200/400/404/500 sesuai format Bagian 7.4.
 - [ ] **T0.6 Auth** — login, refresh (cookie, rotasi, reuse detection), logout, me, change-password, `domain/permission.go` (matriks 5.1), `RequirePermission`, rate limit login, audit login.
   DoD: test reuse refresh token me-revoke family; role tanpa permission → 403.

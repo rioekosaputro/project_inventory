@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -29,8 +30,11 @@ type Config struct {
 	Port               string
 	AppBaseURL         string
 	CORSAllowedOrigins []string
-	TZApp              string
-	Location           *time.Location
+	// TrustedProxies: IP/CIDR proxy yang boleh menentukan IP klien lewat X-Forwarded-For.
+	// Kosong = tidak ada yang dipercaya (IP klien = alamat koneksi langsung).
+	TrustedProxies []string
+	TZApp          string
+	Location       *time.Location
 
 	DatabaseURL        string
 	MigrateDatabaseURL string
@@ -88,6 +92,7 @@ func loadFromEnv() (*Config, error) {
 		Port:               getEnv("PORT", "8080"),
 		AppBaseURL:         getEnv("APP_BASE_URL", "http://localhost:5173"),
 		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
+		TrustedProxies:     splitCSV(os.Getenv("TRUSTED_PROXIES")),
 		TZApp:              getEnv("TZ_APP", "Asia/Jakarta"),
 
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
@@ -157,6 +162,16 @@ func loadFromEnv() (*Config, error) {
 	}
 	if c.DBMaxConns < 1 {
 		fail("DB_MAX_CONNS harus >= 1")
+	}
+	for _, o := range c.CORSAllowedOrigins {
+		if o == "*" {
+			fail("CORS_ALLOWED_ORIGINS tidak boleh '*' (cookie refresh memakai credentials); sebutkan origin eksplisit")
+		}
+	}
+	for _, p := range c.TrustedProxies {
+		if _, _, err := net.ParseCIDR(p); err != nil && net.ParseIP(p) == nil {
+			fail("TRUSTED_PROXIES berisi IP/CIDR tidak valid: %q", p)
+		}
 	}
 
 	c.Location, err = time.LoadLocation(c.TZApp)

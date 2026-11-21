@@ -1993,7 +1993,7 @@ volumes: { pgdata: {} }
   DoD: repo ter-push, README berisi cara menjalankan lokal.
 - [ ] **T0.2 Skeleton backend** — `go.mod` (module `rental-inventory-api`), `config` (env), slog, Gin router, `/healthz` `/readyz`, graceful shutdown, baca `PORT`, `Dockerfile` multi-stage, `Makefile`.
   DoD: `make dev` jalan; `docker build` sukses; `/healthz` 200.
-- [ ] **T0.3 Lapisan database** — `pkg/database` (pgxpool + `DB_POOLER_MODE`, TxManager, `GetExecutor`, `MustInTx`), `cmd/migrate`, `deploy/docker-compose.dev.yml`.
+- [x] **T0.3 Lapisan database** — `pkg/database` (pgxpool + `DB_POOLER_MODE`, TxManager, `GetExecutor`, `MustInTx`), `cmd/migrate`, `deploy/docker-compose.dev.yml`.
   DoD: test integrasi TxManager (commit, rollback saat error, rollback saat panic, nested pakai tx yang sama).
 - [ ] **T0.4 Migrasi awal + seed** — `000001`, `000008` (+ `.down.sql`), `cmd/seed` (admin, app_settings, kategori).
   DoD: `make migrate-up && make migrate-down && make migrate-up` bersih.

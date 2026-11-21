@@ -13,6 +13,8 @@ import (
 
 	"rental-inventory-api/config"
 	apihttp "rental-inventory-api/internal/delivery/http"
+	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/pkg/database"
 )
 
 const shutdownTimeout = 15 * time.Second
@@ -33,8 +35,26 @@ func run() error {
 	logger := newLogger(cfg)
 	slog.SetDefault(logger)
 
-	// Koneksi database & readiness check DB ditambahkan di T0.3.
-	router := apihttp.NewRouter(cfg, logger)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := database.NewPool(ctx, database.Config{
+		URL:        cfg.DatabaseURL,
+		PoolerMode: cfg.DBPoolerMode,
+		MaxConns:   cfg.DBMaxConns,
+	})
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	// TxManager dipakai usecase mulai T1.x; assertion memastikan kontraknya terpenuhi.
+	var _ domain.TxManager = database.NewTxManager(pool)
+
+	router := apihttp.NewRouter(cfg, logger, apihttp.ReadinessCheck{
+		Name:  "database",
+		Check: pool.Ping,
+	})
 
 	srv := &nethttp.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),
@@ -44,9 +64,6 @@ func run() error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	serverErr := make(chan error, 1)
 	go func() {

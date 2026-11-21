@@ -1,0 +1,39 @@
+# Infra lokal untuk pengembangan.
+#   docker compose -f deploy/docker-compose.dev.yml up -d
+#
+# Postgres di sini memakai port host 5433 (bukan 5432) agar tidak bentrok dengan
+# PostgreSQL yang terpasang langsung di mesin. DATABASE_URL untuk instance ini:
+#   postgres://postgres:postgres@localhost:5433/project_inventory?sslmode=disable
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: project_inventory
+      TZ: Asia/Jakarta
+    ports: ["${POSTGRES_PORT:-5433}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d project_inventory"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    ports: ["3000:3000"]
+
+  minio:            # opsional, bila ingin menguji S3 lokal: --profile s3
+    profiles: ["s3"]
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+
+volumes:
+  pgdata: {}
+  miniodata: {}

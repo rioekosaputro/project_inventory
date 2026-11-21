@@ -14,6 +14,8 @@
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
+    "check:lint": "oxlint . && eslint .",
+    "check:format": "prettier --check --experimental-cli src/",
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {

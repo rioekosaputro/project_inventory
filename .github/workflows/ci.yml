@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Run baru membatalkan run lama pada branch/PR yang sama.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rental_erp_test
+          TZ: Asia/Jakarta
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rental_erp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Test integrasi memakai schema sementara per test (lihat internal/testutil/pgtest).
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/rental_erp_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "File berikut belum diformat dengan gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: |
+          go vet ./...
+          go vet -tags=integration ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          working-directory: backend
+          args: --build-tags=integration
+
+      - name: Unit test (-race)
+        run: go test -race -count=1 ./...
+
+      - name: Test integrasi (-race, Postgres 16)
+        run: |
+          set -o pipefail
+          go test -race -count=1 -tags=integration -v ./... 2>&1 | tee integration.log
+          # Test yang di-skip diam-diam (mis. TEST_DATABASE_URL hilang) dianggap gagal.
+          if grep -E -- '^\s*--- SKIP' integration.log; then
+            echo "Ada test integrasi yang di-skip."
+            exit 1
+          fi
+
+  frontend:
+    name: Frontend (Vue)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # Varian tanpa --fix: CI harus gagal, bukan memperbaiki file diam-diam.
+      - name: Lint
+        run: npm run check:lint
+
+      - name: Format (prettier)
+        run: npm run check:format
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  openapi:
+    name: Validasi openapi.yaml
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # openapi.yaml baru ada pada fase berikutnya; selama belum ada, job ini lolos tanpa langkah apa pun.
+      - name: Lint openapi.yaml
+        if: hashFiles('backend/api/openapi.yaml') != ''
+        run: npx --yes @redocly/cli@2 lint --extends minimal backend/api/openapi.yaml

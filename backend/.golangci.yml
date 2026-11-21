@@ -1,0 +1,19 @@
+version: "2"
+
+linters:
+  # Default golangci-lint v2: errcheck, govet, ineffassign, staticcheck, unused.
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        # ST1005 (pesan error tidak boleh berhuruf kapital) dimatikan: sentinel error di
+        # internal/domain/errors.go sengaja berupa kalimat Bahasa Indonesia untuk user
+        # (lihat CLAUDE.md), jadi diawali huruf kapital.
+        - "-ST1005"
+        # Aturan gaya yang terlalu berisik untuk proyek ini.
+        - "-ST1000" # komentar paket wajib
+        - "-ST1003" # penamaan (mis. Id vs ID) sudah dijaga review
+        - "-ST1016" # konsistensi nama receiver
+        - "-ST1020"
+        - "-ST1021"
+        - "-ST1022"

@@ -73,6 +73,18 @@ Buka http://localhost:5173. Dev server mem-proxy `/api` ke backend (`http://loca
 
 Perintah lain: `npm run build`, `npm run test`, `npm run lint`, `npm run type-check`.
 
+## CI
+
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) berjalan pada push ke `main` dan setiap pull request:
+
+- **Backend**: `gofmt`, `go vet`, `golangci-lint` (konfigurasi di `backend/.golangci.yml`), `go test -race`, lalu test integrasi
+  (`-tags=integration -race`) terhadap service Postgres 16. Test integrasi yang di-skip dianggap gagal.
+- **Frontend**: `npm run check:lint` (oxlint + eslint **tanpa** `--fix`), `check:format` (prettier), `type-check`, `test`, `build`.
+- **OpenAPI**: `backend/api/openapi.yaml` divalidasi (Redocly) begitu file itu ada.
+
+Menjalankan pemeriksaan yang sama secara lokal: `make lint` dan `make test-integration` di `backend/`
+(set `TEST_DATABASE_URL`), serta `npm run check:lint && npm run check:format && npm run type-check && npm run test && npm run build` di `frontend/`.
+
 ## Keamanan
 
 - Jangan commit file `.env`. Hanya `.env.example` (tanpa nilai rahasia asli) yang masuk repo.

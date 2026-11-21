@@ -78,7 +78,8 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("gagal menyiapkan migrasi: %w", err)
 	}
-	defer m.Close()
+	// Error penutupan tidak bisa ditindaklanjuti saat proses CLI selesai.
+	defer func() { _, _ = m.Close() }()
 
 	switch cmd {
 	case "up":

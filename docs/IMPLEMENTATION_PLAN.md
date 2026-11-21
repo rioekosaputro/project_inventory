@@ -2013,7 +2013,8 @@ volumes: { pgdata: {} }
 - [x] **T0.8 Skeleton frontend** — Vite + TS + Tailwind + PrimeVue, `AppLayout`/`MobileLayout`/`PublicLayout`, axios + antrean refresh, store auth (`bootstrap()`), router guard permission, halaman Login, 403, Ganti Password, sidebar dinamis per permission.
   DoD: login → redirect ke default home per role; refresh halaman tetap login (via cookie).
   Keputusan saat T0.8: **PrimeVue dipin ke 4.x** (npm `latest` sudah 5.x) dengan `@primeuix/themes` 2.x; **zod 3.x** karena `@vee-validate/zod` belum mendukung zod 4; default home yang halamannya belum ada jatuh ke `/beranda`; menu sidebar tampil hanya bila permission dimiliki **dan** rutenya sudah terdaftar (halaman fase berikutnya muncul otomatis); tipe API sementara ditulis tangan di `src/types` (ganti dengan hasil generate setelah `openapi.yaml` ada); laci menu memakai `<dialog>` modal tanpa gestur geser.
-- [ ] **T0.9 CI** — GitHub Actions (Bagian 11).
+- [x] **T0.9 CI** — GitHub Actions (Bagian 11).
+  Keputusan saat T0.9: workflow `.github/workflows/ci.yml` dengan 3 job (backend, frontend, openapi). CI frontend memakai skrip baru `check:lint` / `check:format` karena `npm run lint` memakai `--fix` (CI harus gagal, bukan memperbaiki diam-diam). Test integrasi dijalankan terhadap service Postgres 16 dan **gagal bila ada test yang di-skip**. `golangci-lint` v2 memakai `backend/.golangci.yml` (ST1005 dimatikan karena sentinel error sengaja berupa kalimat Indonesia berhuruf kapital). Job `openapi` hanya melakukan lint bila `backend/api/openapi.yaml` sudah ada (belum ada sampai fase berikutnya).
 - [ ] **T0.10 Deploy staging pertama** — Supabase + Vercel (FE & API) + Gotenberg container (Bagian 12.2).
   DoD: login berhasil di URL staging HTTPS.
 

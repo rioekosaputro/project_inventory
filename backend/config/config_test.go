@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -86,6 +87,19 @@ func TestLoad_NonLocalRequiresStrongSecretAndSecureCookie(t *testing.T) {
 	cfg, err := loadFromEnv()
 	require.NoError(t, err)
 	assert.Equal(t, EnvProduction, cfg.AppEnv)
+}
+
+// Regresi: komentar di belakang nilai kosong (KEY=   # ...) dibaca godotenv sebagai NILAI.
+func TestEnvExample_HasNoCommentLeakingIntoValues(t *testing.T) {
+	vars, err := godotenv.Read("../.env.example")
+	require.NoError(t, err)
+	require.NotEmpty(t, vars)
+
+	for k, v := range vars {
+		assert.NotContains(t, v, "#", "%s: nilai mengandung komentar", k)
+	}
+	assert.Empty(t, vars["MIGRATE_DATABASE_URL"])
+	assert.Empty(t, vars["S3_ENDPOINT"])
 }
 
 func TestMigrateURL_FallsBackToDatabaseURL(t *testing.T) {

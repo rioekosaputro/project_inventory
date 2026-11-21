@@ -238,14 +238,16 @@ rental-erp/
 
 | File | Fase | Isi |
 |---|---|---|
-| `000001_init_auth_master` | 1 | fungsi `set_updated_at`, `warehouses`, `users`, `refresh_tokens`, `racks`, `categories`, `products`, `suppliers` |
-| `000002_init_inventory_lpb` | 1 | `document_sequences`, `stock_balances`, `product_serials`, `lpb_documents`, `lpb_items`, `lpb_item_serials`, `stock_ledgers`, `product_serial_histories`, trigger append-only |
-| `000003_init_stock_opname` | 1 | `stock_opnames`, `stock_opname_racks`, `stock_opname_items`, `stock_opname_serials` |
-| `000004_init_customers_contracts` | 2 | `customers`, `customer_sites`, `rental_contracts`, `rental_contract_items`, `rental_placements` + FK ke serial & LPB |
-| `000005_init_sales_delivery` | 2 | `sales_orders`, `sales_order_items`, `delivery_orders`, `delivery_order_items`, `delivery_order_reservations` |
-| `000006_init_billing` | 2 | `tax_settings`, `invoices`, `invoice_items`, `payments` |
-| `000007_init_tracking_tickets` | 3 | `shipment_tracking_logs`, `maintenance_tickets`, `ticket_spareparts`, `ticket_activities` |
-| `000008_init_audit_settings` | 1 (dibuat awal) | `audit_logs`, `app_settings`, `attachments`, `idempotency_keys`, `job_runs` |
+| `000001_init_auth_master` | 1 | fungsi `set_updated_at` & `forbid_update_delete`, `warehouses`, `users`, `refresh_tokens`, `racks`, `categories`, `products`, `suppliers` |
+| `000002_init_audit_settings` | 1 (T0.4) | `audit_logs` (+ trigger append-only), `app_settings`, `attachments`, `idempotency_keys`, `job_runs` |
+| `000003_init_inventory_lpb` | 1 | `document_sequences`, `stock_balances`, `product_serials`, `lpb_documents`, `lpb_items`, `lpb_item_serials`, `stock_ledgers`, `product_serial_histories`, trigger append-only |
+| `000004_init_stock_opname` | 1 | `stock_opnames`, `stock_opname_racks`, `stock_opname_items`, `stock_opname_serials` |
+| `000005_init_customers_contracts` | 2 | `customers`, `customer_sites`, `rental_contracts`, `rental_contract_items`, `rental_placements` + FK ke serial & LPB |
+| `000006_init_sales_delivery` | 2 | `sales_orders`, `sales_order_items`, `delivery_orders`, `delivery_order_items`, `delivery_order_reservations` |
+| `000007_init_billing` | 2 | `tax_settings`, `invoices`, `invoice_items`, `payments` |
+| `000008_init_tracking_tickets` | 3 | `shipment_tracking_logs`, `maintenance_tickets`, `ticket_spareparts`, `ticket_activities` |
+
+> **Catatan penomoran (diputuskan saat T0.4):** golang-migrate hanya menjalankan versi yang lebih besar dari versi DB saat ini, dan `audit_logs` butuh fungsi `forbid_update_delete()`. Karena itu migrasi audit/settings (semula `000008`, dibuat di Fase 0) disisipkan sebagai `000002`, migrasi lain bergeser +1, dan fungsi `forbid_update_delete()` dipindah ke `000001`. Urutan file selalu linear tanpa celah. Blok SQL di Bagian 4.3 masih berurutan lama; **pakai nomor di tabel ini**. File `.sql` di `backend/migrations/` adalah sumber kebenaran.
 
 > Semua migrasi di bawah **sudah diuji** di PostgreSQL 16 (42 tabel terbentuk) beserta uji constraint: stok negatif, reserved > on_hand, SN tanpa rak, type/subtype LPB salah, saldo ledger tidak konsisten, UPDATE/DELETE ledger, invoice ganda per periode, hapus pelanggan yang masih punya site, SO sewa tanpa kontrak → semuanya ditolak database.
 >
@@ -303,6 +305,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Dipakai trigger append-only (audit_logs di 000002, stock_ledgers & product_serial_histories di 000003)
+CREATE OR REPLACE FUNCTION forbid_update_delete() RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'Tabel % bersifat append-only: % tidak diizinkan', TG_TABLE_NAME, TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE warehouses (
     id          BIGSERIAL PRIMARY KEY,
     code        VARCHAR(20) UNIQUE NOT NULL,          -- WH-SMG-01
@@ -356,7 +365,7 @@ CREATE TABLE racks (
     is_sellable   BOOLEAN NOT NULL DEFAULT TRUE,      -- FALSE utk KARANTINA/WORKSHOP: tidak dihitung available
     description   TEXT,
     is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-    locked_by_opname_id BIGINT,                       -- FK ditambah di 000004
+    locked_by_opname_id BIGINT,                       -- FK ditambah di 000005
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (warehouse_id, code)
@@ -409,10 +418,10 @@ CREATE TRIGGER trg_products_updated   BEFORE UPDATE ON products   FOR EACH ROW E
 CREATE TRIGGER trg_suppliers_updated  BEFORE UPDATE ON suppliers  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-#### `migrations/000002_init_inventory_lpb.up.sql`
+#### `migrations/000003_init_inventory_lpb.up.sql`
 
 ```sql
--- 000002_init_inventory_lpb.up.sql
+-- 000003_init_inventory_lpb.up.sql
 -- Stok hybrid, serial number, dokumen LPB, buku besar & riwayat SN, penomoran dokumen
 
 CREATE TABLE document_sequences (
@@ -446,10 +455,10 @@ CREATE TABLE product_serials (
                              CHECK (condition IN ('GOOD','MINOR_DEFECT','BROKEN')),
     current_warehouse_id BIGINT REFERENCES warehouses(id),
     current_rack_id      BIGINT REFERENCES racks(id),
-    current_customer_id  BIGINT,     -- FK di 000004
-    current_site_id      BIGINT,     -- FK di 000004
-    current_contract_id  BIGINT,     -- FK di 000004
-    reserved_for_do_id   BIGINT,     -- FK di 000005
+    current_customer_id  BIGINT,     -- FK di 000005
+    current_site_id      BIGINT,     -- FK di 000005
+    current_contract_id  BIGINT,     -- FK di 000005
+    reserved_for_do_id   BIGINT,     -- FK di 000006
     supplier_id          BIGINT REFERENCES suppliers(id),
     purchase_date        DATE,
     purchase_price       NUMERIC(15, 2),
@@ -492,8 +501,8 @@ CREATE TABLE lpb_documents (
     reference_id       BIGINT,
     reference_number   VARCHAR(60),
     supplier_id        BIGINT REFERENCES suppliers(id),
-    customer_id        BIGINT,       -- FK di 000004
-    customer_site_id   BIGINT,       -- FK di 000004
+    customer_id        BIGINT,       -- FK di 000005
+    customer_site_id   BIGINT,       -- FK di 000005
     counterpart_lpb_id BIGINT REFERENCES lpb_documents(id),   -- pasangan TRANSFER_OUT/IN
     notes              TEXT,
     -- Pengiriman (OUTBOUND ke pelanggan / penjemputan unit retur)
@@ -535,7 +544,7 @@ CREATE TABLE lpb_items (
     rack_id     BIGINT NOT NULL REFERENCES racks(id),   -- rak asal (OUT) / rak tujuan (IN)
     qty         INT NOT NULL CHECK (qty > 0),
     unit_cost   NUMERIC(15, 2),                          -- utk PURCHASE / INITIAL_STOCK
-    do_item_id  BIGINT,                                  -- FK di 000005
+    do_item_id  BIGINT,                                  -- FK di 000006
     notes       TEXT,
     UNIQUE (lpb_id, product_id, rack_id)
 );
@@ -598,12 +607,7 @@ CREATE TABLE product_serial_histories (
 );
 CREATE INDEX idx_serial_histories_serial ON product_serial_histories(product_serial_id, created_at);
 
-CREATE OR REPLACE FUNCTION forbid_update_delete() RETURNS TRIGGER AS $$
-BEGIN
-    RAISE EXCEPTION 'Tabel % bersifat append-only: % tidak diizinkan', TG_TABLE_NAME, TG_OP;
-END;
-$$ LANGUAGE plpgsql;
-
+-- Fungsi forbid_update_delete() sudah didefinisikan di 000001.
 CREATE TRIGGER trg_stock_ledgers_append_only
     BEFORE UPDATE OR DELETE ON stock_ledgers
     FOR EACH ROW EXECUTE FUNCTION forbid_update_delete();
@@ -615,10 +619,10 @@ CREATE TRIGGER trg_serials_updated BEFORE UPDATE ON product_serials FOR EACH ROW
 CREATE TRIGGER trg_lpb_updated     BEFORE UPDATE ON lpb_documents   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-#### `migrations/000003_init_stock_opname.up.sql`
+#### `migrations/000004_init_stock_opname.up.sql`
 
 ```sql
--- 000003_init_stock_opname.up.sql
+-- 000004_init_stock_opname.up.sql
 
 CREATE TABLE stock_opnames (
     id                     BIGSERIAL PRIMARY KEY,
@@ -674,10 +678,10 @@ ALTER TABLE racks
     ADD CONSTRAINT fk_racks_locked_opname FOREIGN KEY (locked_by_opname_id) REFERENCES stock_opnames(id);
 ```
 
-#### `migrations/000004_init_customers_contracts.up.sql`
+#### `migrations/000005_init_customers_contracts.up.sql`
 
 ```sql
--- 000004_init_customers_contracts.up.sql (Fase 2)
+-- 000005_init_customers_contracts.up.sql (Fase 2)
 
 CREATE TABLE customers (
     id                   BIGSERIAL PRIMARY KEY,
@@ -799,10 +803,10 @@ CREATE TRIGGER trg_sites_updated     BEFORE UPDATE ON customer_sites   FOR EACH 
 CREATE TRIGGER trg_contracts_updated BEFORE UPDATE ON rental_contracts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-#### `migrations/000005_init_sales_delivery.up.sql`
+#### `migrations/000006_init_sales_delivery.up.sql`
 
 ```sql
--- 000005_init_sales_delivery.up.sql (Fase 2)
+-- 000006_init_sales_delivery.up.sql (Fase 2)
 
 CREATE TABLE sales_orders (
     id                BIGSERIAL PRIMARY KEY,
@@ -824,7 +828,7 @@ CREATE TABLE sales_orders (
     tax_rate          NUMERIC(5, 2)  NOT NULL DEFAULT 0,
     tax_amount        NUMERIC(15, 2) NOT NULL DEFAULT 0,
     grand_total       NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    related_ticket_id BIGINT,                                  -- FK di 000007 (SO swap dari tiket)
+    related_ticket_id BIGINT,                                  -- FK di 000008 (SO swap dari tiket)
     notes             TEXT,
     created_by        BIGINT NOT NULL REFERENCES users(id),
     confirmed_by      BIGINT REFERENCES users(id),
@@ -903,10 +907,10 @@ CREATE TRIGGER trg_so_updated BEFORE UPDATE ON sales_orders    FOR EACH ROW EXEC
 CREATE TRIGGER trg_do_updated BEFORE UPDATE ON delivery_orders FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-#### `migrations/000006_init_billing.up.sql`
+#### `migrations/000007_init_billing.up.sql`
 
 ```sql
--- 000006_init_billing.up.sql (Fase 2)
+-- 000007_init_billing.up.sql (Fase 2)
 
 -- Tarif & skema PPN berlaku per tanggal (PMK 131/2024: tarif 12% x DPP Nilai Lain 11/12)
 CREATE TABLE tax_settings (
@@ -1006,10 +1010,10 @@ CREATE INDEX idx_payments_invoice ON payments(invoice_id);
 CREATE TRIGGER trg_invoices_updated BEFORE UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-#### `migrations/000007_init_tracking_tickets.up.sql`
+#### `migrations/000008_init_tracking_tickets.up.sql`
 
 ```sql
--- 000007_init_tracking_tickets.up.sql (Fase 3)
+-- 000008_init_tracking_tickets.up.sql (Fase 3)
 
 CREATE TABLE shipment_tracking_logs (
     id               BIGSERIAL PRIMARY KEY,
@@ -1095,10 +1099,10 @@ ALTER TABLE sales_orders
 CREATE TRIGGER trg_tickets_updated BEFORE UPDATE ON maintenance_tickets FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-#### `migrations/000008_init_audit_settings.up.sql`
+#### `migrations/000002_init_audit_settings.up.sql`
 
 ```sql
--- 000008_init_audit_settings.up.sql
+-- 000002_init_audit_settings.up.sql
 
 CREATE TABLE audit_logs (
     id           BIGSERIAL PRIMARY KEY,
@@ -1995,7 +1999,7 @@ volumes: { pgdata: {} }
   DoD: `make dev` jalan; `docker build` sukses; `/healthz` 200.
 - [x] **T0.3 Lapisan database** — `pkg/database` (pgxpool + `DB_POOLER_MODE`, TxManager, `GetExecutor`, `MustInTx`), `cmd/migrate`, `deploy/docker-compose.dev.yml`.
   DoD: test integrasi TxManager (commit, rollback saat error, rollback saat panic, nested pakai tx yang sama).
-- [ ] **T0.4 Migrasi awal + seed** — `000001`, `000008` (+ `.down.sql`), `cmd/seed` (admin, app_settings, kategori).
+- [x] **T0.4 Migrasi awal + seed** — `000001`, `000002` (+ `.down.sql`), `cmd/seed` (admin, app_settings, kategori).
   DoD: `make migrate-up && make migrate-down && make migrate-up` bersih.
 - [ ] **T0.5 Fondasi HTTP** — `pkg/response`, `pkg/pagination`, `httperr`, pesan validasi Bahasa Indonesia, middleware RequestID/Recover/Logger/CORS/security headers.
   DoD: test handler contoh untuk 200/400/404/500 sesuai format Bagian 7.4.
@@ -2011,7 +2015,7 @@ volumes: { pgdata: {} }
 ### Fase 1 — Inti Gudang (Sprint 1–4)
 
 **Sprint 1 — Master data**
-- [ ] **T1.1 Migrasi `000002`, `000003`** (+ down) dan `pkg/docnum`.
+- [ ] **T1.1 Migrasi `000003`, `000004`** (+ down) dan `pkg/docnum`.
   DoD: test `docnum` paralel 50 goroutine → nomor unik berurutan tanpa celah.
 - [ ] **T1.2 API master** — warehouses, racks (zone, `is_sellable`), categories, products (`has_serial_number`, `min_stock_alert`), suppliers.
 - [ ] **T1.3 UI master** — CRUD + pencarian + toggle aktif.
@@ -2042,7 +2046,7 @@ volumes: { pgdata: {} }
 ### Fase 2 — Komersial (Sprint 5–7)
 
 **Sprint 5 — Pelanggan & kontrak**
-- [ ] **T2.1 Migrasi `000004`–`000006`** (+ down) + seed `tax_settings`.
+- [ ] **T2.1 Migrasi `000005`–`000007`** (+ down) + seed `tax_settings`.
 - [ ] **T2.2 Pelanggan & site** — CRUD, picker koordinat (klik peta Leaflet / input manual), site utama unik.
 - [ ] **T2.3 Kontrak** — header + item tarif, activate/terminate/renew, validasi tanggal & durasi.
 
@@ -2065,7 +2069,7 @@ volumes: { pgdata: {} }
 ### Fase 3 — Lapangan (Sprint 8–10)
 
 **Sprint 8 — Driver**
-- [ ] **T3.1 Migrasi `000007`** (+ down).
+- [ ] **T3.1 Migrasi `000008`** (+ down).
 - [ ] **T3.2 Storage** — interface + S3 (Supabase Storage/MinIO) + local; signed URL.
 - [ ] **T3.3 API driver** — my-deliveries, checkpoint (idempoten `client_event_id`), deliver (multipart), fail, pickup.
 - [ ] **T3.4 UI driver mobile + PWA** — daftar tugas, detail, navigasi, checkpoint GPS, kamera + kompresi, POD.

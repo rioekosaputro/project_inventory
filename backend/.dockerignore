@@ -6,4 +6,5 @@ tmp/
 storage/
 uploads/
 *.test
+*_test.go
 coverage.out

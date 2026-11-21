@@ -35,6 +35,12 @@ const (
 	AuditRefreshReuseDetected = "REFRESH_REUSE_DETECTED"
 	AuditPasswordChanged      = "PASSWORD_CHANGED"
 	AuditPasswordChangeFailed = "PASSWORD_CHANGE_FAILED"
+
+	AuditUserCreate        = "USER_CREATE"
+	AuditUserUpdate        = "USER_UPDATE"
+	AuditUserActivate      = "USER_ACTIVATE"
+	AuditUserDeactivate    = "USER_DEACTIVATE"
+	AuditUserPasswordReset = "USER_PASSWORD_RESET"
 )
 
 // UserRepository — SQL saja, tanpa aturan bisnis.
@@ -45,6 +51,43 @@ type UserRepository interface {
 	// UpdatePassword mengganti hash dan mengosongkan must_change_password.
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
 	TouchLastLogin(ctx context.Context, userID int64, at time.Time) error
+
+	// --- manajemen user (T0.7) ---
+
+	// Create menyimpan user baru. Email sudah ada → ErrEmailTaken.
+	Create(ctx context.Context, u *User) (*User, error)
+	List(ctx context.Context, f UserFilter, p PageParams) ([]User, int64, error)
+	// FindByIDForUpdate: SELECT ... FOR UPDATE (wajib di dalam transaksi).
+	FindByIDForUpdate(ctx context.Context, id int64) (*User, error)
+	// Update menyimpan name, phone, role, warehouse_id, is_active.
+	Update(ctx context.Context, u *User) error
+	// SetTemporaryPassword mengganti hash dan MENYALAKAN must_change_password.
+	SetTemporaryPassword(ctx context.Context, userID int64, hash string) error
+	// LockActiveAdmins mengunci baris semua ADMIN aktif (urut id, FOR UPDATE) dan mengembalikan jumlahnya.
+	// Dipanggil SEBELUM mengunci user target agar urutan lock tetap dan tidak deadlock.
+	LockActiveAdmins(ctx context.Context) (int, error)
+}
+
+// UserFilter untuk daftar user. Field kosong/nil = tidak difilter.
+type UserFilter struct {
+	Query       string // cocok sebagian pada nama atau email
+	Role        *Role
+	IsActive    *bool
+	WarehouseID *int64
+}
+
+// PageParams parameter paginasi generik untuk repository. OrderBy hanya boleh berasal
+// dari whitelist (lihat pkg/pagination).
+type PageParams struct {
+	Limit   int
+	Offset  int
+	OrderBy string
+}
+
+// WarehouseRepository (bagian minimal yang dibutuhkan T0.7; CRUD gudang di T1.2).
+type WarehouseRepository interface {
+	// IsActive: ErrNotFound bila gudang tidak ada.
+	IsActive(ctx context.Context, id int64) (bool, error)
 }
 
 // RefreshTokenRepository. Create membuat keluarga baru bila familyID == "".

@@ -49,6 +49,8 @@ var mapping = []mapped{
 	{domain.ErrSelfApproveForbidden, nethttp.StatusForbidden, "SELF_APPROVE_FORBIDDEN"},
 	{domain.ErrForbiddenWarehouse, nethttp.StatusForbidden, "FORBIDDEN_WAREHOUSE"},
 	{domain.ErrConflict, nethttp.StatusConflict, "CONFLICT"},
+	{domain.ErrEmailTaken, nethttp.StatusConflict, "EMAIL_TAKEN"},
+	{domain.ErrLastAdmin, nethttp.StatusConflict, "LAST_ADMIN"},
 	{domain.ErrLPBNotPending, nethttp.StatusConflict, "LPB_NOT_PENDING"},
 	{domain.ErrInsufficientStock, nethttp.StatusConflict, "INSUFFICIENT_STOCK"},
 	{domain.ErrSerialAlreadyExists, nethttp.StatusConflict, "SERIAL_EXISTS"},

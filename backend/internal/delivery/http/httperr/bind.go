@@ -24,6 +24,12 @@ func BindJSON(c *gin.Context, dst any) bool {
 	return true
 }
 
+// BadQueryField menjawab 400 untuk satu parameter (query/path) yang tidak valid.
+func BadQueryField(c *gin.Context, field, message string) {
+	response.Error(c, nethttp.StatusBadRequest, CodeValidation, "Parameter tidak valid",
+		[]response.FieldError{{Field: field, Message: message}})
+}
+
 // BindQuery mem-bind + memvalidasi query string ke dst (tag `form`).
 func BindQuery(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindQuery(dst); err != nil {

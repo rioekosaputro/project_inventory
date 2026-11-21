@@ -16,6 +16,10 @@ var (
 	ErrForbidden    = errors.New("Anda tidak memiliki akses untuk aksi ini")
 	ErrConflict     = errors.New("Data bertentangan dengan data yang sudah ada")
 
+	// Manajemen user
+	ErrEmailTaken = errors.New("Email sudah terdaftar")
+	ErrLastAdmin  = errors.New("Minimal harus ada satu ADMIN aktif")
+
 	// Autentikasi (plan Bagian 10)
 	ErrInvalidCredentials     = errors.New("Email atau password salah")
 	ErrInvalidToken           = errors.New("Sesi tidak valid atau sudah berakhir, silakan login kembali")

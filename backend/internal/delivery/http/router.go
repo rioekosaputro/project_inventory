@@ -13,6 +13,7 @@ import (
 	"rental-inventory-api/internal/delivery/http/handler"
 	"rental-inventory-api/internal/delivery/http/httperr"
 	"rental-inventory-api/internal/delivery/http/middleware"
+	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/pkg/clock"
 )
 
@@ -26,6 +27,7 @@ type ReadinessCheck struct {
 // (berguna untuk test yang hanya menguji fondasi).
 type Deps struct {
 	Auth   *handler.AuthHandler
+	Users  *handler.UserHandler
 	Tokens middleware.TokenParser
 	Clock  clock.Clock
 }
@@ -65,8 +67,25 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 
 	api := r.Group("/api/v1")
 	registerAuthRoutes(api, deps)
+	registerUserRoutes(api, deps)
 
 	return r
+}
+
+// registerUserRoutes — plan Bagian 8.1 (hanya ADMIN: permission user.manage).
+func registerUserRoutes(api *gin.RouterGroup, deps Deps) {
+	if deps.Users == nil {
+		return
+	}
+	users := api.Group("/users",
+		middleware.Authenticate(deps.Tokens, deps.Clock),
+		middleware.RequirePermission(domain.PermUserManage),
+	)
+	users.GET("", deps.Users.List)
+	users.POST("", deps.Users.Create)
+	users.GET("/:id", deps.Users.Get)
+	users.PATCH("/:id", deps.Users.Update)
+	users.POST("/:id/reset-password", deps.Users.ResetPassword)
 }
 
 // registerAuthRoutes — plan Bagian 8.1.

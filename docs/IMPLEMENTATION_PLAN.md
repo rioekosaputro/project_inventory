@@ -1717,7 +1717,9 @@ Kolom "Perm" = kunci permission di matriks 5.1. Semua list endpoint mendukung pa
 | POST | `/auth/logout` | cookie refresh | revoke seluruh family refresh token sesi ini; berbasis refresh token (bukan access token) agar tetap bisa logout saat access token kedaluwarsa; idempoten |
 | GET | `/auth/me` | login | user + permissions + default home |
 | POST | `/auth/change-password` | login | wajib bila `must_change_password` |
-| GET/POST/PATCH | `/users`, `/users/:id` | admin | CRUD user, reset password, nonaktifkan |
+| GET/POST | `/users` | user.manage | daftar (filter `q`, `role`, `is_active`, `warehouse_id`; sort `name,email,role,created_at`) / buat user. Respons buat memuat `temporary_password` (acak, **tampil sekali**, `must_change_password=true`) |
+| GET/PATCH | `/users/:id` | user.manage | detail / ubah `name, phone, role, warehouse_id, is_active` (parsial; `null` mengosongkan phone & warehouse_id). `is_active=false` mencabut semua refresh token. Email tidak dapat diubah. Tidak ada hard delete |
+| POST | `/users/:id/reset-password` | user.manage | password sementara baru (tampil sekali), wajib ganti saat login, semua sesi dicabut. Tidak untuk akun sendiri (pakai `/auth/change-password`) |
 | GET/PUT | `/settings/:key` | admin | `app_settings` |
 | GET | `/audit-logs` | admin, mgmt | filter entity/user/tanggal |
 
@@ -2006,7 +2008,8 @@ volumes: { pgdata: {} }
   DoD: test handler contoh untuk 200/400/404/500 sesuai format Bagian 7.4.
 - [x] **T0.6 Auth** — login, refresh (cookie, rotasi, reuse detection), logout, me, change-password, `domain/permission.go` (matriks 5.1), `RequirePermission`, rate limit login, audit login.
   DoD: test reuse refresh token me-revoke family; role tanpa permission → 403.
-- [ ] **T0.7 Manajemen user** — CRUD user, reset password, nonaktifkan (refresh token dicabut).
+- [x] **T0.7 Manajemen user** — CRUD user, reset password, nonaktifkan (refresh token dicabut).
+  Aturan pengaman (diputuskan saat T0.7): admin tidak dapat menonaktifkan / mengubah role / mereset password akunnya sendiri; ADMIN aktif terakhir tidak dapat dinonaktifkan atau diturunkan (dijaga dengan lock berurutan); `warehouse_id` hanya untuk role `STAFF_WAREHOUSE`/`HEAD_WAREHOUSE` (NULL = semua gudang).
 - [ ] **T0.8 Skeleton frontend** — Vite + TS + Tailwind + PrimeVue, `AppLayout`/`MobileLayout`/`PublicLayout`, axios + antrean refresh, store auth (`bootstrap()`), router guard permission, halaman Login, 403, Ganti Password, sidebar dinamis per permission.
   DoD: login → redirect ke default home per role; refresh halaman tetap login (via cookie).
 - [ ] **T0.9 CI** — GitHub Actions (Bagian 11).

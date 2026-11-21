@@ -28,18 +28,24 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 
 	txManager := database.NewTxManager(pool)
 
+	userRepo := postgres.NewUserRepo(pool)
+	refreshRepo := postgres.NewRefreshTokenRepo(pool)
+	auditRepo := postgres.NewAuditRepo(pool)
+
 	authUC := usecase.NewAuthUsecase(
 		txManager,
-		postgres.NewUserRepo(pool),
-		postgres.NewRefreshTokenRepo(pool),
+		userRepo,
+		refreshRepo,
 		postgres.NewLoginAttemptRepo(pool),
-		postgres.NewAuditRepo(pool),
+		auditRepo,
 		tokens,
 		clk,
 		usecase.DefaultAuthConfig(cfg.JWTRefreshTTL),
 	)
+	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, postgres.NewWarehouseRepo(pool), auditRepo, clk)
 
 	deps := apihttp.Deps{
+		Users: handler.NewUserHandler(userUC),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

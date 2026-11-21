@@ -84,12 +84,6 @@ type PageParams struct {
 	OrderBy string
 }
 
-// WarehouseRepository (bagian minimal yang dibutuhkan T0.7; CRUD gudang di T1.2).
-type WarehouseRepository interface {
-	// IsActive: ErrNotFound bila gudang tidak ada.
-	IsActive(ctx context.Context, id int64) (bool, error)
-}
-
 // RefreshTokenRepository. Create membuat keluarga baru bila familyID == "".
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, t *RefreshToken, userAgent, ip string) (*RefreshToken, error)

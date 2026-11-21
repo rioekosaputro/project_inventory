@@ -26,8 +26,16 @@ type ReadinessCheck struct {
 // Deps adalah dependensi handler. Field nil = grup route-nya tidak didaftarkan
 // (berguna untuk test yang hanya menguji fondasi).
 type Deps struct {
-	Auth   *handler.AuthHandler
-	Users  *handler.UserHandler
+	Auth  *handler.AuthHandler
+	Users *handler.UserHandler
+
+	// Master data (T1.2); nil = grup route tidak didaftarkan.
+	Warehouses *handler.WarehouseHandler
+	Racks      *handler.RackHandler
+	Categories *handler.CategoryHandler
+	Products   *handler.ProductHandler
+	Suppliers  *handler.SupplierHandler
+
 	Tokens middleware.TokenParser
 	Clock  clock.Clock
 }
@@ -68,6 +76,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	api := r.Group("/api/v1")
 	registerAuthRoutes(api, deps)
 	registerUserRoutes(api, deps)
+	registerMasterRoutes(api, deps)
 
 	return r
 }
@@ -132,5 +141,52 @@ func readyz(logger *slog.Logger, checks []ReadinessCheck) gin.HandlerFunc {
 			status, label = nethttp.StatusServiceUnavailable, "not_ready"
 		}
 		c.JSON(status, gin.H{"status": label, "checks": results})
+	}
+}
+
+// registerMasterRoutes — plan Bagian 8.2 (matriks 5.1): baca master.read (produk: product.read,
+// agar TECHNICIAN ikut), tulis master.write (rak: rack.write agar STAFF_WAREHOUSE ikut).
+// Warehouse scoping dan aturan bisnis ditegakkan di usecase.
+func registerMasterRoutes(api *gin.RouterGroup, deps Deps) {
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	masterRead := middleware.RequirePermission(domain.PermMasterRead)
+	masterWrite := middleware.RequirePermission(domain.PermMasterWrite)
+
+	if h := deps.Warehouses; h != nil {
+		g := api.Group("/warehouses", authn)
+		g.GET("", masterRead, h.List)
+		g.GET("/:id", masterRead, h.Get)
+		g.POST("", masterWrite, h.Create)
+		g.PATCH("/:id", masterWrite, h.Update)
+	}
+	if h := deps.Racks; h != nil {
+		rackWrite := middleware.RequirePermission(domain.PermRackWrite)
+		g := api.Group("/racks", authn)
+		g.GET("", masterRead, h.List)
+		g.GET("/:id", masterRead, h.Get)
+		g.POST("", rackWrite, h.Create)
+		g.PATCH("/:id", rackWrite, h.Update)
+	}
+	if h := deps.Categories; h != nil {
+		g := api.Group("/categories", authn)
+		g.GET("", masterRead, h.List)
+		g.GET("/:id", masterRead, h.Get)
+		g.POST("", masterWrite, h.Create)
+		g.PATCH("/:id", masterWrite, h.Update)
+	}
+	if h := deps.Products; h != nil {
+		productRead := middleware.RequirePermission(domain.PermProductRead)
+		g := api.Group("/products", authn)
+		g.GET("", productRead, h.List)
+		g.GET("/:id", productRead, h.Get)
+		g.POST("", masterWrite, h.Create)
+		g.PATCH("/:id", masterWrite, h.Update)
+	}
+	if h := deps.Suppliers; h != nil {
+		g := api.Group("/suppliers", authn)
+		g.GET("", masterRead, h.List)
+		g.GET("/:id", masterRead, h.Get)
+		g.POST("", masterWrite, h.Create)
+		g.PATCH("/:id", masterWrite, h.Update)
 	}
 }

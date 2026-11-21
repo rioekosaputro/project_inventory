@@ -42,10 +42,21 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		clk,
 		usecase.DefaultAuthConfig(cfg.JWTRefreshTTL),
 	)
-	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, postgres.NewWarehouseRepo(pool), auditRepo, clk)
+	warehouseRepo := postgres.NewWarehouseRepo(pool)
+	rackRepo := postgres.NewRackRepo(pool)
+	categoryRepo := postgres.NewCategoryRepo(pool)
+	productRepo := postgres.NewProductRepo(pool)
+	supplierRepo := postgres.NewSupplierRepo(pool)
+
+	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
 
 	deps := apihttp.Deps{
-		Users: handler.NewUserHandler(userUC),
+		Users:      handler.NewUserHandler(userUC),
+		Warehouses: handler.NewWarehouseHandler(usecase.NewWarehouseUsecase(txManager, warehouseRepo, auditRepo)),
+		Racks:      handler.NewRackHandler(usecase.NewRackUsecase(txManager, rackRepo, warehouseRepo, auditRepo)),
+		Categories: handler.NewCategoryHandler(usecase.NewCategoryUsecase(txManager, categoryRepo, auditRepo)),
+		Products:   handler.NewProductHandler(usecase.NewProductUsecase(txManager, productRepo, categoryRepo, auditRepo)),
+		Suppliers:  handler.NewSupplierHandler(usecase.NewSupplierUsecase(txManager, supplierRepo, auditRepo)),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

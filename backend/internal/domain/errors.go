@@ -41,7 +41,23 @@ var (
 	ErrSelfApproveForbidden   = errors.New("Pembuat LPB tidak boleh menyetujui LPB sendiri")
 	ErrForbiddenWarehouse     = errors.New("Anda tidak memiliki akses ke gudang ini")
 	ErrInvalidStateTransition = errors.New("Perubahan status tidak diizinkan")
+
+	// Master data (T1.2)
+	ErrLocationHasStock = errors.New("Lokasi masih menyimpan stok; kosongkan terlebih dahulu")
+	ErrProductInUse     = errors.New("Produk sudah memiliki stok atau transaksi, SKU dan mode serial number tidak dapat diubah")
+	ErrCategoryInUse    = errors.New("Kategori sudah dipakai produk, jenis barang tidak dapat diubah")
 )
+
+// DuplicateError: nilai unik (kode, SKU, nama) sudah dipakai. Dipetakan ke 409 beserta field-nya
+// agar form dapat menandai kolom yang bentrok. errors.Is(err, ErrConflict) bernilai true.
+type DuplicateError struct {
+	Field   string
+	Message string // mis. "kode gudang sudah dipakai"
+}
+
+func (e *DuplicateError) Error() string { return e.Message }
+
+func (e *DuplicateError) Is(target error) bool { return target == ErrConflict }
 
 // RateLimitError menyertakan berapa lama klien harus menunggu (header Retry-After).
 // errors.Is(err, ErrTooManyRequests) bernilai true.

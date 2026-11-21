@@ -24,6 +24,7 @@ const (
 	CodeInvalidData      = "INVALID_DATA"
 	CodePayloadTooLarge  = "PAYLOAD_TOO_LARGE"
 	CodeNotFound         = "NOT_FOUND"
+	CodeDuplicate        = "DUPLICATE_VALUE"
 	CodeMethodNotAllowed = "METHOD_NOT_ALLOWED"
 
 	messageInternal = "Terjadi kesalahan pada server"
@@ -58,6 +59,9 @@ var mapping = []mapped{
 	{domain.ErrReservationMismatch, nethttp.StatusConflict, "RESERVATION_MISMATCH"},
 	{domain.ErrSerialInOtherLPB, nethttp.StatusConflict, "SERIAL_IN_OTHER_LPB"},
 	{domain.ErrInvalidStateTransition, nethttp.StatusConflict, "INVALID_STATE"},
+	{domain.ErrLocationHasStock, nethttp.StatusConflict, "LOCATION_HAS_STOCK"},
+	{domain.ErrProductInUse, nethttp.StatusConflict, "PRODUCT_IN_USE"},
+	{domain.ErrCategoryInUse, nethttp.StatusConflict, "CATEGORY_IN_USE"},
 	{domain.ErrSerialCountMismatch, nethttp.StatusUnprocessableEntity, "SERIAL_COUNT_MISMATCH"},
 	{domain.ErrSerialNotValid, nethttp.StatusUnprocessableEntity, "SERIAL_NOT_VALID"},
 	{domain.ErrLPBEmptyItems, nethttp.StatusUnprocessableEntity, "LPB_EMPTY"},
@@ -93,6 +97,14 @@ func Write(c *gin.Context, err error) {
 			fields = append(fields, response.FieldError{Field: f.Field, Message: f.Message})
 		}
 		response.Error(c, nethttp.StatusUnprocessableEntity, CodeInvalidData, vErr.Message, fields)
+		return
+	}
+
+	// Nilai unik bentrok: 409 dengan nama field agar form bisa menandai kolomnya.
+	var dErr *domain.DuplicateError
+	if errors.As(err, &dErr) {
+		response.Error(c, nethttp.StatusConflict, CodeDuplicate, dErr.Message,
+			[]response.FieldError{{Field: dErr.Field, Message: dErr.Message}})
 		return
 	}
 

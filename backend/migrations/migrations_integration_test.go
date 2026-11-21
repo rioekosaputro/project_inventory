@@ -38,7 +38,7 @@ func TestMigrations_UpDownUp_LeavesNoResidue(t *testing.T) {
 
 	pgtest.Apply(t, pool, dir, "up")
 	tables, functions := countObjects(t, pool)
-	assert.Equal(t, 13, tables, "7 tabel master/auth + 6 tabel audit/settings/login_attempts")
+	assert.Equal(t, 25, tables, "7 master/auth + 6 audit/settings + 8 inventory/LPB + 4 opname")
 	assert.Equal(t, 2, functions)
 
 	pgtest.Apply(t, pool, dir, "down")
@@ -48,7 +48,7 @@ func TestMigrations_UpDownUp_LeavesNoResidue(t *testing.T) {
 
 	pgtest.Apply(t, pool, dir, "up") // up lagi harus bersih
 	tables, _ = countObjects(t, pool)
-	assert.Equal(t, 13, tables)
+	assert.Equal(t, 25, tables)
 }
 
 func TestMigrations_Constraints(t *testing.T) {

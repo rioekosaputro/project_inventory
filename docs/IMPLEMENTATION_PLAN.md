@@ -2017,13 +2017,14 @@ volumes: { pgdata: {} }
   Keputusan saat T0.9: workflow `.github/workflows/ci.yml` dengan 3 job (backend, frontend, openapi). CI frontend memakai skrip baru `check:lint` / `check:format` karena `npm run lint` memakai `--fix` (CI harus gagal, bukan memperbaiki diam-diam). Test integrasi dijalankan terhadap service Postgres 16 dan **gagal bila ada test yang di-skip**. `golangci-lint` v2 memakai `backend/.golangci.yml` (ST1005 dimatikan karena sentinel error sengaja berupa kalimat Indonesia berhuruf kapital). Job `openapi` hanya melakukan lint bila `backend/api/openapi.yaml` sudah ada (belum ada sampai fase berikutnya).
 - [ ] **T0.10 Deploy staging pertama** — Supabase + Vercel (FE & API) + Gotenberg container (Bagian 12.2).
   DoD: login berhasil di URL staging HTTPS.
+  **Ditunda** atas permintaan user: dikerjakan setelah menu/fitur utama lengkap; Fase 1 berjalan lebih dulu di lokal.
 
 ### Fase 1 — Inti Gudang (Sprint 1–4)
 
 **Sprint 1 — Master data**
-- [ ] **T1.1 Migrasi `000003`, `000004`** (+ down) dan `pkg/docnum`.
+- [x] **T1.1 Migrasi `000003`, `000004`** (+ down) dan `pkg/docnum`.
   DoD: test `docnum` paralel 50 goroutine → nomor unik berurutan tanpa celah.
-- [ ] **T1.2 API master** — warehouses, racks (zone, `is_sellable`), categories, products (`has_serial_number`, `min_stock_alert`), suppliers.
+  Catatan T1.1: `docnum.Generator.Next(ctx, docType, scope, t)` wajib dipanggil di dalam transaksi (`database.MustInTx` panik bila tidak) dan periodenya dihitung WIB; `NextNumber(ctx, docType, scope, period)` mengembalikan counter mentah (dengan `docnum.PeriodNone` = `000000` untuk urutan tanpa reset). Antarmuka `domain.DocNumberGenerator` dipakai usecase. FK `racks.locked_by_opname_id` ditambahkan di `000004` (komentar di `000001` yang menyebut `000005` sudah dikoreksi). `lpb_documents.doc_date` memakai `DEFAULT CURRENT_DATE` mengikuti zona DB, jadi usecase **wajib** mengisinya eksplisit dari `pkg/clock`. **Format asset tag belum diputuskan** (lihat T1.6): contoh Bagian 4 `AST-2611-00012` (berisi bulan) berbeda dengan Bagian 6.1 (`AST`, scope `GLOBAL`, periode `000000` = tanpa reset); `docnum` hanya menyediakan counter-nya.- [ ] **T1.2 API master** — warehouses, racks (zone, `is_sellable`), categories, products (`has_serial_number`, `min_stock_alert`), suppliers.
 - [ ] **T1.3 UI master** — CRUD + pencarian + toggle aktif.
 
 **Sprint 2 — LPB masuk & scanner**

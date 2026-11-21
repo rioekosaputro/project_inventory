@@ -68,7 +68,7 @@ CREATE TABLE racks (
     is_sellable   BOOLEAN NOT NULL DEFAULT TRUE,      -- FALSE utk KARANTINA/WORKSHOP: tidak dihitung available
     description   TEXT,
     is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-    locked_by_opname_id BIGINT,                       -- FK ditambah di 000005
+    locked_by_opname_id BIGINT,                       -- FK ditambah di 000004
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (warehouse_id, code)

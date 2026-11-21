@@ -204,3 +204,68 @@ func TestNext_OutsideTransactionPanics(t *testing.T) {
 		_, _ = gen.Next(context.Background(), "LPBI", "GLOBAL", time.Now())
 	})
 }
+
+// Asset tag: counter global tidak reset lintas bulan; hanya bagian YYMM yang mengikuti waktu.
+func TestNextAssetTag_GlobalCounterAcrossMonths(t *testing.T) {
+	_, txm, gen := setup(t)
+	ctx := context.Background()
+
+	var got []string
+	err := txm.WithinTransaction(ctx, func(ctx context.Context) error {
+		for _, at := range []time.Time{
+			time.Date(2026, 11, 15, 10, 0, 0, 0, time.UTC),
+			time.Date(2026, 11, 20, 10, 0, 0, 0, time.UTC),
+			time.Date(2026, 12, 2, 10, 0, 0, 0, time.UTC), // bulan baru, counter lanjut
+		} {
+			tag, err := gen.NextAssetTag(ctx, at)
+			if err != nil {
+				return err
+			}
+			got = append(got, tag)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"AST-2611-00001", "AST-2611-00002", "AST-2612-00003"}, got)
+}
+
+// Asset tag yang diterbitkan paralel tetap unik dan berurutan (UNIQUE product_serials.asset_tag).
+func TestNextAssetTag_Parallel50_Unique(t *testing.T) {
+	_, txm, gen := setup(t)
+	ctx := context.Background()
+	at := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		tags []string
+		errs []error
+	)
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var tag string
+			err := txm.WithinTransaction(ctx, func(ctx context.Context) error {
+				var err error
+				tag, err = gen.NextAssetTag(ctx, at)
+				return err
+			})
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				errs = append(errs, err)
+				return
+			}
+			tags = append(tags, tag)
+		}()
+	}
+	wg.Wait()
+
+	require.Empty(t, errs)
+	sort.Strings(tags)
+	require.Len(t, tags, 50)
+	for i, tag := range tags {
+		assert.Equal(t, docnum.FormatAssetTag(at, i+1), tag)
+	}
+}

@@ -11,6 +11,8 @@ import (
 type DocNumberGenerator interface {
 	// Next mengembalikan {docType}/{scope}/{YYYY}/{MM}/{NNNN}; bulan dihitung dari t dalam WIB.
 	Next(ctx context.Context, docType, scope string, t time.Time) (string, error)
+	// NextAssetTag mengembalikan label unit AST-{YYMM}-{NNNNN} (counter global tanpa reset).
+	NextAssetTag(ctx context.Context, t time.Time) (string, error)
 	// NextNumber menaikkan counter (docType, scope, period) dan mengembalikan nilainya (mulai 1).
 	NextNumber(ctx context.Context, docType, scope, period string) (int, error)
 }

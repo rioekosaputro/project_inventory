@@ -76,6 +76,27 @@ func (g *Generator) Next(ctx context.Context, docType, scope string, t time.Time
 	return Format(docType, scope, period, n), nil
 }
 
+// AssetTagType adalah jenis dokumen untuk urutan asset tag (scope GLOBAL, periode PeriodNone).
+const AssetTagType = "AST"
+
+// FormatAssetTag menyusun label unit: AST-{YYMM}-{NNNNN}, mis. AST-2611-00012.
+// YYMM (WIB) hanya penanda bulan unit didaftarkan; keunikan dijamin counter global yang
+// tidak pernah di-reset, jadi dua unit di bulan yang sama tidak mungkin bertabrakan.
+// Counter melebihi 99999 tetap valid (lebar bertambah, kolom asset_tag muat 30 karakter).
+func FormatAssetTag(t time.Time, n int) string {
+	return fmt.Sprintf("AST-%s-%05d", t.In(clock.WIB).Format("0601"), n)
+}
+
+// NextAssetTag menerbitkan asset tag berikutnya. Wajib dipanggil di dalam transaksi
+// (bersama pembuatan product_serials-nya, supaya rollback tidak menyisakan celah).
+func (g *Generator) NextAssetTag(ctx context.Context, t time.Time) (string, error) {
+	n, err := g.NextNumber(ctx, AssetTagType, ScopeGlobal, PeriodNone)
+	if err != nil {
+		return "", err
+	}
+	return FormatAssetTag(t, n), nil
+}
+
 // NextNumber menaikkan counter (docType, scope, period) dan mengembalikan nilainya (mulai 1).
 // Dipakai langsung oleh pemanggil yang menyusun format sendiri atau memakai PeriodNone.
 // Wajib dipanggil di dalam transaksi.

@@ -62,3 +62,17 @@ func TestNext_PropagatesValidationError(t *testing.T) {
 	_, err := New(nil).Next(context.Background(), "lpbi", "GLOBAL", time.Now())
 	assert.ErrorIs(t, err, ErrInvalidDocType)
 }
+
+func TestFormatAssetTag(t *testing.T) {
+	nov := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+	assert.Equal(t, "AST-2611-00012", FormatAssetTag(nov, 12))
+	assert.Equal(t, "AST-2611-00001", FormatAssetTag(nov, 1))
+	assert.Equal(t, "AST-2611-123456", FormatAssetTag(nov, 123456), "lebar bertambah, tidak dipotong")
+	assert.LessOrEqual(t, len(FormatAssetTag(nov, 99999999)), 30, "harus muat di kolom asset_tag VARCHAR(30)")
+}
+
+// Bulan pada label mengikuti WIB: 30 Nov 17:30 UTC sudah Desember di Jakarta.
+func TestFormatAssetTag_MonthUsesWIB(t *testing.T) {
+	assert.Equal(t, "AST-2612-00007", FormatAssetTag(time.Date(2026, 11, 30, 17, 30, 0, 0, time.UTC), 7))
+	assert.Equal(t, "AST-2701-00007", FormatAssetTag(time.Date(2026, 12, 31, 17, 0, 0, 0, time.UTC), 7))
+}

@@ -2010,8 +2010,9 @@ volumes: { pgdata: {} }
   DoD: test reuse refresh token me-revoke family; role tanpa permission → 403.
 - [x] **T0.7 Manajemen user** — CRUD user, reset password, nonaktifkan (refresh token dicabut).
   Aturan pengaman (diputuskan saat T0.7): admin tidak dapat menonaktifkan / mengubah role / mereset password akunnya sendiri; ADMIN aktif terakhir tidak dapat dinonaktifkan atau diturunkan (dijaga dengan lock berurutan); `warehouse_id` hanya untuk role `STAFF_WAREHOUSE`/`HEAD_WAREHOUSE` (NULL = semua gudang).
-- [ ] **T0.8 Skeleton frontend** — Vite + TS + Tailwind + PrimeVue, `AppLayout`/`MobileLayout`/`PublicLayout`, axios + antrean refresh, store auth (`bootstrap()`), router guard permission, halaman Login, 403, Ganti Password, sidebar dinamis per permission.
+- [x] **T0.8 Skeleton frontend** — Vite + TS + Tailwind + PrimeVue, `AppLayout`/`MobileLayout`/`PublicLayout`, axios + antrean refresh, store auth (`bootstrap()`), router guard permission, halaman Login, 403, Ganti Password, sidebar dinamis per permission.
   DoD: login → redirect ke default home per role; refresh halaman tetap login (via cookie).
+  Keputusan saat T0.8: **PrimeVue dipin ke 4.x** (npm `latest` sudah 5.x) dengan `@primeuix/themes` 2.x; **zod 3.x** karena `@vee-validate/zod` belum mendukung zod 4; default home yang halamannya belum ada jatuh ke `/beranda`; menu sidebar tampil hanya bila permission dimiliki **dan** rutenya sudah terdaftar (halaman fase berikutnya muncul otomatis); tipe API sementara ditulis tangan di `src/types` (ganti dengan hasil generate setelah `openapi.yaml` ada); laci menu memakai `<dialog>` modal tanpa gestur geser.
 - [ ] **T0.9 CI** — GitHub Actions (Bagian 11).
 - [ ] **T0.10 Deploy staging pertama** — Supabase + Vercel (FE & API) + Gotenberg container (Bagian 12.2).
   DoD: login berhasil di URL staging HTTPS.

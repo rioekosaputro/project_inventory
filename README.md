@@ -66,10 +66,12 @@ npm install
 npm run dev
 ```
 
-Perintah lain: `npm run build`, `npm run test`, `npm run lint`, `npm run type-check`.
+Buka http://localhost:5173. Dev server mem-proxy `/api` ke backend (`http://localhost:8080`, ubah lewat
+`VITE_DEV_API_TARGET`), jadi FE dan API satu origin dan cookie refresh `erp_rt` bekerja seperti di staging.
+**Jalankan backend lebih dulu** (`make dev` / `go run ./cmd/api`), lalu login dengan akun hasil `make seed`
+(`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`); akun seed wajib ganti password saat login pertama.
 
-> Catatan: backend dan frontend diisi bertahap sesuai task di Bagian 13 plan
-> (T0.2 untuk backend, T0.8 untuk frontend). Perintah di atas baru berfungsi setelah task tersebut selesai.
+Perintah lain: `npm run build`, `npm run test`, `npm run lint`, `npm run type-check`.
 
 ## Keamanan
 

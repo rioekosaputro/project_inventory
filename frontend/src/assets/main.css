@@ -1,0 +1,78 @@
+@import 'tailwindcss';
+
+/*
+  Urutan layer: PrimeVue (di-inject runtime dengan nama `primevue`, lihat main.ts) berada
+  di antara base dan utilities Tailwind, sehingga utility Tailwind selalu bisa menimpa gaya PrimeVue.
+*/
+
+@theme {
+  /* Stack font sistem: tanpa unduhan font eksternal (cepat, tidak membocorkan IP ke pihak ketiga). */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-50 font-sans text-slate-900 antialiased;
+  }
+
+  /* Fokus keyboard selalu terlihat. */
+  :focus-visible {
+    outline: 2px solid var(--p-primary-color, #4f46e5);
+    outline-offset: 2px;
+  }
+}
+
+/* Tautan "lewati ke konten" — muncul hanya saat difokus keyboard. */
+.skip-link {
+  position: absolute;
+  inset-inline-start: 0.5rem;
+  top: -4rem;
+  z-index: 60;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px #4f46e5;
+}
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* Laci navigasi (layar sempit): <dialog> modal yang menggeser masuk dari kiri. */
+.nav-drawer {
+  margin: 0;
+  inset: 0 auto 0 0;
+  height: 100dvh;
+  max-height: none;
+  width: min(20rem, 85vw);
+  border: 0;
+  padding: 0;
+  background: #fff;
+  color: inherit;
+  translate: -100% 0;
+  transition:
+    translate 200ms ease-out,
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+.nav-drawer[open] {
+  translate: 0 0;
+}
+@starting-style {
+  .nav-drawer[open] {
+    translate: -100% 0;
+  }
+}
+.nav-drawer::backdrop {
+  background: rgb(15 23 42 / 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-drawer {
+    transition: none;
+  }
+}

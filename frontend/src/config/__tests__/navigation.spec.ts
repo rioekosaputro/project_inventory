@@ -33,6 +33,14 @@ describe('visibleNav', () => {
     expect(out.map((g) => g.label)).toEqual(['Utama', 'Administrasi'])
   })
 
+  it('Data Master: teknisi (hanya product.read) dan staf gudang melihatnya; driver tidak', () => {
+    const labelsFor = (perms: string[]) =>
+      labels(visibleNav(navGroups, { can: (p) => perms.includes(p), routeExists: allRoutes }))
+    expect(labelsFor(['product.read'])).toContain('Data Master')
+    expect(labelsFor(['master.read', 'product.read'])).toContain('Data Master')
+    expect(labelsFor(['driver', 'lpb.print'])).not.toContain('Data Master')
+  })
+
   it('driver hanya melihat tugas pengiriman', () => {
     const out = labels(
       visibleNav(navGroups, {

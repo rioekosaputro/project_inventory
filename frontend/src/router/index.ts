@@ -1,4 +1,10 @@
-import { createRouter, createWebHistory, type RouteRecordRaw, type RouterHistory } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type RouteComponent,
+  type RouteRecordRaw,
+  type RouterHistory,
+} from 'vue-router'
 import { installGuards } from '@/router/guards'
 
 declare module 'vue-router' {
@@ -14,6 +20,40 @@ declare module 'vue-router' {
     /** Judul halaman (tab browser). */
     title?: string
   }
+}
+
+/**
+ * Rute data master (plan Bagian 9.4): daftar + form buat + form ubah. Rute statis `/baru`
+ * didaftarkan sebelum `/:id`. Permission baca untuk daftar, permission tulis untuk form.
+ */
+function masterCrud(
+  slug: string,
+  title: string,
+  read: string,
+  write: string,
+  views: { list: () => Promise<RouteComponent>; form: () => Promise<RouteComponent> },
+): RouteRecordRaw[] {
+  const base = `/master/${slug}`
+  return [
+    {
+      path: base,
+      name: `master-${slug}`,
+      component: views.list,
+      meta: { layout: 'app', permission: read, title },
+    },
+    {
+      path: `${base}/baru`,
+      name: `master-${slug}-baru`,
+      component: views.form,
+      meta: { layout: 'app', permission: write, title: `Tambah ${title}` },
+    },
+    {
+      path: `${base}/:id(\\d+)`,
+      name: `master-${slug}-ubah`,
+      component: views.form,
+      meta: { layout: 'app', permission: write, title: `Ubah ${title}` },
+    },
+  ]
 }
 
 export const routes: RouteRecordRaw[] = [
@@ -41,6 +81,28 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ChangePasswordView.vue'),
     meta: { layout: 'app', title: 'Ganti Password' },
   },
+  ...masterCrud('produk', 'Produk', 'product.read', 'master.write', {
+    list: () => import('@/views/master/ProductListView.vue'),
+    form: () => import('@/views/master/ProductFormView.vue'),
+  }),
+  {
+    path: '/master/kategori',
+    name: 'master-kategori',
+    component: () => import('@/views/master/CategoryListView.vue'),
+    meta: { layout: 'app', permission: 'master.read', title: 'Kategori' },
+  },
+  ...masterCrud('gudang', 'Gudang', 'master.read', 'master.write', {
+    list: () => import('@/views/master/WarehouseListView.vue'),
+    form: () => import('@/views/master/WarehouseFormView.vue'),
+  }),
+  ...masterCrud('rak', 'Rak', 'master.read', 'rack.write', {
+    list: () => import('@/views/master/RackListView.vue'),
+    form: () => import('@/views/master/RackFormView.vue'),
+  }),
+  ...masterCrud('supplier', 'Supplier', 'master.read', 'master.write', {
+    list: () => import('@/views/master/SupplierListView.vue'),
+    form: () => import('@/views/master/SupplierFormView.vue'),
+  }),
   {
     path: '/403',
     name: 'forbidden',

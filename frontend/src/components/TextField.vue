@@ -10,15 +10,17 @@ const props = withDefaults(
     label: string
     type?: 'text' | 'email' | 'password'
     autocomplete?: string
-    inputmode?: 'text' | 'email' | 'numeric' | 'tel'
+    inputmode?: 'text' | 'email' | 'numeric' | 'decimal' | 'tel'
     enterkeyhint?: 'next' | 'done' | 'go' | 'send'
     /** Teks bantuan; digantikan pesan error saat field invalid. */
     hint?: string
     required?: boolean
+    /** Tampil tetapi tidak dapat diubah (mis. kode yang terkunci setelah dibuat). */
+    readonly?: boolean
     /** Tombol tampilkan/sembunyikan (untuk password). */
     revealable?: boolean
   }>(),
-  { type: 'text', required: false, revealable: false },
+  { type: 'text', required: false, revealable: false, readonly: false },
 )
 
 const { value, error, onBlur, onFocus, onInput } = useBlurField(props.name, () => props.label)
@@ -55,12 +57,17 @@ const describedBy = computed(() => {
         :inputmode="inputmode"
         :enterkeyhint="enterkeyhint"
         :required="required"
+        :readonly="readonly"
         :invalid="!!error"
         :aria-invalid="error ? 'true' : 'false'"
         :aria-describedby="describedBy"
         spellcheck="false"
         fluid
-        :class="['min-h-11', revealable ? 'pe-12' : '']"
+        :class="[
+          'min-h-11',
+          revealable ? 'pe-12' : '',
+          readonly ? 'bg-slate-100 text-slate-700' : '',
+        ]"
         @blur="onBlur"
         @focus="onFocus"
         @input="onInput"

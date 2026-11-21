@@ -5,7 +5,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios'
 import { toApiError } from '@/lib/apiError'
-import type { ApiEnvelope } from '@/types/api'
+import type { ApiEnvelope, PageMeta } from '@/types/api'
 
 /**
  * Jembatan ke store auth. Disuntik saat startup (main.ts) agar modul ini tidak mengimpor store
@@ -104,6 +104,18 @@ async function unwrap<T>(request: Promise<AxiosResponse<ApiEnvelope<T>>>): Promi
 /** Akses API bertipe: mengembalikan `data` dari envelope; error selalu ApiError. */
 export const api = {
   get: <T>(url: string, config?: AxiosRequestConfig) => unwrap<T>(http.get(url, config)),
+  /** Daftar berhalaman: `data` + blok `meta` (page, limit, total, total_pages). */
+  page: async <T>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<{ items: T[]; meta: PageMeta }> => {
+    const body = (await http.get<ApiEnvelope<T[]>>(url, config)).data
+    const items = body.data ?? []
+    return {
+      items,
+      meta: body.meta ?? { page: 1, limit: items.length, total: items.length, total_pages: 1 },
+    }
+  },
   post: <T>(url: string, body?: unknown, config?: AxiosRequestConfig) =>
     unwrap<T>(http.post(url, body, config)),
   patch: <T>(url: string, body?: unknown, config?: AxiosRequestConfig) =>

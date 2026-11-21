@@ -2035,7 +2035,14 @@ volumes: { pgdata: {} }
   - Nilai unik bentrok → 409 `DUPLICATE_VALUE` dengan `errors[].field` (kode gudang/rak, nama kategori, SKU, kode supplier); SKU/kode dinormalisasi huruf besar.
   - Setiap create/update menulis `audit_logs` (`<ENTITY>_CREATE|UPDATE|ACTIVATE|DEACTIVATE`; update hanya mencatat field yang berubah; PATCH tanpa perubahan tidak menulis apa pun).
   - Belum ada: `POST /racks/labels/pdf` (T1.11), `openapi.yaml`.
-- [ ] **T1.3 UI master** — CRUD + pencarian + toggle aktif.
+- [x] **T1.3 UI master** — CRUD + pencarian + toggle aktif.
+  Keputusan T1.3 (praktik terbaik UX proyek; plan tidak merinci):
+  - Lima daftar di `/master/{produk,kategori,gudang,rak,supplier}` (pola **List / Index**): pencarian berlabel (`/` memfokuskan), satu kontrol **Filter** (panel popover) + chip filter aktif, tabel dalam bingkai dengan header lengket dan urutan lewat tombol kolom (`aria-sort` hanya pada kolom aktif), paginasi selalu tampil, status kosong **di dalam bingkai** (pertama kali: judul + nilai + tombol buat; hasil filter kosong: tombol *Hapus semua filter*; galat memuat: *Coba lagi*). Status daftar (q, filter, urutan, halaman, limit) tersimpan di **query string URL** lewat `useServerTable` (bisa di-bookmark; reload mempertahankan).
+  - **Buat/ubah**: ≥ 3 field = halaman sendiri (`/master/X/baru`, `/master/X/:id`, pola **Form**, blur-first, Simpan tidak pernah dinonaktifkan, galat server 409/422 dipetakan ke field-nya); kategori (2 field) memakai **panel samping** (`<dialog>` modal). Klik kode/SKU/nama membuka form ubah; kode (gudang/rak/supplier) tampil readonly saat ubah.
+  - **Nonaktifkan** memakai dialog konfirmasi yang **menyebut entitas** ("Nonaktifkan gudang 'WH-A'?"), fokus awal di *Batal*, Escape membatalkan; **Aktifkan** langsung. Penolakan server (mis. rak masih berisi stok) tampil sebagai toast apa adanya.
+  - Hak akses di UI mengikuti backend: tombol/tautan tulis disembunyikan tanpa `master.write` (rak: `rack.write`); rute form diblok guard (403). Teknisi (hanya `product.read`) melihat daftar Produk saja. Menu sidebar **Data Master** memakai `product.read` (superset dari `master.read`) dan aktif di semua halaman `/master/*`.
+  - Komponen bersama baru: `ListPage`, `DataTable`, `TablePagination`, `FilterPanel`, `FormPage`, `SlideOver`, `ConfirmDialog`, `StatusBadge`, `SelectField`/`TextAreaField`/`CheckboxField`; composable `useServerTable`, `useEntityForm`, `useActiveToggle`, `useOptions`; `formatRupiah` (uang tetap string dari API).
+  - Batasan yang diketahui: pilihan gudang/kategori pada select & filter memuat maksimal 100 data; nama kategori unik di database bersifat **peka huruf besar/kecil** ("Printer" dan "printer" dapat berdampingan) — pertimbangkan indeks unik `lower(name)` pada migrasi berikutnya.
 
 **Sprint 2 — LPB masuk & scanner**
 - [ ] **T1.4 API baca inventory** — balances (+ `qty_available`, `is_low_stock`), summary, serials, `scan/:code` (asset tag / SN).

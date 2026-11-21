@@ -76,3 +76,157 @@
     transition: none;
   }
 }
+
+/* ---------- Tabel data (pola List / Index) ---------- */
+.data-table-wrapper {
+  overflow: auto;
+  /* Tanpa ini Chrome seluler memperlebar viewport mengikuti lebar tabel (gulir internal tidak cukup). */
+  contain: paint;
+  max-inline-size: 100%;
+  max-block-size: min(70vh, 44rem);
+}
+.data-table {
+  inline-size: 100%;
+  min-inline-size: 40rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+.data-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+.data-table th {
+  background: #f8fafc;
+  border-block-end: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  text-align: start;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+.data-table th:has(> button) {
+  padding: 0;
+}
+.data-table td {
+  border-block-end: 1px solid #f1f5f9;
+  padding: 0.5rem 1rem;
+  min-block-size: 3rem;
+  color: #0f172a;
+  vertical-align: middle;
+}
+.data-table tbody tr:last-child td {
+  border-block-end: 0;
+}
+.data-table tbody tr:hover td {
+  background: #f8fafc;
+}
+.sort-button {
+  display: flex;
+  inline-size: 100%;
+  min-block-size: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.sort-button:hover {
+  background: #f1f5f9;
+}
+.sort-icon {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+th[aria-sort] .sort-icon {
+  color: #4338ca;
+}
+
+/* ---------- Panel filter (popover) ---------- */
+.filter-trigger {
+  anchor-name: --filter-trigger;
+}
+.filter-panel {
+  margin: 0;
+  padding: 1rem;
+  inline-size: min(22rem, calc(100vw - 2rem));
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: inherit;
+  box-shadow: 0 10px 25px rgb(15 23 42 / 0.12);
+}
+@supports (position-anchor: --filter-trigger) {
+  .filter-panel {
+    position-anchor: --filter-trigger;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin-block: 0.25rem;
+  }
+}
+
+/* ---------- Slide-over & dialog konfirmasi ---------- */
+.slide-over {
+  margin: 0 0 0 auto;
+  inset: 0 0 0 auto;
+  height: 100dvh;
+  max-height: none;
+  inline-size: min(30rem, 100vw);
+  max-inline-size: 100vw;
+  border: 0;
+  padding: 0;
+  background: #fff;
+  color: inherit;
+  translate: 100% 0;
+  transition:
+    translate 200ms ease-out,
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+.slide-over[open] {
+  translate: 0 0;
+}
+@starting-style {
+  .slide-over[open] {
+    translate: 100% 0;
+  }
+}
+.slide-over::backdrop,
+.confirm-dialog::backdrop {
+  background: rgb(15 23 42 / 0.45);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.slide-over:modal,
+.confirm-dialog:modal {
+  overscroll-behavior: contain;
+}
+.confirm-dialog {
+  margin: auto;
+  inline-size: min(28rem, calc(100vw - 2rem));
+  border: 0;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: #fff;
+  color: inherit;
+  box-shadow: 0 20px 40px rgb(15 23 42 / 0.25);
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-over {
+    transition: none;
+  }
+}
+
+/* Toast PrimeVue: lebar bawaan 25rem melebihi layar 375px dan membuat halaman bergulir ke samping. */
+.p-toast {
+  inline-size: min(25rem, calc(100vw - 2rem));
+  max-inline-size: calc(100vw - 2rem);
+  /* Animasi masuk dari kanan melewati tepi layar; di Chrome seluler itu memperlebar viewport. */
+  overflow-x: clip;
+}
+.p-toast-top-right {
+  inset-inline-end: 1rem;
+}

@@ -13,3 +13,12 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
+
+// jsdom tidak punya ResizeObserver (dipakai PrimeVue Textarea auto-resize).
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+}

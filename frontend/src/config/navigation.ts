@@ -5,6 +5,8 @@ export interface NavItem {
   to: string
   /** Kelas ikon PrimeIcons. */
   icon: string
+  /** Awalan path yang dianggap "sedang di menu ini" (default: `to`). */
+  match?: string
   /** Tanpa permission = semua pengguna yang login. */
   permission?: Permission
 }
@@ -59,8 +61,9 @@ export const navGroups: NavGroup[] = [
       {
         label: 'Data Master',
         to: '/master/produk',
+        match: '/master',
         icon: 'pi pi-database',
-        permission: 'master.read',
+        permission: 'product.read',
       },
     ],
   },

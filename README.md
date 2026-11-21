@@ -50,7 +50,7 @@ docker compose -f deploy/docker-compose.dev.yml up -d
 ### 2. Backend (dari folder `backend/`)
 
 ```bash
-cp .env.example .env     # lalu sesuaikan DATABASE_URL, JWT_SECRET, dst.
+cp .env.example .env     # lalu isi DATABASE_URL, JWT_ACCESS_SECRET (acak >= 32 karakter), SEED_ADMIN_PASSWORD
 make migrate-up
 make seed
 make dev

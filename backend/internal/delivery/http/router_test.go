@@ -24,7 +24,7 @@ func testConfig() *config.Config {
 
 func newTestRouter(checks ...ReadinessCheck) nethttp.Handler {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(testConfig(), logger, checks...)
+	return NewRouter(testConfig(), logger, Deps{}, checks...)
 }
 
 func doGet(t *testing.T, h nethttp.Handler, path string) (int, map[string]any) {
@@ -101,7 +101,7 @@ func TestSecurityHeaders_PresentEvenOnErrors(t *testing.T) {
 func TestHSTS_EnabledOutsideLocal(t *testing.T) {
 	cfg := testConfig()
 	cfg.AppEnv = config.EnvStaging
-	r := NewRouter(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r := NewRouter(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), Deps{})
 
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(nethttp.MethodGet, "/healthz", nil))
@@ -163,7 +163,7 @@ func TestRequestID_GeneratedOrReusedWhenValidOrReplacedWhenMalicious(t *testing.
 func TestAccessLog_RecordsRequestIDStatusAndOmitsQueryString(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	r := NewRouter(testConfig(), logger)
+	r := NewRouter(testConfig(), logger, Deps{})
 
 	req := httptest.NewRequest(nethttp.MethodGet, "/tidak-ada?token=super-rahasia", nil)
 	req.Header.Set("X-Request-ID", "req-logtest-0001")
@@ -180,7 +180,7 @@ func TestAccessLog_RecordsRequestIDStatusAndOmitsQueryString(t *testing.T) {
 func TestAccessLog_HealthChecksAreDebugLevel(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	r := NewRouter(testConfig(), logger)
+	r := NewRouter(testConfig(), logger, Deps{})
 
 	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(nethttp.MethodGet, "/healthz", nil))
 
@@ -190,7 +190,7 @@ func TestAccessLog_HealthChecksAreDebugLevel(t *testing.T) {
 func TestClientIP_IgnoresSpoofedForwardedForWhenNoTrustedProxy(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
-	r := NewRouter(testConfig(), logger)
+	r := NewRouter(testConfig(), logger, Deps{})
 
 	req := httptest.NewRequest(nethttp.MethodGet, "/tidak-ada", nil)
 	req.RemoteAddr = "203.0.113.9:4321"
@@ -206,7 +206,7 @@ func TestClientIP_HonoursForwardedForFromTrustedProxy(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	cfg := testConfig()
 	cfg.TrustedProxies = []string{"10.0.0.0/8"}
-	r := NewRouter(cfg, logger)
+	r := NewRouter(cfg, logger, Deps{})
 
 	req := httptest.NewRequest(nethttp.MethodGet, "/tidak-ada", nil)
 	req.RemoteAddr = "10.1.2.3:4321"

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"rental-inventory-api/config"
-	apihttp "rental-inventory-api/internal/delivery/http"
-	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/internal/app"
+	"rental-inventory-api/pkg/clock"
 	"rental-inventory-api/pkg/database"
 )
 
@@ -48,13 +48,10 @@ func run() error {
 	}
 	defer pool.Close()
 
-	// TxManager dipakai usecase mulai T1.x; assertion memastikan kontraknya terpenuhi.
-	var _ domain.TxManager = database.NewTxManager(pool)
-
-	router := apihttp.NewRouter(cfg, logger, apihttp.ReadinessCheck{
-		Name:  "database",
-		Check: pool.Ping,
-	})
+	router, err := app.NewRouter(cfg, logger, pool, clock.System{})
+	if err != nil {
+		return err
+	}
 
 	srv := &nethttp.Server{
 		Addr:              net.JoinHostPort("", cfg.Port),

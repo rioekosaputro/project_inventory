@@ -6,6 +6,8 @@ import (
 	"errors"
 	"log/slog"
 	nethttp "net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -38,6 +40,11 @@ var mapping = []mapped{
 	{domain.ErrNotFound, nethttp.StatusNotFound, "NOT_FOUND"},
 	{domain.ErrLPBNotFound, nethttp.StatusNotFound, "LPB_NOT_FOUND"},
 	{domain.ErrUnauthorized, nethttp.StatusUnauthorized, "UNAUTHORIZED"},
+	{domain.ErrInvalidCredentials, nethttp.StatusUnauthorized, "INVALID_CREDENTIALS"},
+	{domain.ErrInvalidToken, nethttp.StatusUnauthorized, "INVALID_TOKEN"},
+	{domain.ErrAccountDisabled, nethttp.StatusForbidden, "ACCOUNT_DISABLED"},
+	{domain.ErrPasswordChangeRequired, nethttp.StatusForbidden, "PASSWORD_CHANGE_REQUIRED"},
+	{domain.ErrTooManyRequests, nethttp.StatusTooManyRequests, "TOO_MANY_REQUESTS"},
 	{domain.ErrForbidden, nethttp.StatusForbidden, "FORBIDDEN"},
 	{domain.ErrSelfApproveForbidden, nethttp.StatusForbidden, "SELF_APPROVE_FORBIDDEN"},
 	{domain.ErrForbiddenWarehouse, nethttp.StatusForbidden, "FORBIDDEN_WAREHOUSE"},
@@ -85,6 +92,13 @@ func Write(c *gin.Context, err error) {
 		}
 		response.Error(c, nethttp.StatusUnprocessableEntity, CodeInvalidData, vErr.Message, fields)
 		return
+	}
+
+	// Rate limit: beri tahu klien kapan boleh mencoba lagi.
+	var rlErr *domain.RateLimitError
+	if errors.As(err, &rlErr) {
+		secs := int((rlErr.RetryAfter + time.Second - 1) / time.Second)
+		c.Header("Retry-After", strconv.Itoa(max(secs, 1)))
 	}
 
 	for _, m := range mapping {

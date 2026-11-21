@@ -1,5 +1,5 @@
 -- 000002_init_audit_settings.up.sql
--- Audit log (append-only), pengaturan aplikasi, lampiran, idempotency, job_runs.
+-- Audit log (append-only), login_attempts (rate limit), pengaturan aplikasi, lampiran, idempotency, job_runs.
 -- Bergantung pada 000001 (users, forbid_update_delete).
 
 CREATE TABLE audit_logs (
@@ -20,6 +20,18 @@ CREATE INDEX idx_audit_user   ON audit_logs(user_id, created_at);
 CREATE TRIGGER trg_audit_append_only
     BEFORE UPDATE OR DELETE ON audit_logs
     FOR EACH ROW EXECUTE FUNCTION forbid_update_delete();
+
+-- Percobaan login gagal untuk rate limit per (IP, email). Disimpan di DB (bukan memori proses)
+-- karena API bisa berjalan serverless. Bukan audit: baris lama boleh dihapus berkala.
+CREATE TABLE login_attempts (
+    id          BIGSERIAL PRIMARY KEY,
+    email       VARCHAR(120) NOT NULL,      -- sudah di-lowercase
+    ip_address  INET NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_login_attempts_email_ip ON login_attempts(email, ip_address, created_at);
+CREATE INDEX idx_login_attempts_ip       ON login_attempts(ip_address, created_at);
+CREATE INDEX idx_login_attempts_created  ON login_attempts(created_at);
 
 CREATE TABLE app_settings (
     key         VARCHAR(80) PRIMARY KEY,   -- company.profile, lpb.allow_self_approve, billing.default_mode, ...

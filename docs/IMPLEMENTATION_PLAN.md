@@ -239,7 +239,7 @@ rental-erp/
 | File | Fase | Isi |
 |---|---|---|
 | `000001_init_auth_master` | 1 | fungsi `set_updated_at` & `forbid_update_delete`, `warehouses`, `users`, `refresh_tokens`, `racks`, `categories`, `products`, `suppliers` |
-| `000002_init_audit_settings` | 1 (T0.4) | `audit_logs` (+ trigger append-only), `app_settings`, `attachments`, `idempotency_keys`, `job_runs` |
+| `000002_init_audit_settings` | 1 (T0.4) | `audit_logs` (+ trigger append-only), `login_attempts` (rate limit login, ditambah di T0.6), `app_settings`, `attachments`, `idempotency_keys`, `job_runs` |
 | `000003_init_inventory_lpb` | 1 | `document_sequences`, `stock_balances`, `product_serials`, `lpb_documents`, `lpb_items`, `lpb_item_serials`, `stock_ledgers`, `product_serial_histories`, trigger append-only |
 | `000004_init_stock_opname` | 1 | `stock_opnames`, `stock_opname_racks`, `stock_opname_items`, `stock_opname_serials` |
 | `000005_init_customers_contracts` | 2 | `customers`, `customer_sites`, `rental_contracts`, `rental_contract_items`, `rental_placements` + FK ke serial & LPB |
@@ -1714,7 +1714,7 @@ Kolom "Perm" = kunci permission di matriks 5.1. Semua list endpoint mendukung pa
 |---|---|---|---|
 | POST | `/auth/login` | publik | rate-limited; set cookie refresh; return access token + user + permissions |
 | POST | `/auth/refresh` | cookie | rotasi refresh token; reuse token lama → revoke seluruh family |
-| POST | `/auth/logout` | login | revoke refresh token |
+| POST | `/auth/logout` | cookie refresh | revoke seluruh family refresh token sesi ini; berbasis refresh token (bukan access token) agar tetap bisa logout saat access token kedaluwarsa; idempoten |
 | GET | `/auth/me` | login | user + permissions + default home |
 | POST | `/auth/change-password` | login | wajib bila `must_change_password` |
 | GET/POST/PATCH | `/users`, `/users/:id` | admin | CRUD user, reset password, nonaktifkan |
@@ -2004,7 +2004,7 @@ volumes: { pgdata: {} }
   DoD: `make migrate-up && make migrate-down && make migrate-up` bersih.
 - [x] **T0.5 Fondasi HTTP** — `pkg/response`, `pkg/pagination`, `httperr`, pesan validasi Bahasa Indonesia, middleware RequestID/Recover/Logger/CORS/security headers.
   DoD: test handler contoh untuk 200/400/404/500 sesuai format Bagian 7.4.
-- [ ] **T0.6 Auth** — login, refresh (cookie, rotasi, reuse detection), logout, me, change-password, `domain/permission.go` (matriks 5.1), `RequirePermission`, rate limit login, audit login.
+- [x] **T0.6 Auth** — login, refresh (cookie, rotasi, reuse detection), logout, me, change-password, `domain/permission.go` (matriks 5.1), `RequirePermission`, rate limit login, audit login.
   DoD: test reuse refresh token me-revoke family; role tanpa permission → 403.
 - [ ] **T0.7 Manajemen user** — CRUD user, reset password, nonaktifkan (refresh token dicabut).
 - [ ] **T0.8 Skeleton frontend** — Vite + TS + Tailwind + PrimeVue, `AppLayout`/`MobileLayout`/`PublicLayout`, axios + antrean refresh, store auth (`bootstrap()`), router guard permission, halaman Login, 403, Ganti Password, sidebar dinamis per permission.

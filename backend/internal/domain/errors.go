@@ -1,6 +1,9 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // Sentinel error domain. Teks pesan DITAMPILKAN ke pengguna (Bahasa Indonesia),
 // jadi huruf awal kapital dan tanpa detail internal. Usecase boleh membungkus dengan
@@ -12,6 +15,13 @@ var (
 	ErrUnauthorized = errors.New("Autentikasi diperlukan")
 	ErrForbidden    = errors.New("Anda tidak memiliki akses untuk aksi ini")
 	ErrConflict     = errors.New("Data bertentangan dengan data yang sudah ada")
+
+	// Autentikasi (plan Bagian 10)
+	ErrInvalidCredentials     = errors.New("Email atau password salah")
+	ErrInvalidToken           = errors.New("Sesi tidak valid atau sudah berakhir, silakan login kembali")
+	ErrAccountDisabled        = errors.New("Akun Anda dinonaktifkan, hubungi administrator")
+	ErrPasswordChangeRequired = errors.New("Anda wajib mengganti password terlebih dahulu")
+	ErrTooManyRequests        = errors.New("Terlalu banyak percobaan, coba lagi nanti")
 
 	// LPB & stok (plan Bagian 6 / 7.4)
 	ErrLPBNotFound            = errors.New("LPB tidak ditemukan")
@@ -28,6 +38,16 @@ var (
 	ErrForbiddenWarehouse     = errors.New("Anda tidak memiliki akses ke gudang ini")
 	ErrInvalidStateTransition = errors.New("Perubahan status tidak diizinkan")
 )
+
+// RateLimitError menyertakan berapa lama klien harus menunggu (header Retry-After).
+// errors.Is(err, ErrTooManyRequests) bernilai true.
+type RateLimitError struct {
+	RetryAfter time.Duration
+}
+
+func (e *RateLimitError) Error() string { return ErrTooManyRequests.Error() }
+
+func (e *RateLimitError) Is(target error) bool { return target == ErrTooManyRequests }
 
 // FieldError adalah detail kesalahan satu field.
 type FieldError struct {

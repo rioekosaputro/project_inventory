@@ -10,8 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"rental-inventory-api/config"
+	"rental-inventory-api/internal/delivery/http/handler"
 	"rental-inventory-api/internal/delivery/http/httperr"
 	"rental-inventory-api/internal/delivery/http/middleware"
+	"rental-inventory-api/pkg/clock"
 )
 
 // ReadinessCheck memeriksa satu dependensi (mis. database). Error berarti belum siap.
@@ -20,12 +22,20 @@ type ReadinessCheck struct {
 	Check func(ctx context.Context) error
 }
 
+// Deps adalah dependensi handler. Field nil = grup route-nya tidak didaftarkan
+// (berguna untuk test yang hanya menguji fondasi).
+type Deps struct {
+	Auth   *handler.AuthHandler
+	Tokens middleware.TokenParser
+	Clock  clock.Clock
+}
+
 const readyzTimeout = 3 * time.Second
 
 // NewRouter membangun engine Gin dengan middleware dasar (plan Bagian 7.5):
-// RequestID → SecurityHeaders → Recover → Logger → CORS.
-// RateLimit, Auth, RBAC, dan Idempotency dipasang per grup route di task berikutnya.
-func NewRouter(cfg *config.Config, logger *slog.Logger, checks ...ReadinessCheck) *gin.Engine {
+// RequestID → SecurityHeaders → Recover → Logger → CORS, lalu per route:
+// Authenticate → RequirePermission (→ Idempotency pada endpoint kritis).
+func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...ReadinessCheck) *gin.Engine {
 	if cfg.AppEnv == config.EnvProduction {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -53,7 +63,26 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, checks ...ReadinessCheck
 	r.GET("/healthz", healthz)
 	r.GET("/readyz", readyz(logger, checks))
 
+	api := r.Group("/api/v1")
+	registerAuthRoutes(api, deps)
+
 	return r
+}
+
+// registerAuthRoutes — plan Bagian 8.1.
+func registerAuthRoutes(api *gin.RouterGroup, deps Deps) {
+	if deps.Auth == nil {
+		return
+	}
+	auth := api.Group("/auth")
+	auth.POST("/login", deps.Auth.Login)
+	auth.POST("/refresh", deps.Auth.Refresh)
+	auth.POST("/logout", deps.Auth.Logout)
+
+	// Akun yang wajib ganti password tetap boleh melihat profil & mengganti password.
+	loggedIn := auth.Group("", middleware.AuthenticateAllowPasswordChange(deps.Tokens, deps.Clock))
+	loggedIn.GET("/me", deps.Auth.Me)
+	loggedIn.POST("/change-password", deps.Auth.ChangePassword)
 }
 
 // healthz: liveness — proses hidup. Tidak menyentuh dependensi.

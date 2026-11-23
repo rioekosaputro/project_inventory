@@ -13,7 +13,10 @@ const props = defineProps<{
   disabled?: boolean
 }>()
 
-const { value, error, onBlur, onFocus, onInput } = useBlurField(props.name, () => props.label)
+const { value, error, onBlur, onFocus, onInput } = useBlurField(
+  () => props.name,
+  () => props.label,
+)
 
 const id = computed(() => `field-${props.name}`)
 const hintId = computed(() => `${id.value}-hint`)

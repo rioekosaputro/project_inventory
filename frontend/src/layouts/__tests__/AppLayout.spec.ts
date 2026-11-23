@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { VueWrapper } from '@vue/test-utils'
 import { authService } from '@/services/authService'
 import { makeSession } from '@/test/helpers'
+import { resetLpbMocks } from '@/test/mockLpbService'
 import { mountApp, settle, stubRoute } from '@/test/mountApp'
 
 vi.mock('@/services/authService', () => import('@/test/mockAuthService'))
+vi.mock('@/services/lpbService', () => import('@/test/mockLpbService'))
 
 const svc = vi.mocked(authService)
 
@@ -13,6 +15,7 @@ let wrapper: VueWrapper | undefined
 beforeEach(() => {
   vi.clearAllMocks()
   svc.logout.mockResolvedValue(null)
+  resetLpbMocks()
 })
 
 afterEach(() => {
@@ -23,7 +26,6 @@ afterEach(() => {
 
 // Rute fase berikutnya, didaftarkan seolah modulnya sudah dibangun.
 const futureRoutes = [
-  stubRoute('/lpb/approvals', 'lpb-approvals', 'lpb.approve'),
   stubRoute('/admin/users', 'admin-users', 'user.manage'),
   stubRoute('/driver/deliveries', 'driver-deliveries', 'driver'),
 ]
@@ -43,7 +45,22 @@ describe('sidebar dinamis per permission', () => {
       makeSession({ role: 'HEAD_WAREHOUSE', permissions: ['lpb.read', 'lpb.approve'] }),
     )
 
-    expect(sidebarLinks(w)).toEqual(['Beranda', 'Persetujuan LPB'])
+    expect(sidebarLinks(w)).toEqual(['Beranda', 'LPB', 'Persetujuan LPB'])
+  })
+
+  it('di /lpb/approvals hanya Persetujuan LPB yang aktif (bukan LPB yang awalannya sama)', async () => {
+    const { wrapper: w, router } = await open(
+      makeSession({ role: 'HEAD_WAREHOUSE', permissions: ['lpb.read', 'lpb.approve'] }),
+    )
+    const current = () => w.findAll('aside nav a[aria-current="page"]').map((a) => a.text())
+
+    await router.push('/lpb/approvals')
+    await settle()
+    expect(current()).toEqual(['Persetujuan LPB'])
+
+    await router.push('/lpb')
+    await settle()
+    expect(current()).toEqual(['LPB'])
   })
 
   it('Admin melihat menu administrasi', async () => {

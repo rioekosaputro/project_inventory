@@ -18,12 +18,14 @@ defineProps<{
   loading?: boolean
   /** Gagal memuat data awal (mis. tidak ditemukan). */
   loadError?: string
+  /** Form dengan tabel isian (mis. daftar item) memerlukan lebar lebih. */
+  wide?: boolean
 }>()
 const emit = defineEmits<{ submit: [] }>()
 </script>
 
 <template>
-  <section class="max-w-2xl">
+  <section :class="wide ? 'max-w-4xl' : 'max-w-2xl'">
     <BackLink :to="backTo" :label="backLabel" />
     <h1 class="mt-3 text-xl font-semibold text-slate-900">{{ title }}</h1>
     <p v-if="description" class="mt-1 text-sm text-slate-600">{{ description }}</p>

@@ -12,6 +12,8 @@ const props = defineProps<{
   message?: string
   confirmLabel: string
   busy?: boolean
+  /** danger (bawaan) = merah untuk aksi yang menghapus/menonaktifkan; primary = aksi penting tapi bukan perusakan. */
+  tone?: 'danger' | 'primary'
 }>()
 const emit = defineEmits<{ confirm: []; cancel: [] }>()
 
@@ -50,7 +52,10 @@ function onClose(): void {
       </button>
       <button
         type="button"
-        class="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-70"
+        class="min-h-11 rounded-lg px-4 text-sm font-medium text-white disabled:opacity-70"
+        :class="
+          tone === 'primary' ? 'bg-indigo-700 hover:bg-indigo-800' : 'bg-red-700 hover:bg-red-800'
+        "
         :aria-busy="busy"
         @click="emit('confirm')"
       >

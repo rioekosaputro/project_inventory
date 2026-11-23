@@ -1,3 +1,4 @@
+import type { MaybeRefOrGetter } from 'vue'
 import { useField } from 'vee-validate'
 import { announce } from '@/composables/useAnnouncer'
 import { isProgrammaticFocus } from '@/lib/focus'
@@ -14,7 +15,7 @@ import { isProgrammaticFocus } from '@/lib/focus'
  * divalidasi, sehingga blur di Password bisa memunculkan kembali error Email yang baru saja
  * dihapus saat Email difokus.
  */
-export function useBlurField(name: string, label: () => string) {
+export function useBlurField(name: MaybeRefOrGetter<string>, label: () => string) {
   const { value, errorMessage, validate, setErrors } = useField<string>(name, undefined, {
     validateOnValueUpdate: false,
   })

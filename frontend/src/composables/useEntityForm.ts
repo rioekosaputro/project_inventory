@@ -20,6 +20,8 @@ export interface EntityFormOptions<T, V extends Values> {
   /** Nama field form; galat server untuk field lain menjadi galat tingkat form. */
   fields: readonly string[]
   listRoute: RouteLocationRaw
+  /** Tujuan setelah simpan bila bukan daftar (mis. halaman detail dokumen yang baru dibuat). */
+  afterSave?: (saved: T, isEdit: boolean) => RouteLocationRaw
   savedMessage: (entity: T, isEdit: boolean) => string
   /** Terjemahan pesan galat server per field (opsional). */
   fieldMessage?: (field: string, message: string) => string
@@ -80,7 +82,7 @@ export function useEntityForm<T, V extends Values>(opts: EntityFormOptions<T, V>
           summary: opts.savedMessage(saved, isEdit.value),
           life: 4000,
         })
-        await router.push(opts.listRoute)
+        await router.push(opts.afterSave?.(saved, isEdit.value) ?? opts.listRoute)
       } catch (e) {
         const err = toApiError(e)
         const known = err.fieldErrors.filter((fe) => opts.fields.includes(fe.field))

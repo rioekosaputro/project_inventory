@@ -17,6 +17,14 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   YES: { label: 'Ya', tone: 'sky' },
   NO: { label: 'Tidak', tone: 'slate' },
   LOCKED: { label: 'Dikunci opname', tone: 'red' },
+  // LPB (plan Bagian 5.2)
+  DRAFT: { label: 'Draft', tone: 'slate' },
+  PENDING_APPROVAL: { label: 'Menunggu persetujuan', tone: 'amber' },
+  APPROVED: { label: 'Disetujui', tone: 'green' },
+  REJECTED: { label: 'Ditolak', tone: 'red' },
+  CANCELLED: { label: 'Dibatalkan', tone: 'slate' },
+  INBOUND: { label: 'Masuk', tone: 'sky' },
+  OUTBOUND: { label: 'Keluar', tone: 'indigo' },
 }
 
 const TONES: Record<Tone, string> = {

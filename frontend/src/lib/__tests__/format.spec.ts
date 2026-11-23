@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRupiah } from '@/lib/format'
+import { formatDate, formatDateTime, formatRupiah, todayWIB } from '@/lib/format'
 
 const norm = (s: string) => s.replace(/\s/g, ' ')
 
@@ -18,5 +18,23 @@ describe('formatRupiah', () => {
     expect(formatRupiah(null)).toBe('—')
     expect(formatRupiah(undefined)).toBe('—')
     expect(formatRupiah('')).toBe('—')
+  })
+})
+
+describe('tanggal WIB', () => {
+  it('todayWIB memakai zona Asia/Jakarta: 23.30 UTC sudah hari berikutnya di WIB', () => {
+    expect(todayWIB(new Date('2026-11-21T23:30:00Z'))).toBe('2026-11-22')
+    expect(todayWIB(new Date('2026-11-21T16:59:00Z'))).toBe('2026-11-21')
+  })
+
+  it('formatDate: tanggal murni tidak bergeser hari; kosong dan tidak valid menjadi strip', () => {
+    expect(formatDate('2026-11-21')).toMatch(/21\s+Nov(?:ember)?\s+2026/)
+    expect(formatDate(null)).toBe('—')
+    expect(formatDate('bukan tanggal')).toBe('—')
+  })
+
+  it('formatDateTime menampilkan jam WIB', () => {
+    expect(formatDateTime('2026-11-21T10:05:00Z')).toMatch(/17[.:]05/)
+    expect(formatDateTime('')).toBe('—')
   })
 })

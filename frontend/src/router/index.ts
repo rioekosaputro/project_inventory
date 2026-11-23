@@ -103,6 +103,37 @@ export const routes: RouteRecordRaw[] = [
     list: () => import('@/views/master/SupplierListView.vue'),
     form: () => import('@/views/master/SupplierFormView.vue'),
   }),
+  // LPB (plan Bagian 9.4). Rute statis (/baru, /approvals) lebih dulu dari /:id.
+  {
+    path: '/lpb',
+    name: 'lpb',
+    component: () => import('@/views/lpb/LpbListView.vue'),
+    meta: { layout: 'app', permission: 'lpb.read', title: 'LPB' },
+  },
+  {
+    path: '/lpb/baru',
+    name: 'lpb-baru',
+    component: () => import('@/views/lpb/LpbFormView.vue'),
+    meta: { layout: 'app', permission: 'lpb.create', title: 'Buat LPB' },
+  },
+  {
+    path: '/lpb/approvals',
+    name: 'lpb-approvals',
+    component: () => import('@/views/lpb/LpbApprovalsView.vue'),
+    meta: { layout: 'app', permission: 'lpb.approve', title: 'Persetujuan LPB' },
+  },
+  {
+    path: '/lpb/:id(\\d+)',
+    name: 'lpb-detail',
+    component: () => import('@/views/lpb/LpbDetailView.vue'),
+    meta: { layout: 'app', permission: 'lpb.read', title: 'Rincian LPB' },
+  },
+  {
+    path: '/lpb/:id(\\d+)/ubah',
+    name: 'lpb-ubah',
+    component: () => import('@/views/lpb/LpbFormView.vue'),
+    meta: { layout: 'app', permission: 'lpb.create', title: 'Ubah Draft LPB' },
+  },
   {
     path: '/403',
     name: 'forbidden',

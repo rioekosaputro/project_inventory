@@ -8,7 +8,7 @@ const props = withDefaults(
     /** Nama field pada form vee-validate. */
     name: string
     label: string
-    type?: 'text' | 'email' | 'password'
+    type?: 'text' | 'email' | 'password' | 'date'
     autocomplete?: string
     inputmode?: 'text' | 'email' | 'numeric' | 'decimal' | 'tel'
     enterkeyhint?: 'next' | 'done' | 'go' | 'send'
@@ -23,7 +23,10 @@ const props = withDefaults(
   { type: 'text', required: false, revealable: false, readonly: false },
 )
 
-const { value, error, onBlur, onFocus, onInput } = useBlurField(props.name, () => props.label)
+const { value, error, onBlur, onFocus, onInput } = useBlurField(
+  () => props.name,
+  () => props.label,
+)
 
 const id = computed(() => `field-${props.name}`)
 const hintId = computed(() => `${id.value}-hint`)

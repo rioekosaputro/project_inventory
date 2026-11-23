@@ -15,10 +15,24 @@ const groups = computed(() =>
 )
 
 // Item aktif: path persis sama atau berada di bawah awalan (mis. /master/rak di bawah /master).
-function isActive(item: NavItem): boolean {
+// Bila beberapa item cocok (mis. /lpb dan /lpb/approvals untuk /lpb/approvals), hanya yang awalannya
+// paling spesifik (terpanjang) yang aktif.
+function matchLength(item: NavItem): number {
   const prefix = item.match ?? item.to
-  return route.path === item.to || route.path === prefix || route.path.startsWith(`${prefix}/`)
+  const hit = route.path === item.to || route.path === prefix || route.path.startsWith(`${prefix}/`)
+  return hit ? Math.max(prefix.length, item.to.length) : -1
 }
+const activeTo = computed(() => {
+  let best: { to: string; len: number } | null = null
+  for (const g of groups.value) {
+    for (const item of g.items) {
+      const len = matchLength(item)
+      if (len >= 0 && (!best || len > best.len)) best = { to: item.to, len }
+    }
+  }
+  return best?.to ?? null
+})
+const isActive = (item: NavItem): boolean => item.to === activeTo.value
 </script>
 
 <template>

@@ -8,6 +8,7 @@ import "context"
 type (
 	requestIDKey struct{}
 	clientKey    struct{}
+	userIDKey    struct{}
 )
 
 // WithRequestID mengembalikan context turunan yang membawa request id.
@@ -36,4 +37,17 @@ func WithClient(ctx context.Context, c Client) context.Context {
 func ClientFrom(ctx context.Context) Client {
 	c, _ := ctx.Value(clientKey{}).(Client)
 	return c
+}
+
+// WithUserID menandai pengguna yang sedang terautentikasi pada context. Dipasang middleware
+// Authenticate; AuditRepo memakainya sebagai pelaku bila AuditEntry.UserID kosong, sehingga setiap
+// perubahan data tercatat siapa yang melakukannya tanpa tiap usecase harus mengingat mengisinya.
+func WithUserID(ctx context.Context, id int64) context.Context {
+	return context.WithValue(ctx, userIDKey{}, id)
+}
+
+// UserIDFrom mengembalikan id pengguna terautentikasi dari context.
+func UserIDFrom(ctx context.Context) (int64, bool) {
+	id, ok := ctx.Value(userIDKey{}).(int64)
+	return id, ok
 }

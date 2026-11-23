@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/pkg/jwt"
 )
 
 // ---- helpers ----
@@ -26,8 +27,18 @@ func (e *env) tokenFor(role domain.Role, warehouseID *int64) string {
 	if warehouseID != nil {
 		e.exec(`UPDATE users SET warehouse_id = $2 WHERE id = $1`, id, *warehouseID)
 	}
-	access, _ := e.mustLogin(email)
-	return access
+	return e.mint(id, role, warehouseID)
+}
+
+// mint menerbitkan access token langsung (tanpa login bcrypt cost 12 yang lambat, apalagi dengan -race).
+// Alur login sendiri diuji di auth_integration_test.go.
+func (e *env) mint(userID int64, role domain.Role, warehouseID *int64) string {
+	e.t.Helper()
+	m, err := jwt.NewManager(e.cfg.JWTAccessSecret, e.cfg.JWTAccessTTL)
+	require.NoError(e.t, err)
+	tok, _, err := m.Issue(jwt.Claims{UserID: userID, Role: string(role), WarehouseID: warehouseID}, e.clk.Now())
+	require.NoError(e.t, err)
+	return tok
 }
 
 func (r *reply) list() []map[string]any {
@@ -875,4 +886,34 @@ func TestMaster_ConcurrentSameCode_OnlyOneWins(t *testing.T) {
 	assert.Equal(t, n-1, conflicts)
 	assert.Equal(t, 1, e.count(`SELECT count(*) FROM warehouses WHERE code='WH-RACE'`))
 	assert.Equal(t, 1, e.count(`SELECT count(*) FROM audit_logs WHERE action='WAREHOUSE_CREATE'`), "gagal → tidak ada audit (rollback)")
+}
+
+// Setiap perubahan data tercatat SIAPA pelakunya (user_id), tanpa usecase harus mengisinya.
+func TestAudit_RecordsAuthenticatedActor(t *testing.T) {
+	e := newEnv(t)
+	adminID := e.addUser("admin@x.id", domain.RoleAdmin)
+	admin, _ := e.mustLogin("admin@x.id")
+	headID := e.addUser("head@x.id", domain.RoleHeadWarehouse)
+	head, _ := e.mustLogin("head@x.id")
+
+	wh := idOf(e.post(head, "/api/v1/warehouses", map[string]any{"code": "WH-1", "name": "G"}))
+	require.Equal(t, 200, e.patchReq(head, fmt.Sprintf("/api/v1/warehouses/%d", wh), map[string]any{"name": "Baru"}).status())
+	cat := e.post(admin, "/api/v1/categories", map[string]any{"name": "Printer", "item_type": "ASSET"})
+	require.Equal(t, 201, cat.status())
+	user := e.createUser(admin, map[string]any{"name": "Budi", "email": "budi@x.id", "role": "DRIVER"})
+	require.Equal(t, 201, user.status())
+
+	actorOf := func(action string, entityID int64) int64 {
+		var id *int64
+		require.NoError(t, e.pool.QueryRow(testCtx(),
+			`SELECT user_id FROM audit_logs WHERE action=$1 AND entity_id=$2`, action, entityID).Scan(&id))
+		require.NotNil(t, id, "%s harus punya pelaku", action)
+		return *id
+	}
+	assert.Equal(t, headID, actorOf("WAREHOUSE_CREATE", wh))
+	assert.Equal(t, headID, actorOf("WAREHOUSE_UPDATE", wh))
+	assert.Equal(t, adminID, actorOf("CATEGORY_CREATE", idOf(cat)))
+	assert.Equal(t, adminID, actorOf("USER_CREATE", idOf(user)))
+	assert.Equal(t, 0, e.count(`SELECT count(*) FROM audit_logs WHERE user_id IS NULL AND action NOT IN ('LOGIN_FAILED')`),
+		"tidak ada baris audit tanpa pelaku")
 }

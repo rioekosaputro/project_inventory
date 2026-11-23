@@ -10,6 +10,7 @@ import (
 	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/pkg/clock"
 	"rental-inventory-api/pkg/jwt"
+	"rental-inventory-api/pkg/reqctx"
 )
 
 const principalKey = "principal"
@@ -59,6 +60,8 @@ func authenticate(parser TokenParser, clk clock.Clock, allowMustChange bool) gin
 			WarehouseID:        claims.WarehouseID,
 			MustChangePassword: claims.MustChangePassword,
 		})
+		// Pelaku untuk audit_logs (lihat reqctx.WithUserID).
+		c.Request = c.Request.WithContext(reqctx.WithUserID(c.Request.Context(), claims.UserID))
 		c.Next()
 	}
 }

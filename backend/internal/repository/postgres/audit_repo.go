@@ -29,13 +29,19 @@ func (r *AuditRepo) Insert(ctx context.Context, e domain.AuditEntry) error {
 	if err != nil {
 		return fmt.Errorf("audit: after_data: %w", err)
 	}
+	actor := e.UserID
+	if actor == nil { // pelaku dari context (pengguna terautentikasi) bila usecase tidak mengisinya
+		if id, ok := reqctx.UserIDFrom(ctx); ok {
+			actor = &id
+		}
+	}
 	client := reqctx.ClientFrom(ctx)
 
 	_, err = database.GetExecutor(ctx, r.pool).Exec(ctx, `
 		INSERT INTO audit_logs (user_id, action, entity_type, entity_id, before_data, after_data,
 		                        ip_address, user_agent, request_id)
 		VALUES ($1, $2, NULLIF($3::text, ''), $4, $5::jsonb, $6::jsonb, $7::inet, NULLIF($8::text, ''), NULLIF($9::text, ''))`,
-		e.UserID, e.Action, e.EntityType, e.EntityID, before, after,
+		actor, e.Action, e.EntityType, e.EntityID, before, after,
 		ipOrNil(client.IP), client.UserAgent, reqctx.RequestID(ctx))
 	return err
 }

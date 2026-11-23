@@ -20,9 +20,8 @@ import (
 
 func (e *env) adminToken(email string) string {
 	e.t.Helper()
-	e.addUser(email, domain.RoleAdmin)
-	access, _ := e.mustLogin(email)
-	return access
+	id := e.addUser(email, domain.RoleAdmin)
+	return e.mint(id, domain.RoleAdmin, nil)
 }
 
 func (e *env) addWarehouse(code string, active bool) int64 {

@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,11 +23,11 @@ import (
 
 func withHeader(k, v string) mod { return func(r *nethttp.Request) { r.Header.Set(k, v) } }
 
-var keySeq int
+var keySeq atomic.Int64
 
+// nextKey dipanggil juga dari goroutine (tes konkurensi): wajib aman terhadap race.
 func nextKey() string {
-	keySeq++
-	return fmt.Sprintf("test-key-%06d", keySeq)
+	return fmt.Sprintf("test-key-%06d", keySeq.Add(1))
 }
 
 func (e *env) approve(token string, id int64, key string) *reply {

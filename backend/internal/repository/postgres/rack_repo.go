@@ -95,3 +95,25 @@ func (r *RackRepo) HasStock(ctx context.Context, id int64) (bool, error) {
 		    OR EXISTS (SELECT 1 FROM product_serials WHERE current_rack_id = $1)`, id).Scan(&has)
 	return has, err
 }
+
+func (r *RackRepo) LockForShare(ctx context.Context, ids []int64) ([]domain.Rack, error) {
+	database.MustInTx(ctx)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx,
+		`SELECT `+rackColumns+` FROM `+rackFrom+` WHERE r.id = ANY($1) ORDER BY r.id FOR SHARE OF r`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Rack
+	for rows.Next() {
+		rack, err := scanRack(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rack)
+	}
+	return out, rows.Err()
+}

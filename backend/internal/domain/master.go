@@ -148,6 +148,8 @@ type WarehouseRepository interface {
 	FindByID(ctx context.Context, id int64) (*Warehouse, error)
 	// FindByIDForUpdate wajib di dalam transaksi.
 	FindByIDForUpdate(ctx context.Context, id int64) (*Warehouse, error)
+	// FindByIDForShare: FOR SHARE (wajib di dalam transaksi) — menahan perubahan gudang selama approve.
+	FindByIDForShare(ctx context.Context, id int64) (*Warehouse, error)
 	List(ctx context.Context, f WarehouseFilter, p PageParams) ([]Warehouse, int64, error)
 	Create(ctx context.Context, w *Warehouse) (*Warehouse, error)
 	// Update menyimpan name, address, phone, latitude, longitude, is_active (code tidak berubah).
@@ -157,6 +159,9 @@ type WarehouseRepository interface {
 }
 
 type RackRepository interface {
+	// LockForShare mengunci baris rak (FOR SHARE, urut id) agar rak tidak dapat dikunci opname / dinonaktifkan
+	// selama transaksi approve berjalan. Wajib di dalam transaksi.
+	LockForShare(ctx context.Context, ids []int64) ([]Rack, error)
 	FindByID(ctx context.Context, id int64) (*Rack, error)
 	FindByIDForUpdate(ctx context.Context, id int64) (*Rack, error)
 	List(ctx context.Context, f RackFilter, scopeWarehouseID *int64, p PageParams) ([]Rack, int64, error)

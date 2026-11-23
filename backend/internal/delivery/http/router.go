@@ -42,11 +42,17 @@ type Deps struct {
 	// LPB draft (T1.5).
 	LPB *handler.LPBHandler
 
+	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
+	Idempotency domain.IdempotencyRepository
+
 	Tokens middleware.TokenParser
 	Clock  clock.Clock
 }
 
 const readyzTimeout = 3 * time.Second
+
+// idempotencyTTL: lama respons aksi kritis disimpan untuk diputar ulang.
+const idempotencyTTL = 24 * time.Hour
 
 // NewRouter membangun engine Gin dengan middleware dasar (plan Bagian 7.5):
 // RequestID → SecurityHeaders → Recover → Logger → CORS, lalu per route:
@@ -226,10 +232,12 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 	read := middleware.RequirePermission(domain.PermLPBRead)
 	create := middleware.RequirePermission(domain.PermLPBCreate)
 	submit := middleware.RequirePermission(domain.PermLPBSubmit)
+	approve := middleware.RequirePermission(domain.PermLPBApprove)
 
 	g := api.Group("/lpb", middleware.Authenticate(deps.Tokens, deps.Clock))
 	g.GET("", read, h.List)
 	g.POST("", create, h.Create)
+	g.GET("/approvals", approve, h.Approvals)
 	g.GET("/:id", read, h.Get)
 	g.PATCH("/:id", create, h.Update)
 	g.POST("/:id/items/:itemId/serials", create, h.AddSerial)
@@ -237,4 +245,8 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 	g.POST("/:id/submit", submit, h.Submit)
 	g.POST("/:id/cancel", create, h.Cancel)
 	g.POST("/:id/revise", create, h.Revise)
+	if deps.Idempotency != nil {
+		g.POST("/:id/approve", approve, middleware.Idempotency(deps.Idempotency, idempotencyTTL), h.Approve)
+	}
+	g.POST("/:id/reject", approve, h.Reject)
 }

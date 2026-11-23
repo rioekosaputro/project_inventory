@@ -98,3 +98,8 @@ func (r *WarehouseRepo) HasStock(ctx context.Context, id int64) (bool, error) {
 		)`, id).Scan(&has)
 	return has, err
 }
+
+func (r *WarehouseRepo) FindByIDForShare(ctx context.Context, id int64) (*domain.Warehouse, error) {
+	database.MustInTx(ctx)
+	return r.find(ctx, id, " FOR SHARE OF w")
+}

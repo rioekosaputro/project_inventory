@@ -61,14 +61,16 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(postgres.NewInventoryRepo(pool))),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, postgres.NewLPBRepo(pool), warehouseRepo, rackRepo, productRepo, supplierRepo,
-			postgres.NewInventoryRepo(pool), auditRepo, docnum.New(pool), clk,
+			postgres.NewInventoryRepo(pool), postgres.NewStockRepo(pool), postgres.NewSettingsRepo(pool),
+			auditRepo, docnum.New(pool), clk,
 		)),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,
 		}),
-		Tokens: tokens,
-		Clock:  clk,
+		Tokens:      tokens,
+		Idempotency: postgres.NewIdempotencyRepo(pool),
+		Clock:       clk,
 	}
 
 	return apihttp.NewRouter(cfg, logger, deps, apihttp.ReadinessCheck{

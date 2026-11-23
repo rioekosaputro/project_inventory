@@ -32,6 +32,8 @@ type LPBUsecase struct {
 	products   domain.ProductRepository
 	suppliers  domain.SupplierRepository
 	inventory  domain.InventoryRepository
+	stock      domain.StockRepository
+	settings   domain.SettingsRepository
 	audit      domain.AuditRepository
 	docs       domain.DocNumberGenerator
 	clock      clock.Clock
@@ -45,13 +47,15 @@ func NewLPBUsecase(
 	products domain.ProductRepository,
 	suppliers domain.SupplierRepository,
 	inventory domain.InventoryRepository,
+	stock domain.StockRepository,
+	settings domain.SettingsRepository,
 	audit domain.AuditRepository,
 	docs domain.DocNumberGenerator,
 	clk clock.Clock,
 ) *LPBUsecase {
 	return &LPBUsecase{
 		tx: tx, repo: repo, warehouses: warehouses, racks: racks, products: products,
-		suppliers: suppliers, inventory: inventory, audit: audit, docs: docs, clock: clk,
+		suppliers: suppliers, inventory: inventory, stock: stock, settings: settings, audit: audit, docs: docs, clock: clk,
 	}
 }
 

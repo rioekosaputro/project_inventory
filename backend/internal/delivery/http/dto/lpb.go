@@ -149,6 +149,9 @@ type LPBItemResponse struct {
 	UnitCost        *string                 `json:"unit_cost"`
 	Notes           *string                 `json:"notes"`
 	ScannedCount    int                     `json:"scanned_count"`
+	CurrentQty      int                     `json:"current_qty"`
+	BalanceBefore   *int                    `json:"balance_before"`
+	BalanceAfter    *int                    `json:"balance_after"`
 	Serials         []LPBItemSerialResponse `json:"serials"`
 }
 
@@ -178,6 +181,7 @@ func NewLPBDetailResponse(d *usecase.LPBDetail) LPBDetailResponse {
 			ID: it.ID, ProductID: it.ProductID, SKU: it.SKU, ProductName: it.ProductName, Unit: it.Unit,
 			HasSerialNumber: it.HasSerialNumber, RackID: it.RackID, RackCode: it.RackCode, RackIsSellable: it.RackIsSellable,
 			Qty: it.Qty, UnitCost: money(it.UnitCost), Notes: it.Notes, ScannedCount: len(it.Serials), Serials: serials,
+			CurrentQty: it.CurrentQty, BalanceBefore: it.BalanceBefore, BalanceAfter: it.BalanceAfter,
 		})
 	}
 	events := make([]LPBEventResponse, 0, len(d.Timeline))
@@ -196,4 +200,8 @@ type AddSerialResponse struct {
 	LPBItemSerialResponse
 	Scanned int `json:"scanned_count"`
 	Qty     int `json:"qty"`
+}
+
+type RejectLPBRequest struct {
+	Reason string `json:"reason" binding:"required,min=3,max=500"`
 }

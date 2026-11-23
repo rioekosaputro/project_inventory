@@ -154,16 +154,20 @@ func (r *LPBRepo) MarkRevised(ctx context.Context, id int64) error {
 
 const itemFrom = `lpb_items i
 	JOIN products p ON p.id = i.product_id
-	JOIN racks r ON r.id = i.rack_id`
+	JOIN racks r ON r.id = i.rack_id
+	LEFT JOIN stock_balances sb ON sb.product_id = i.product_id AND sb.rack_id = i.rack_id
+	LEFT JOIN stock_ledgers lg ON lg.lpb_item_id = i.id`
 
 const itemColumns = `i.id, i.lpb_id, i.product_id, p.sku, p.name, p.unit, p.has_serial_number,
-	i.rack_id, r.code, r.is_sellable, i.qty, i.unit_cost::text, i.notes`
+	i.rack_id, r.code, r.is_sellable, i.qty, i.unit_cost::text, i.notes,
+	COALESCE(sb.qty_on_hand, 0), lg.balance_before, lg.balance_after`
 
 func scanItem(row pgx.Row) (domain.LPBItem, error) {
 	var it domain.LPBItem
 	var cost *string
 	err := row.Scan(&it.ID, &it.LPBID, &it.ProductID, &it.SKU, &it.ProductName, &it.Unit, &it.HasSerialNumber,
-		&it.RackID, &it.RackCode, &it.RackIsSellable, &it.Qty, &cost, &it.Notes)
+		&it.RackID, &it.RackCode, &it.RackIsSellable, &it.Qty, &cost, &it.Notes,
+		&it.CurrentQty, &it.BalanceBefore, &it.BalanceAfter)
 	if err != nil {
 		return it, err
 	}
@@ -374,4 +378,21 @@ func (r *LPBRepo) LockSerialKey(ctx context.Context, productID int64, serialNumb
 	_, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`,
 		fmt.Sprintf("lpb-serial:%d:%s", productID, strings.ToUpper(serialNumber)))
 	return err
+}
+
+func (r *LPBRepo) MarkApproved(ctx context.Context, id, userID int64, at time.Time, verifyToken string) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE lpb_documents SET status = 'APPROVED', approved_by = $2, approved_at = $3, verify_token = $4
+		WHERE id = $1`, id, userID, at, verifyToken))
+}
+
+func (r *LPBRepo) MarkRejected(ctx context.Context, id, userID int64, at time.Time, reason string) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE lpb_documents SET status = 'REJECTED', rejected_by = $2, rejected_at = $3, rejection_reason = $4
+		WHERE id = $1`, id, userID, at, reason))
+}
+
+func (r *LPBRepo) SetItemSerialLink(ctx context.Context, itemSerialID, productSerialID int64) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx,
+		`UPDATE lpb_item_serials SET product_serial_id = $2 WHERE id = $1`, itemSerialID, productSerialID))
 }

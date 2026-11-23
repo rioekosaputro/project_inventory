@@ -99,12 +99,14 @@ func (c SerialCondition) Valid() bool {
 
 // Aksi audit LPB (entity_type "lpb"); juga membentuk timeline dokumen.
 const (
-	EntityLPB      = "lpb"
-	AuditLPBCreate = "LPB_CREATE"
-	AuditLPBUpdate = "LPB_UPDATE"
-	AuditLPBSubmit = "LPB_SUBMIT"
-	AuditLPBCancel = "LPB_CANCEL"
-	AuditLPBRevise = "LPB_REVISE"
+	EntityLPB       = "lpb"
+	AuditLPBCreate  = "LPB_CREATE"
+	AuditLPBUpdate  = "LPB_UPDATE"
+	AuditLPBSubmit  = "LPB_SUBMIT"
+	AuditLPBCancel  = "LPB_CANCEL"
+	AuditLPBRevise  = "LPB_REVISE"
+	AuditLPBApprove = "LPB_APPROVE"
+	AuditLPBReject  = "LPB_REJECT"
 )
 
 // LPB adalah header dokumen penerimaan/pengeluaran barang.
@@ -156,7 +158,12 @@ type LPBItem struct {
 	Qty             int
 	UnitCost        *decimal.Decimal
 	Notes           *string
-	Serials         []LPBItemSerial
+	// CurrentQty: saldo rak saat ini (qty_on_hand) — untuk tampilan "sebelum → sesudah" sebelum approve.
+	CurrentQty int
+	// BalanceBefore/After: saldo rak sebelum/sesudah mutasi item ini (dari ledger; hanya setelah APPROVED).
+	BalanceBefore *int
+	BalanceAfter  *int
+	Serials       []LPBItemSerial
 }
 
 type LPBItemSerial struct {
@@ -212,6 +219,12 @@ type LPBRepository interface {
 	MarkCancelled(ctx context.Context, id int64) error
 	// MarkRevised: REJECTED → DRAFT (alasan penolakan tetap tersimpan sampai diajukan ulang).
 	MarkRevised(ctx context.Context, id int64) error
+	// MarkApproved: PENDING_APPROVAL → APPROVED beserta token verifikasi QR.
+	MarkApproved(ctx context.Context, id, userID int64, at time.Time, verifyToken string) error
+	// MarkRejected: PENDING_APPROVAL → REJECTED dengan alasan.
+	MarkRejected(ctx context.Context, id, userID int64, at time.Time, reason string) error
+	// SetItemSerialLink mengaitkan baris scan dengan unit yang baru didaftarkan saat approve.
+	SetItemSerialLink(ctx context.Context, itemSerialID, productSerialID int64) error
 
 	Items(ctx context.Context, lpbID int64) ([]LPBItem, error)
 	FindItem(ctx context.Context, lpbID, itemID int64) (*LPBItem, error)

@@ -47,6 +47,11 @@ var (
 	ErrProductInUse     = errors.New("Produk sudah memiliki stok atau transaksi, SKU dan mode serial number tidak dapat diubah")
 	ErrCategoryInUse    = errors.New("Kategori sudah dipakai produk, jenis barang tidak dapat diubah")
 
+	// Idempotency (plan Bagian 7.5)
+	ErrIdempotencyKeyRequired = errors.New("Header Idempotency-Key wajib diisi untuk aksi ini")
+	ErrIdempotencyInProgress  = errors.New("Permintaan dengan Idempotency-Key ini masih diproses, coba lagi sebentar lagi")
+	ErrIdempotencyMismatch    = errors.New("Idempotency-Key ini sudah dipakai untuk permintaan lain")
+
 	// Inventory (T1.4)
 	ErrSerialAmbiguous = errors.New("Serial number cocok dengan lebih dari satu produk; scan asset tag unit")
 )

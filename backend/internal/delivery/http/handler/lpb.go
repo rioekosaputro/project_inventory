@@ -255,3 +255,74 @@ func parseIDParam(c *gin.Context, name string) (int64, bool) {
 	}
 	return id, true
 }
+
+var approvalSort = pagination.SortSpec{
+	Allowed: map[string]string{
+		"submitted_at": "l.submitted_at", "lpb_number": "l.lpb_number", "doc_date": "l.doc_date", "warehouse": "w.code",
+	},
+	Default: "submitted_at",
+}
+
+// Approvals — GET /lpb/approvals (antrean menunggu persetujuan, tertua dulu)
+func (h *LPBHandler) Approvals(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	page, pp, ok := pageOf(c, approvalSort)
+	if !ok {
+		return
+	}
+	var q dto.ListLPBQuery
+	if !httperr.BindQuery(c, &q) {
+		return
+	}
+	f := domain.LPBFilter{Query: q.Q, WarehouseID: q.WarehouseID}
+	if q.SubType != "" {
+		s := domain.LPBSubType(q.SubType)
+		if !s.Valid() {
+			httperr.BadQueryField(c, "sub_type", "tidak valid")
+			return
+		}
+		f.SubType = &s
+	}
+	items, total, err := h.uc.Approvals(c.Request.Context(), a, f, pp)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	out := make([]dto.LPBListResponse, 0, len(items))
+	for i := range items {
+		out = append(out, dto.NewLPBListResponse(&items[i]))
+	}
+	response.Paginated(c, out, pagination.NewMeta(page, total))
+}
+
+// Approve — POST /lpb/:id/approve (wajib Idempotency-Key; dipasang di router)
+func (h *LPBHandler) Approve(c *gin.Context) {
+	h.transition(c, func(a domain.Principal, id int64) (*usecase.LPBDetail, error) {
+		return h.uc.Approve(c.Request.Context(), a, id)
+	}, "LPB disetujui; stok diperbarui")
+}
+
+// Reject — POST /lpb/:id/reject  {reason}
+func (h *LPBHandler) Reject(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req dto.RejectLPBRequest
+	if !httperr.BindJSON(c, &req) {
+		return
+	}
+	d, err := h.uc.Reject(c.Request.Context(), a, id, req.Reason)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.OKMessage(c, "LPB ditolak", dto.NewLPBDetailResponse(d))
+}

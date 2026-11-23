@@ -39,6 +39,9 @@ type Deps struct {
 	// Inventory baca (T1.4).
 	Inventory *handler.InventoryHandler
 
+	// LPB draft (T1.5).
+	LPB *handler.LPBHandler
+
 	Tokens middleware.TokenParser
 	Clock  clock.Clock
 }
@@ -81,6 +84,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerUserRoutes(api, deps)
 	registerMasterRoutes(api, deps)
 	registerInventoryRoutes(api, deps)
+	registerLPBRoutes(api, deps)
 
 	return r
 }
@@ -210,4 +214,27 @@ func registerInventoryRoutes(api *gin.RouterGroup, deps Deps) {
 	g.GET("/balances/summary", h.ProductStock)
 	g.GET("/serials", h.Serials)
 	g.GET("/serials/scan/:code", h.ScanSerial)
+}
+
+// registerLPBRoutes — plan Bagian 8.3 (tahap draft): baca lpb.read, ubah/scan/batal/revisi lpb.create,
+// ajukan lpb.submit. Approve/reject menyusul (T1.6). Akses gudang dan kepemilikan draft di usecase.
+func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.LPB
+	if h == nil {
+		return
+	}
+	read := middleware.RequirePermission(domain.PermLPBRead)
+	create := middleware.RequirePermission(domain.PermLPBCreate)
+	submit := middleware.RequirePermission(domain.PermLPBSubmit)
+
+	g := api.Group("/lpb", middleware.Authenticate(deps.Tokens, deps.Clock))
+	g.GET("", read, h.List)
+	g.POST("", create, h.Create)
+	g.GET("/:id", read, h.Get)
+	g.PATCH("/:id", create, h.Update)
+	g.POST("/:id/items/:itemId/serials", create, h.AddSerial)
+	g.DELETE("/:id/items/:itemId/serials/:serialId", create, h.RemoveSerial)
+	g.POST("/:id/submit", submit, h.Submit)
+	g.POST("/:id/cancel", create, h.Cancel)
+	g.POST("/:id/revise", create, h.Revise)
 }

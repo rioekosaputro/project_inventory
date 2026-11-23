@@ -1,0 +1,377 @@
+package postgres
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/pkg/database"
+)
+
+type LPBRepo struct{ pool *pgxpool.Pool }
+
+func NewLPBRepo(pool *pgxpool.Pool) *LPBRepo { return &LPBRepo{pool: pool} }
+
+var _ domain.LPBRepository = (*LPBRepo)(nil)
+
+const lpbFrom = `lpb_documents l
+	JOIN warehouses w ON w.id = l.warehouse_id
+	JOIN users cu ON cu.id = l.created_by
+	LEFT JOIN suppliers s ON s.id = l.supplier_id`
+
+const lpbColumns = `l.id, l.lpb_number, l.type, l.sub_type, l.status, l.warehouse_id, w.code, l.doc_date::text,
+	l.reference_type, l.reference_number, l.supplier_id, s.name, l.notes, l.created_by, cu.name,
+	l.submitted_by, l.submitted_at, l.approved_by, l.approved_at, l.rejected_by, l.rejected_at, l.rejection_reason,
+	l.created_at, l.updated_at`
+
+func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
+	var (
+		l                domain.LPB
+		typ, sub, status string
+	)
+	dest := append([]any{
+		&l.ID, &l.Number, &typ, &sub, &status, &l.WarehouseID, &l.WarehouseCode, &l.DocDate,
+		&l.ReferenceType, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.Notes, &l.CreatedBy, &l.CreatedByName,
+		&l.SubmittedBy, &l.SubmittedAt, &l.ApprovedBy, &l.ApprovedAt, &l.RejectedBy, &l.RejectedAt, &l.RejectionReason,
+		&l.CreatedAt, &l.UpdatedAt,
+	}, extra...)
+	err := row.Scan(dest...)
+	l.Type, l.SubType, l.Status = domain.LPBType(typ), domain.LPBSubType(sub), domain.LPBStatus(status)
+	return l, err
+}
+
+func (r *LPBRepo) find(ctx context.Context, id int64, suffix string) (*domain.LPB, error) {
+	l, err := scanLPBInto(database.GetExecutor(ctx, r.pool).QueryRow(ctx,
+		`SELECT `+lpbColumns+` FROM `+lpbFrom+` WHERE l.id = $1`+suffix, id))
+	if err != nil {
+		return nil, notFound(err)
+	}
+	return &l, nil
+}
+
+func (r *LPBRepo) FindByID(ctx context.Context, id int64) (*domain.LPB, error) {
+	l, err := r.find(ctx, id, "")
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil, domain.ErrLPBNotFound
+	}
+	return l, err
+}
+
+func (r *LPBRepo) FindByIDForUpdate(ctx context.Context, id int64) (*domain.LPB, error) {
+	database.MustInTx(ctx)
+	l, err := r.find(ctx, id, " FOR UPDATE OF l")
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil, domain.ErrLPBNotFound
+	}
+	return l, err
+}
+
+func (r *LPBRepo) Create(ctx context.Context, l *domain.LPB) (*domain.LPB, error) {
+	var id int64
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		INSERT INTO lpb_documents (lpb_number, type, sub_type, status, warehouse_id, doc_date, reference_type,
+		                           reference_number, supplier_id, notes, created_by)
+		VALUES ($1, $2, $3, 'DRAFT', $4, $5::date, $6, $7, $8, $9, $10) RETURNING id`,
+		l.Number, string(l.Type), string(l.SubType), l.WarehouseID, l.DocDate, l.ReferenceType,
+		l.ReferenceNumber, l.SupplierID, l.Notes, l.CreatedBy).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return r.FindByID(ctx, id)
+}
+
+func (r *LPBRepo) List(ctx context.Context, f domain.LPBFilter, p domain.PageParams) ([]domain.LPBListItem, int64, error) {
+	var b filterBuilder
+	b.like(f.Query, "l.lpb_number", "l.reference_number", "s.name")
+	if f.Type != nil {
+		b.add("l.type = $%d", string(*f.Type))
+	}
+	if f.SubType != nil {
+		b.add("l.sub_type = $%d", string(*f.SubType))
+	}
+	if f.Status != nil {
+		b.add("l.status = $%d", string(*f.Status))
+	}
+	if f.WarehouseID != nil {
+		b.add("l.warehouse_id = $%d", *f.WarehouseID)
+	}
+	if f.ScopeWarehouseID != nil {
+		b.add("l.warehouse_id = $%d", *f.ScopeWarehouseID)
+	}
+	if f.DateFrom != nil {
+		b.add("l.doc_date >= $%d::date", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		b.add("l.doc_date <= $%d::date", *f.DateTo)
+	}
+	if f.CreatedBy != nil {
+		b.add("l.created_by = $%d", *f.CreatedBy)
+	}
+
+	from := lpbFrom + ` LEFT JOIN (SELECT lpb_id, count(*) AS cnt, SUM(qty) AS qty FROM lpb_items GROUP BY lpb_id) ia ON ia.lpb_id = l.id`
+	columns := lpbColumns + `, COALESCE(ia.cnt, 0)::int, COALESCE(ia.qty, 0)::int`
+	return queryPage(ctx, database.GetExecutor(ctx, r.pool), from, columns, &b, p, "l.id",
+		func(row pgx.Row) (domain.LPBListItem, error) {
+			var it domain.LPBListItem
+			l, err := scanLPBInto(row, &it.ItemCount, &it.TotalQty)
+			it.LPB = l
+			return it, err
+		})
+}
+
+func (r *LPBRepo) UpdateHeader(ctx context.Context, l *domain.LPB) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE lpb_documents SET doc_date = $2::date, supplier_id = $3, reference_type = $4,
+		       reference_number = $5, notes = $6
+		WHERE id = $1`, l.ID, l.DocDate, l.SupplierID, l.ReferenceType, l.ReferenceNumber, l.Notes))
+}
+
+func (r *LPBRepo) MarkSubmitted(ctx context.Context, id, userID int64, at time.Time) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE lpb_documents SET status = 'PENDING_APPROVAL', submitted_by = $2, submitted_at = $3,
+		       rejected_by = NULL, rejected_at = NULL, rejection_reason = NULL
+		WHERE id = $1`, id, userID, at))
+}
+
+func (r *LPBRepo) MarkCancelled(ctx context.Context, id int64) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx,
+		`UPDATE lpb_documents SET status = 'CANCELLED' WHERE id = $1`, id))
+}
+
+func (r *LPBRepo) MarkRevised(ctx context.Context, id int64) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE lpb_documents SET status = 'DRAFT', submitted_by = NULL, submitted_at = NULL WHERE id = $1`, id))
+}
+
+// ---------------------------------------------------------------- item
+
+const itemFrom = `lpb_items i
+	JOIN products p ON p.id = i.product_id
+	JOIN racks r ON r.id = i.rack_id`
+
+const itemColumns = `i.id, i.lpb_id, i.product_id, p.sku, p.name, p.unit, p.has_serial_number,
+	i.rack_id, r.code, r.is_sellable, i.qty, i.unit_cost::text, i.notes`
+
+func scanItem(row pgx.Row) (domain.LPBItem, error) {
+	var it domain.LPBItem
+	var cost *string
+	err := row.Scan(&it.ID, &it.LPBID, &it.ProductID, &it.SKU, &it.ProductName, &it.Unit, &it.HasSerialNumber,
+		&it.RackID, &it.RackCode, &it.RackIsSellable, &it.Qty, &cost, &it.Notes)
+	if err != nil {
+		return it, err
+	}
+	it.UnitCost, err = moneyFrom(cost)
+	return it, err
+}
+
+func (r *LPBRepo) Items(ctx context.Context, lpbID int64) ([]domain.LPBItem, error) {
+	db := database.GetExecutor(ctx, r.pool)
+	rows, err := db.Query(ctx, `SELECT `+itemColumns+` FROM `+itemFrom+` WHERE i.lpb_id = $1 ORDER BY i.id`, lpbID)
+	if err != nil {
+		return nil, err
+	}
+	var items []domain.LPBItem
+	for rows.Next() {
+		it, err := scanItem(rows)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	serials, err := r.serialsOf(ctx, `i.lpb_id = $1`, lpbID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].Serials = serials[items[i].ID]
+	}
+	return items, nil
+}
+
+func (r *LPBRepo) FindItem(ctx context.Context, lpbID, itemID int64) (*domain.LPBItem, error) {
+	it, err := scanItem(database.GetExecutor(ctx, r.pool).QueryRow(ctx,
+		`SELECT `+itemColumns+` FROM `+itemFrom+` WHERE i.lpb_id = $1 AND i.id = $2`, lpbID, itemID))
+	if err != nil {
+		return nil, notFound(err)
+	}
+	serials, err := r.serialsOf(ctx, `i.id = $1`, itemID)
+	if err != nil {
+		return nil, err
+	}
+	it.Serials = serials[it.ID]
+	return &it, nil
+}
+
+// serialsOf membaca SN item berdasarkan kondisi atas alias i (lpb_items), dikelompokkan per item.
+func (r *LPBRepo) serialsOf(ctx context.Context, cond string, arg int64) (map[int64][]domain.LPBItemSerial, error) {
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
+		SELECT s.id, s.lpb_item_id, s.product_serial_id, s.serial_number, ps.asset_tag,
+		       s.condition_on_scan, s.scanned_by, s.scanned_at
+		FROM lpb_item_serials s
+		JOIN lpb_items i ON i.id = s.lpb_item_id
+		LEFT JOIN product_serials ps ON ps.id = s.product_serial_id
+		WHERE `+cond+` ORDER BY s.id`, arg)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64][]domain.LPBItemSerial{}
+	for rows.Next() {
+		var s domain.LPBItemSerial
+		var cond string
+		if err := rows.Scan(&s.ID, &s.LPBItemID, &s.ProductSerialID, &s.SerialNumber, &s.AssetTag, &cond, &s.ScannedBy, &s.ScannedAt); err != nil {
+			return nil, err
+		}
+		s.Condition = domain.SerialCondition(cond)
+		out[s.LPBItemID] = append(out[s.LPBItemID], s)
+	}
+	return out, rows.Err()
+}
+
+func (r *LPBRepo) InsertItem(ctx context.Context, lpbID int64, it *domain.LPBItem) (int64, error) {
+	var id int64
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		INSERT INTO lpb_items (lpb_id, product_id, rack_id, qty, unit_cost, notes)
+		VALUES ($1, $2, $3, $4, $5::text::numeric, $6) RETURNING id`,
+		lpbID, it.ProductID, it.RackID, it.Qty, moneyArg(it.UnitCost), it.Notes).Scan(&id)
+	return id, duplicateOf(err, map[string]domain.DuplicateError{
+		"lpb_items_lpb_id_product_id_rack_id_key": {Field: "items", Message: "produk dan rak yang sama muncul lebih dari sekali"},
+	})
+}
+
+func (r *LPBRepo) UpdateItem(ctx context.Context, it *domain.LPBItem) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE lpb_items SET qty = $2, unit_cost = $3::text::numeric, notes = $4 WHERE id = $1`,
+		it.ID, it.Qty, moneyArg(it.UnitCost), it.Notes))
+}
+
+func (r *LPBRepo) DeleteItem(ctx context.Context, itemID int64) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `DELETE FROM lpb_items WHERE id = $1`, itemID))
+}
+
+// ---------------------------------------------------------------- serial pada item
+
+func (r *LPBRepo) InsertItemSerial(ctx context.Context, s *domain.LPBItemSerial) (*domain.LPBItemSerial, error) {
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		INSERT INTO lpb_item_serials (lpb_item_id, product_serial_id, serial_number, condition_on_scan, scanned_by)
+		VALUES ($1, $2, $3, $4, $5) RETURNING id, scanned_at`,
+		s.LPBItemID, s.ProductSerialID, s.SerialNumber, string(s.Condition), s.ScannedBy).Scan(&s.ID, &s.ScannedAt)
+	if err != nil {
+		return nil, duplicateOf(err, map[string]domain.DuplicateError{
+			"lpb_item_serials_lpb_item_id_serial_number_key": {Field: "serial_number", Message: "serial number sudah di-scan pada item ini"},
+		})
+	}
+	return s, nil
+}
+
+func (r *LPBRepo) DeleteItemSerial(ctx context.Context, itemID, serialRowID int64) error {
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx,
+		`DELETE FROM lpb_item_serials WHERE id = $2 AND lpb_item_id = $1`, itemID, serialRowID))
+}
+
+func (r *LPBRepo) SerialClaimedByOtherLPB(ctx context.Context, productID int64, serialNumber string, productSerialID *int64, excludeLPBID int64) (string, bool, error) {
+	var number string
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		SELECT l.lpb_number
+		FROM lpb_item_serials s
+		JOIN lpb_items i ON i.id = s.lpb_item_id
+		JOIN lpb_documents l ON l.id = i.lpb_id
+		WHERE i.product_id = $1 AND l.status IN ('DRAFT', 'PENDING_APPROVAL') AND l.id <> $3
+		  AND (upper(s.serial_number) = upper($2) OR ($4::bigint IS NOT NULL AND s.product_serial_id = $4::bigint))
+		ORDER BY l.id LIMIT 1`, productID, serialNumber, excludeLPBID, productSerialID).Scan(&number)
+	if err != nil {
+		if errors.Is(notFound(err), domain.ErrNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return number, true, nil
+}
+
+func (r *LPBRepo) ProductSerialExists(ctx context.Context, productID int64, serialNumber string) (bool, error) {
+	var exists bool
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM product_serials WHERE product_id = $1 AND upper(serial_number) = upper($2))`,
+		productID, serialNumber).Scan(&exists)
+	return exists, err
+}
+
+func (r *LPBRepo) SerialStates(ctx context.Context, ids []int64) ([]domain.SerialState, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx,
+		`SELECT id, status, current_rack_id, asset_tag FROM product_serials WHERE id = ANY($1) ORDER BY id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.SerialState
+	for rows.Next() {
+		var s domain.SerialState
+		var status string
+		if err := rows.Scan(&s.ID, &status, &s.RackID, &s.AssetTag); err != nil {
+			return nil, err
+		}
+		s.Status = domain.SerialStatus(status)
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+func (r *LPBRepo) AvailableQty(ctx context.Context, productID, rackID int64) (int, error) {
+	var n int
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		SELECT COALESCE(SUM(CASE WHEN r.is_sellable THEN sb.qty_on_hand - sb.qty_reserved ELSE 0 END), 0)::int
+		FROM stock_balances sb JOIN racks r ON r.id = sb.rack_id
+		WHERE sb.product_id = $1 AND sb.rack_id = $2`, productID, rackID).Scan(&n)
+	return n, err
+}
+
+// ---------------------------------------------------------------- timeline
+
+func (r *LPBRepo) Timeline(ctx context.Context, lpbID int64) ([]domain.LPBEvent, error) {
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
+		SELECT a.action, a.user_id, u.name, a.after_data::text, a.created_at
+		FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
+		WHERE a.entity_type = 'lpb' AND a.entity_id = $1
+		ORDER BY a.created_at, a.id`, lpbID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.LPBEvent{}
+	for rows.Next() {
+		var e domain.LPBEvent
+		var data *string
+		if err := rows.Scan(&e.Action, &e.UserID, &e.UserName, &data, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		if data != nil {
+			e.Data = json.RawMessage(*data)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func (r *LPBRepo) LockSerialKey(ctx context.Context, productID int64, serialNumber string) error {
+	database.MustInTx(ctx)
+	_, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`,
+		fmt.Sprintf("lpb-serial:%d:%s", productID, strings.ToUpper(serialNumber)))
+	return err
+}

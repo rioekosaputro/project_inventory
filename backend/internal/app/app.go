@@ -15,6 +15,7 @@ import (
 	"rental-inventory-api/internal/usecase"
 	"rental-inventory-api/pkg/clock"
 	"rental-inventory-api/pkg/database"
+	"rental-inventory-api/pkg/docnum"
 	"rental-inventory-api/pkg/jwt"
 )
 
@@ -58,6 +59,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Products:   handler.NewProductHandler(usecase.NewProductUsecase(txManager, productRepo, categoryRepo, auditRepo)),
 		Suppliers:  handler.NewSupplierHandler(usecase.NewSupplierUsecase(txManager, supplierRepo, auditRepo)),
 		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(postgres.NewInventoryRepo(pool))),
+		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
+			txManager, postgres.NewLPBRepo(pool), warehouseRepo, rackRepo, productRepo, supplierRepo,
+			postgres.NewInventoryRepo(pool), auditRepo, docnum.New(pool), clk,
+		)),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

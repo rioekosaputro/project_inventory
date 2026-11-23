@@ -63,9 +63,11 @@ func NewLPBUsecase(
 type LPBItemInput struct {
 	ProductID int64
 	RackID    int64
-	Qty       int
-	UnitCost  *string
-	Notes     *string
+	// DestRackID: rak tujuan, wajib untuk TRANSFER_OUT (boleh di gudang lain), terlarang untuk jenis lain.
+	DestRackID *int64
+	Qty        int
+	UnitCost   *string
+	Notes      *string
 }
 
 type CreateLPBInput struct {
@@ -366,7 +368,7 @@ func (u *LPBUsecase) syncItems(ctx context.Context, lpbID int64, existing []doma
 			})
 			continue
 		}
-		if cur.Qty != it.Qty || !sameDecimal(cur.UnitCost, it.UnitCost) || !samePtr(cur.Notes, it.Notes) {
+		if cur.Qty != it.Qty || !sameDecimal(cur.UnitCost, it.UnitCost) || !samePtr(cur.Notes, it.Notes) || !sameID(cur.DestRackID, it.DestRackID) {
 			it.ID = cur.ID
 			if err := u.repo.UpdateItem(ctx, &it); err != nil {
 				return false, err
@@ -534,6 +536,14 @@ func shapeItems(sub domain.LPBSubType, in []LPBItemInput) ([]domain.LPBItem, []d
 		if it.Qty < 1 || it.Qty > maxItemQty {
 			errs = append(errs, domain.FieldError{Field: f("qty"), Message: fmt.Sprintf("harus antara 1 dan %d", maxItemQty)})
 		}
+		switch {
+		case sub == domain.LPBTransferOut && (it.DestRackID == nil || *it.DestRackID < 1):
+			errs = append(errs, domain.FieldError{Field: f("dest_rack_id"), Message: "rak tujuan wajib diisi untuk transfer keluar"})
+		case sub == domain.LPBTransferOut && *it.DestRackID == it.RackID:
+			errs = append(errs, domain.FieldError{Field: f("dest_rack_id"), Message: "rak tujuan harus berbeda dari rak asal"})
+		case sub != domain.LPBTransferOut && it.DestRackID != nil:
+			errs = append(errs, domain.FieldError{Field: f("dest_rack_id"), Message: "hanya untuk transfer keluar"})
+		}
 		cost, moneyErrs := parseMoney(f("unit_cost"), it.UnitCost)
 		errs = append(errs, moneyErrs...)
 		if cost != nil && !costAllowed {
@@ -546,7 +556,7 @@ func shapeItems(sub domain.LPBSubType, in []LPBItemInput) ([]domain.LPBItem, []d
 			errs = append(errs, domain.FieldError{Field: fmt.Sprintf("items[%d]", i), Message: "produk dan rak yang sama muncul lebih dari sekali"})
 		}
 		seen[k] = true
-		out = append(out, domain.LPBItem{ProductID: it.ProductID, RackID: it.RackID, Qty: it.Qty, UnitCost: cost, Notes: notes})
+		out = append(out, domain.LPBItem{ProductID: it.ProductID, RackID: it.RackID, DestRackID: it.DestRackID, Qty: it.Qty, UnitCost: cost, Notes: notes})
 	}
 	return out, errs
 }
@@ -594,8 +604,64 @@ func (u *LPBUsecase) checkItems(ctx context.Context, warehouseID int64, items []
 		case r.LockedByOpnameID != nil:
 			return nil, fmt.Errorf("%w: rak %s", domain.ErrRackLocked, r.Code)
 		}
+
+		if it.DestRackID != nil {
+			destErrs, err := u.checkDestRack(ctx, f("dest_rack_id"), *it.DestRackID, p, racks)
+			if err != nil {
+				return nil, err
+			}
+			errs = append(errs, destErrs...)
+		}
+	}
+	// Satu dokumen transfer = satu gudang tujuan (pasangan TRANSFER_IN-nya satu dokumen).
+	var destWh int64
+	for i, it := range items {
+		if it.DestRackID == nil {
+			continue
+		}
+		r := racks[*it.DestRackID]
+		if r == nil {
+			continue
+		}
+		if destWh != 0 && destWh != r.WarehouseID {
+			errs = append(errs, domain.FieldError{Field: fmt.Sprintf("items[%d].dest_rack_id", i), Message: "semua item transfer harus menuju satu gudang tujuan"})
+		}
+		destWh = r.WarehouseID
 	}
 	return errs, nil
+}
+
+// checkDestRack memeriksa rak tujuan transfer: ada, aktif, di gudang aktif, tidak dikunci opname, dan —
+// untuk produk berserial — dapat dijual (unit tiba berstatus AVAILABLE; unit AVAILABLE di rak yang tidak
+// dapat dijual akan merusak hitungan stok tersedia).
+func (u *LPBUsecase) checkDestRack(ctx context.Context, field string, rackID int64, p *domain.Product, cache map[int64]*domain.Rack) ([]domain.FieldError, error) {
+	r, ok := cache[rackID]
+	if !ok {
+		var err error
+		if r, err = u.racks.FindByID(ctx, rackID); err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		}
+		cache[rackID] = r
+	}
+	switch {
+	case r == nil:
+		return []domain.FieldError{{Field: field, Message: "rak tujuan tidak ditemukan"}}, nil
+	case !r.IsActive:
+		return []domain.FieldError{{Field: field, Message: "rak tujuan tidak aktif"}}, nil
+	case r.LockedByOpnameID != nil:
+		return nil, fmt.Errorf("%w: rak tujuan %s", domain.ErrRackLocked, r.Code)
+	}
+	wh, err := u.warehouses.FindByID(ctx, r.WarehouseID)
+	if err != nil {
+		return nil, err
+	}
+	if !wh.IsActive {
+		return []domain.FieldError{{Field: field, Message: "gudang tujuan tidak aktif"}}, nil
+	}
+	if p != nil && p.HasSerialNumber && !r.IsSellable {
+		return []domain.FieldError{{Field: field, Message: fmt.Sprintf("produk %s berserial number hanya dapat dipindah ke rak yang dapat dijual", p.SKU)}}, nil
+	}
+	return nil, nil
 }
 
 func (u *LPBUsecase) checkSupplier(ctx context.Context, id *int64) ([]domain.FieldError, error) {
@@ -651,7 +717,7 @@ func itemsView(items []domain.LPBItem) []map[string]any {
 	out := make([]map[string]any, 0, len(items))
 	for _, it := range items {
 		out = append(out, map[string]any{
-			"product_id": it.ProductID, "rack_id": it.RackID, "qty": it.Qty, "unit_cost": decVal(it.UnitCost),
+			"product_id": it.ProductID, "rack_id": it.RackID, "dest_rack_id": ptrVal(it.DestRackID), "qty": it.Qty, "unit_cost": decVal(it.UnitCost),
 		})
 	}
 	return out
@@ -677,5 +743,9 @@ func sameDecimal(a, b *decimal.Decimal) bool {
 }
 
 func samePtr(a, b *string) bool {
+	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
+}
+
+func sameID(a, b *int64) bool {
 	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
 }

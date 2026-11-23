@@ -32,11 +32,14 @@ const auth = useAuthStore()
 const itemSchema = z.object({
   product_id: z.string().min(1, 'Pilih produk'),
   rack_id: z.string().min(1, 'Pilih rak'),
+  // Hanya transfer keluar; field tidak dirender untuk jenis lain sehingga nilainya hilang (opsional).
+  dest_rack_id: z.string().optional(),
   qty: z
     .string()
     .trim()
     .regex(/^[1-9]\d{0,6}$/, 'Isi jumlah dengan bilangan bulat, minimal 1'),
-  unit_cost: optionalMoney,
+  // Tidak dirender untuk transfer/penghapusan (nilainya dibuang vee-validate) → opsional.
+  unit_cost: optionalMoney.optional(),
   notes: z.string(),
 })
 
@@ -58,6 +61,23 @@ const schema = z
     if (v.sub_type === 'PURCHASE' && !v.supplier_id) {
       ctx.addIssue({ code: 'custom', path: ['supplier_id'], message: 'Pilih supplier' })
     }
+    if (v.sub_type === 'TRANSFER_OUT') {
+      v.items.forEach((it, i) => {
+        if (!it.dest_rack_id) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['items', i, 'dest_rack_id'],
+            message: 'Pilih rak tujuan',
+          })
+        } else if (it.dest_rack_id === it.rack_id) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['items', i, 'dest_rack_id'],
+            message: 'Rak tujuan harus berbeda dari rak asal',
+          })
+        }
+      })
+    }
     // Satu pasangan (produk, rak) hanya boleh sekali; gabungkan jumlahnya di satu baris.
     const seen = new Set<string>()
     v.items.forEach((it, i) => {
@@ -75,7 +95,14 @@ const schema = z
   })
 type Values = z.infer<typeof schema>
 
-const newItem = () => ({ product_id: '', rack_id: '', qty: '1', unit_cost: '', notes: '' })
+const newItem = () => ({
+  product_id: '',
+  rack_id: '',
+  dest_rack_id: '',
+  qty: '1',
+  unit_cost: '',
+  notes: '',
+})
 
 const userWarehouse = auth.user?.warehouse_id ? String(auth.user.warehouse_id) : ''
 
@@ -100,6 +127,7 @@ const f = useEntityForm<LPBDetail, Values>({
     items: d.items.map((it) => ({
       product_id: String(it.product_id),
       rack_id: String(it.rack_id),
+      dest_rack_id: it.dest_rack_id ? String(it.dest_rack_id) : '',
       qty: String(it.qty),
       unit_cost: it.unit_cost ?? '',
       notes: it.notes ?? '',
@@ -122,8 +150,11 @@ const f = useEntityForm<LPBDetail, Values>({
     const items = v.items.map((it) => ({
       product_id: Number(it.product_id),
       rack_id: Number(it.rack_id),
+      ...(v.sub_type === 'TRANSFER_OUT' && it.dest_rack_id
+        ? { dest_rack_id: Number(it.dest_rack_id) }
+        : {}),
       qty: Number(it.qty),
-      unit_cost: costApplies ? nullIfEmpty(it.unit_cost) : null,
+      unit_cost: costApplies ? nullIfEmpty(it.unit_cost ?? '') : null,
       notes: nullIfEmpty(it.notes),
     }))
     const common = {
@@ -157,6 +188,9 @@ const isPurchase = computed(() => values.sub_type === 'PURCHASE')
 const showCost = computed(
   () => values.sub_type === 'PURCHASE' || values.sub_type === 'INITIAL_STOCK',
 )
+const isTransfer = computed(() => values.sub_type === 'TRANSFER_OUT')
+/** LPB keluar: rak pada baris adalah rak ASAL; penerimaan: rak TUJUAN. */
+const isOutbound = computed(() => isTransfer.value || values.sub_type === 'DISPOSAL')
 
 // ---- pilihan
 const warehouses = useOptions(
@@ -202,6 +236,14 @@ async function loadRacks(warehouseId: string): Promise<void> {
     racks.value = []
   }
 }
+// Rak tujuan transfer: seluruh gudang (boleh pindah antar gudang).
+const destRacks = useOptions(
+  () => listAll(rackService.list, { sort: 'code', is_active: true }),
+  (r) => ({
+    value: String(r.id),
+    label: `${r.warehouse_code} / ${r.code}${r.is_sellable ? '' : ' (non-jual)'}`,
+  }),
+)
 watch(
   () => values.warehouse_id,
   (next, prev) => {
@@ -235,6 +277,21 @@ const rackOptions = computed(() =>
   withStored(
     racks.value,
     (f.entity.value?.items ?? []).map((it) => ({ value: String(it.rack_id), label: it.rack_code })),
+  ),
+)
+const destRackOptions = computed(() =>
+  withStored(
+    destRacks.options.value,
+    (f.entity.value?.items ?? []).flatMap((it) =>
+      it.dest_rack_id
+        ? [
+            {
+              value: String(it.dest_rack_id),
+              label: `${it.dest_warehouse_code} / ${it.dest_rack_code}`,
+            },
+          ]
+        : [],
+    ),
   ),
 )
 const supplierOptions = computed(() => {
@@ -288,7 +345,9 @@ const backTo = computed(() => (f.isEdit.value && f.id.value ? `/lpb/${f.id.value
     :description="
       f.isEdit.value
         ? 'Jenis dan gudang tidak dapat diubah; batalkan draft lalu buat baru bila keliru.'
-        : 'Draft belum mengubah stok. Setelah disimpan, scan serial number lalu ajukan untuk persetujuan.'
+        : isTransfer
+          ? 'Draft belum mengubah stok. Pilih rak tujuan tiap item (boleh di gudang lain); pasangan LPB masuk dibuat otomatis saat disetujui.'
+          : 'Draft belum mengubah stok. Setelah disimpan, scan serial number lalu ajukan untuk persetujuan.'
     "
     :back-to="backTo"
     :back-label="f.isEdit.value ? 'Kembali ke LPB' : 'Daftar LPB'"
@@ -341,8 +400,8 @@ const backTo = computed(() => (f.isEdit.value && f.id.value ? `/lpb/${f.id.value
     <div>
       <h2 class="text-base font-semibold text-slate-900">Item</h2>
       <p class="mt-1 text-sm text-slate-600">
-        Pilih produk dan rak tujuan. Produk bertanda “serial” di-scan satu per satu setelah draft
-        disimpan.
+        {{ isOutbound ? 'Pilih produk dan rak asal' : 'Pilih produk dan rak tujuan' }}. Produk
+        bertanda “serial” di-scan satu per satu setelah draft disimpan.
       </p>
       <p v-if="itemsError" class="mt-2 text-sm text-red-700" role="alert">{{ itemsError }}</p>
 
@@ -366,9 +425,19 @@ const backTo = computed(() => (f.isEdit.value && f.id.value ? `/lpb/${f.id.value
             <div class="sm:col-span-3">
               <SelectField
                 :name="`items[${index}].rack_id`"
-                label="Rak tujuan"
+                :label="isOutbound ? 'Rak asal' : 'Rak tujuan'"
                 :options="rackOptions"
                 :placeholder="values.warehouse_id ? 'Pilih rak' : 'Pilih gudang dulu'"
+                required
+              />
+            </div>
+            <div v-if="isTransfer" class="sm:col-span-3">
+              <SelectField
+                :name="`items[${index}].dest_rack_id`"
+                label="Rak tujuan"
+                :options="destRackOptions"
+                placeholder="Pilih rak tujuan"
+                hint="Produk berserial number hanya dapat dipindah ke rak yang dapat dijual."
                 required
               />
             </div>
@@ -394,7 +463,7 @@ const backTo = computed(() => (f.isEdit.value && f.id.value ? `/lpb/${f.id.value
             </div>
             <div
               class="flex items-end justify-end"
-              :class="showCost ? 'sm:col-span-1' : 'sm:col-span-3'"
+              :class="showCost ? 'sm:col-span-1' : isTransfer ? 'sm:col-span-6' : 'sm:col-span-3'"
             >
               <button
                 v-if="itemRows.length > 1"

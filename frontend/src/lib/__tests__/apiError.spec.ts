@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { ApiError, CLIENT_CODES, toApiError } from '@/lib/apiError'
+import { ApiError, CLIENT_CODES, toApiError, userMessage } from '@/lib/apiError'
 import { fail } from '@/test/helpers'
 
 const config = { headers: {} } as InternalAxiosRequestConfig
@@ -73,5 +73,26 @@ describe('toApiError', () => {
   it('tidak membocorkan detail teknis ke pesan pengguna', () => {
     const err = toApiError(new Error('TypeError: cannot read properties of undefined'))
     expect(err.message).not.toContain('TypeError')
+  })
+})
+
+describe('userMessage', () => {
+  it('rincian per field menggantikan kalimat umum dan diawali huruf besar', () => {
+    const e = new ApiError(422, 'VALIDATION_ERROR', 'Data LPB tidak valid', [
+      {
+        field: 'serial_number',
+        message: 'unit dengan kode ini tidak ditemukan untuk produk pada item ini',
+      },
+      { field: 'condition', message: 'harus GOOD, MINOR_DEFECT, atau BROKEN' },
+    ])
+    expect(userMessage(e)).toBe(
+      'Unit dengan kode ini tidak ditemukan untuk produk pada item ini; Harus GOOD, MINOR_DEFECT, atau BROKEN',
+    )
+  })
+
+  it('tanpa rincian field memakai pesan server apa adanya', () => {
+    expect(
+      userMessage(new ApiError(409, 'INSUFFICIENT_STOCK', 'Stok di rak tidak mencukupi')),
+    ).toBe('Stok di rak tidak mencukupi')
   })
 })

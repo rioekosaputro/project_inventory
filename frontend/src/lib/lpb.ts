@@ -19,11 +19,18 @@ export function subTypeLabel(value: string): string {
   return SUB_TYPE_LABELS[value as LPBSubType] ?? value
 }
 
-/**
- * Jenis yang ditawarkan form buat LPB. Backend mengizinkan juga DISPOSAL, tetapi persetujuannya
- * baru ada di T1.8 — menawarkannya sekarang akan menghasilkan dokumen yang tidak bisa selesai.
- */
-export const CREATABLE_SUB_TYPES: LPBSubType[] = ['PURCHASE', 'INITIAL_STOCK']
+/** Jenis yang ditawarkan form buat LPB (mengikuti backend: `ManuallyCreatable`). */
+export const CREATABLE_SUB_TYPES: LPBSubType[] = [
+  'PURCHASE',
+  'INITIAL_STOCK',
+  'TRANSFER_OUT',
+  'DISPOSAL',
+]
+
+/** LPB keluar manual yang memindahkan unit TERDAFTAR: di-scan lewat asset tag atau SN, bukan SN baru. */
+export function scansRegisteredUnits(sub: LPBSubType): boolean {
+  return sub === 'DISPOSAL' || sub === 'TRANSFER_OUT'
+}
 
 export const STATUS_LABELS: Record<LPBStatus, string> = {
   DRAFT: 'Draft',

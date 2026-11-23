@@ -255,7 +255,10 @@ func TestLPB_Create_Validation(t *testing.T) {
 	}{
 		{"jenis tidak dikenal", base(func(b map[string]any) { b["sub_type"] = "NGAWUR" }), "sub_type"},
 		{"jenis otomatis tidak dapat dibuat manual (RENTAL_DELIVERY)", base(func(b map[string]any) { b["sub_type"] = "RENTAL_DELIVERY"; delete(b, "supplier_id") }), "sub_type"},
-		{"TRANSFER_OUT belum dapat dibuat manual", base(func(b map[string]any) { b["sub_type"] = "TRANSFER_OUT"; delete(b, "supplier_id") }), "sub_type"},
+		{"TRANSFER_OUT wajib rak tujuan", base(func(b map[string]any) { b["sub_type"] = "TRANSFER_OUT"; delete(b, "supplier_id") }), "items[0].dest_rack_id"},
+		{"rak tujuan hanya untuk transfer keluar", base(func(b map[string]any) {
+			b["items"] = []map[string]any{lpbItem(f.p2, f.a1, 1, map[string]any{"dest_rack_id": f.a2})}
+		}), "items[0].dest_rack_id"},
 		{"pembelian wajib supplier", base(func(b map[string]any) { delete(b, "supplier_id") }), "supplier_id"},
 		{"supplier hanya untuk pembelian", base(func(b map[string]any) { b["sub_type"] = "INITIAL_STOCK" }), "supplier_id"},
 		{"supplier tidak ditemukan", base(func(b map[string]any) { b["supplier_id"] = 999999 }), "supplier_id"},

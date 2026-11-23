@@ -60,7 +60,7 @@ func (s LPBSubType) Type() LPBType {
 // proses lain (DO, tiket, opname, pasangan transfer) pada fase masing-masing.
 func (s LPBSubType) ManuallyCreatable() bool {
 	switch s {
-	case LPBPurchase, LPBInitialStock, LPBDisposal:
+	case LPBPurchase, LPBInitialStock, LPBDisposal, LPBTransferOut:
 		return true
 	}
 	return false
@@ -124,17 +124,20 @@ type LPB struct {
 	SupplierID      *int64
 	SupplierName    *string
 	Notes           *string
-	CreatedBy       int64
-	CreatedByName   string
-	SubmittedBy     *int64
-	SubmittedAt     *time.Time
-	ApprovedBy      *int64
-	ApprovedAt      *time.Time
-	RejectedBy      *int64
-	RejectedAt      *time.Time
-	RejectionReason *string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// CounterpartID/Number: pasangan transfer (TRANSFER_OUT ↔ TRANSFER_IN); nil bila bukan transfer.
+	CounterpartID     *int64
+	CounterpartNumber *string
+	CreatedBy         int64
+	CreatedByName     string
+	SubmittedBy       *int64
+	SubmittedAt       *time.Time
+	ApprovedBy        *int64
+	ApprovedAt        *time.Time
+	RejectedBy        *int64
+	RejectedAt        *time.Time
+	RejectionReason   *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // LPBListItem: baris daftar (header + agregat item).
@@ -155,9 +158,15 @@ type LPBItem struct {
 	RackID          int64
 	RackCode        string
 	RackIsSellable  bool
-	Qty             int
-	UnitCost        *decimal.Decimal
-	Notes           *string
+	// Tujuan transfer (hanya item TRANSFER_OUT): rak tujuan, boleh di gudang lain.
+	DestRackID         *int64
+	DestRackCode       *string
+	DestRackIsSellable *bool
+	DestWarehouseID    *int64
+	DestWarehouseCode  *string
+	Qty                int
+	UnitCost           *decimal.Decimal
+	Notes              *string
 	// CurrentQty: saldo rak saat ini (qty_on_hand) — untuk tampilan "sebelum → sesudah" sebelum approve.
 	CurrentQty int
 	// BalanceBefore/After: saldo rak sebelum/sesudah mutasi item ini (dari ledger; hanya setelah APPROVED).
@@ -245,8 +254,11 @@ type LPBRepository interface {
 	// ProductSerialExists: SN (tanpa peduli huruf) sudah terdaftar di product_serials untuk produk ini.
 	ProductSerialExists(ctx context.Context, productID int64, serialNumber string) (bool, error)
 	SerialStates(ctx context.Context, ids []int64) ([]SerialState, error)
-	// AvailableQty: stok tersedia (on hand − reserved, rak dapat dijual) untuk peringatan dini saat submit.
-	AvailableQty(ctx context.Context, productID, rackID int64) (int, error)
+	// FreeQty: stok yang boleh dikeluarkan dari rak (on hand − reserved, tanpa memandang rak dapat dijual atau
+	// tidak) untuk peringatan dini saat submit LPB keluar manual (transfer/penghapusan).
+	FreeQty(ctx context.Context, productID, rackID int64) (int, error)
+	// SetCounterpart menautkan dua dokumen transfer (wajib di dalam transaksi).
+	SetCounterpart(ctx context.Context, id, counterpartID int64) error
 
 	Timeline(ctx context.Context, lpbID int64) ([]LPBEvent, error)
 }

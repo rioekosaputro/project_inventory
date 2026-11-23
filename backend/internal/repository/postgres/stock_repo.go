@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -32,6 +33,55 @@ func (r *StockRepo) AddStock(ctx context.Context, productID, rackID int64, qty i
 		return 0, 0, err
 	}
 	return after - qty, after, nil
+}
+
+func (r *StockRepo) RemoveStock(ctx context.Context, productID, rackID int64, qty int) (int, int, error) {
+	database.MustInTx(ctx)
+	var after int
+	// Satu UPDATE bersyarat: mengunci baris saldo dan menolak bila stok bebas (on hand − reserved) kurang.
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		UPDATE stock_balances SET qty_on_hand = qty_on_hand - $3, updated_at = NOW()
+		WHERE product_id = $1 AND rack_id = $2 AND qty_on_hand - qty_reserved >= $3
+		RETURNING qty_on_hand`, productID, rackID, qty).Scan(&after)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, 0, domain.ErrInsufficientStock
+		}
+		return 0, 0, err
+	}
+	return after + qty, after, nil
+}
+
+func (r *StockRepo) LockSerials(ctx context.Context, ids []int64) ([]domain.SerialLock, error) {
+	database.MustInTx(ctx)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
+		SELECT id, product_id, asset_tag, serial_number, status, current_rack_id, current_warehouse_id
+		FROM product_serials WHERE id = ANY($1) ORDER BY id FOR UPDATE`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.SerialLock
+	for rows.Next() {
+		var s domain.SerialLock
+		var status string
+		if err := rows.Scan(&s.ID, &s.ProductID, &s.AssetTag, &s.Number, &status, &s.RackID, &s.WarehouseID); err != nil {
+			return nil, err
+		}
+		s.Status = domain.SerialStatus(status)
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+func (r *StockRepo) MoveSerial(ctx context.Context, id int64, status domain.SerialStatus, warehouseID, rackID *int64) error {
+	database.MustInTx(ctx)
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE product_serials SET status = $2, current_warehouse_id = $3, current_rack_id = $4, updated_at = NOW()
+		WHERE id = $1`, id, string(status), warehouseID, rackID))
 }
 
 func (r *StockRepo) InsertSerial(ctx context.Context, s *domain.NewSerial) (int64, error) {

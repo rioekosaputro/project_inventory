@@ -104,14 +104,15 @@ func (u *LPBUsecase) AddSerial(ctx context.Context, actor domain.Principal, lpbI
 			if cond == domain.ConditionBroken && rack.IsSellable {
 				return lpbInvalid([]domain.FieldError{{Field: "condition", Message: "unit rusak harus ditempatkan di rak yang tidak dapat dijual (mis. karantina)"}})
 			}
-		case domain.LPBDisposal:
+		case domain.LPBDisposal, domain.LPBTransferOut:
+			want, _ := registeredUnitStatus(l.SubType)
 			unit, err := u.resolveUnit(ctx, item.ProductID, sn)
 			if err != nil {
 				return err
 			}
-			if unit.Status != domain.SerialBroken || unit.RackID == nil || *unit.RackID != item.RackID {
-				return fmt.Errorf("%w: unit %s berstatus %s dan tidak berada di rak %s sebagai BROKEN",
-					domain.ErrSerialNotValid, unit.AssetTag, unit.Status, rack.Code)
+			if unit.Status != want || unit.RackID == nil || *unit.RackID != item.RackID {
+				return fmt.Errorf("%w: unit %s berstatus %s dan tidak berada di rak %s sebagai %s",
+					domain.ErrSerialNotValid, unit.AssetTag, unit.Status, rack.Code, want)
 			}
 			sn, productSerialID, assetTag = strings.ToUpper(unit.SerialNumber), &unit.ID, &unit.AssetTag
 		default:
@@ -212,7 +213,7 @@ func (u *LPBUsecase) validateForSubmit(ctx context.Context, l *domain.LPB, items
 
 		if !it.HasSerialNumber {
 			if l.Type == domain.LPBOutbound {
-				avail, err := u.repo.AvailableQty(ctx, it.ProductID, it.RackID)
+				avail, err := u.repo.FreeQty(ctx, it.ProductID, it.RackID)
 				if err != nil {
 					return err
 				}
@@ -240,7 +241,7 @@ func (u *LPBUsecase) validateForSubmit(ctx context.Context, l *domain.LPB, items
 				if s.Condition == domain.ConditionBroken && it.RackIsSellable {
 					return fmt.Errorf("%w: unit rusak %s harus berada di rak yang tidak dapat dijual", domain.ErrSerialNotValid, s.SerialNumber)
 				}
-			case domain.LPBDisposal:
+			case domain.LPBDisposal, domain.LPBTransferOut:
 				if s.ProductSerialID != nil {
 					ids = append(ids, *s.ProductSerialID)
 				}
@@ -252,7 +253,7 @@ func (u *LPBUsecase) validateForSubmit(ctx context.Context, l *domain.LPB, items
 			}
 		}
 
-		if l.SubType == domain.LPBDisposal {
+		if want, registered := registeredUnitStatus(l.SubType); registered {
 			states, err := u.repo.SerialStates(ctx, ids)
 			if err != nil {
 				return err
@@ -261,12 +262,24 @@ func (u *LPBUsecase) validateForSubmit(ctx context.Context, l *domain.LPB, items
 				return fmt.Errorf("%w: ada unit yang tidak lagi terdaftar", domain.ErrSerialNotValid)
 			}
 			for _, st := range states {
-				if st.Status != domain.SerialBroken || st.RackID == nil || *st.RackID != it.RackID {
-					return fmt.Errorf("%w: unit %s berstatus %s dan tidak lagi berada di rak %s sebagai BROKEN",
-						domain.ErrSerialNotValid, st.AssetTag, st.Status, it.RackCode)
+				if st.Status != want || st.RackID == nil || *st.RackID != it.RackID {
+					return fmt.Errorf("%w: unit %s berstatus %s dan tidak lagi berada di rak %s sebagai %s",
+						domain.ErrSerialNotValid, st.AssetTag, st.Status, it.RackCode, want)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// registeredUnitStatus: LPB keluar manual yang memindahkan unit TERDAFTAR (scan asset tag atau SN) dan status
+// yang wajib dimiliki unit itu: penghapusan hanya untuk unit rusak, transfer hanya untuk unit tersedia.
+func registeredUnitStatus(sub domain.LPBSubType) (domain.SerialStatus, bool) {
+	switch sub {
+	case domain.LPBDisposal:
+		return domain.SerialBroken, true
+	case domain.LPBTransferOut:
+		return domain.SerialAvailable, true
+	}
+	return "", false
 }

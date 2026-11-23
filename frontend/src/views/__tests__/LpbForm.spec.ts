@@ -90,11 +90,11 @@ describe('LPB: form buat', () => {
     const save = w.find('button[type="submit"]')
     expect(save.text()).toBe('Simpan Draft')
     expect(save.attributes('disabled')).toBeUndefined()
-    // Jenis yang belum bisa diselesaikan (DISPOSAL, T1.8) tidak ditawarkan.
+    // Hanya jenis yang dapat dibuat manual dan disetujui.
     const types = sel(w, 'sub_type')
       .findAll('option')
       .map((o) => o.element.value)
-    expect(types).toEqual(['PURCHASE', 'INITIAL_STOCK'])
+    expect(types).toEqual(['PURCHASE', 'INITIAL_STOCK', 'TRANSFER_OUT', 'DISPOSAL'])
   })
 
   it('submit kosong: galat per field (gudang, supplier, produk, rak), fokus ke yang pertama, API tidak dipanggil', async () => {
@@ -270,6 +270,120 @@ describe('LPB: form buat', () => {
   it('tanpa hak buat (manajemen) ditolak guard ke /403', async () => {
     const { router } = await open('/lpb/baru', ['lpb.read'])
     expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+})
+
+describe('LPB: form transfer keluar dan penghapusan', () => {
+  async function chooseType(w: VueWrapper, type: string) {
+    await pick(w, 'sub_type', type)
+    await pick(w, 'warehouse_id', '1')
+  }
+
+  it('Transfer keluar: rak pada baris menjadi "Rak asal", muncul "Rak tujuan" lintas gudang, tanpa biaya/supplier', async () => {
+    const { wrapper: w } = await open('/lpb/baru')
+    await chooseType(w, 'TRANSFER_OUT')
+
+    expect(w.find('label[for="field-items[0].rack_id"]').text()).toContain('Rak asal')
+    expect(w.find('label[for="field-items[0].dest_rack_id"]').text()).toContain('Rak tujuan')
+    expect(sel(w, 'supplier_id').exists()).toBe(false)
+    expect(inp(w, 'items[0].unit_cost').exists()).toBe(false)
+    // Rak tujuan memuat seluruh gudang (bukan hanya gudang asal) dan menyebut gudangnya.
+    expect(rackService.list).toHaveBeenCalledWith(
+      expect.not.objectContaining({ warehouse_id: expect.anything() }),
+    )
+    const options = sel(w, 'items[0].dest_rack_id')
+      .findAll('option')
+      .map((o) => o.text())
+    expect(options.some((o) => o.includes('WH-A / A-01'))).toBe(true)
+  })
+
+  it('rak tujuan wajib, dan tidak boleh sama dengan rak asal', async () => {
+    const { wrapper: w } = await open('/lpb/baru')
+    await chooseType(w, 'TRANSFER_OUT')
+    await pick(w, 'items[0].product_id', '1')
+    await pick(w, 'items[0].rack_id', '1')
+    await submit(w)
+    expect(errOf(w, 'items[0].dest_rack_id')).toBe('Pilih rak tujuan')
+
+    await pick(w, 'items[0].dest_rack_id', '1')
+    await submit(w)
+    expect(errOf(w, 'items[0].dest_rack_id')).toBe('Rak tujuan harus berbeda dari rak asal')
+    expect(lpbService.create).not.toHaveBeenCalled()
+  })
+
+  it('sukses: badan permintaan membawa dest_rack_id (angka) dan tanpa biaya', async () => {
+    lpbService.create.mockResolvedValue(lpbDetail({ sub_type: 'TRANSFER_OUT', type: 'OUTBOUND' }))
+    const { wrapper: w, router } = await open('/lpb/baru')
+    await chooseType(w, 'TRANSFER_OUT')
+    await pick(w, 'items[0].product_id', '1')
+    await pick(w, 'items[0].rack_id', '1')
+    await pick(w, 'items[0].dest_rack_id', '2')
+    await inp(w, 'items[0].qty').setValue('2')
+    await submit(w)
+
+    expect(lpbService.create).toHaveBeenCalledWith({
+      sub_type: 'TRANSFER_OUT',
+      warehouse_id: 1,
+      doc_date: todayWIB(),
+      supplier_id: null,
+      reference_number: null,
+      notes: null,
+      items: [{ product_id: 1, rack_id: 1, dest_rack_id: 2, qty: 2, unit_cost: null, notes: null }],
+    })
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/lpb/7'))
+  })
+
+  it('Penghapusan: rak asal, tanpa rak tujuan/biaya/supplier; badan tidak membawa dest_rack_id', async () => {
+    lpbService.create.mockResolvedValue(lpbDetail({ sub_type: 'DISPOSAL', type: 'OUTBOUND' }))
+    const { wrapper: w } = await open('/lpb/baru')
+    await chooseType(w, 'DISPOSAL')
+
+    expect(w.find('label[for="field-items[0].rack_id"]').text()).toContain('Rak asal')
+    expect(sel(w, 'items[0].dest_rack_id').exists()).toBe(false)
+    expect(inp(w, 'items[0].unit_cost').exists()).toBe(false)
+
+    await pick(w, 'items[0].product_id', '1')
+    await pick(w, 'items[0].rack_id', '1')
+    await submit(w)
+    const body = lpbService.create.mock.calls[0]![0]
+    expect(body.sub_type).toBe('DISPOSAL')
+    expect(body.items[0]).toEqual({
+      product_id: 1,
+      rack_id: 1,
+      qty: 1,
+      unit_cost: null,
+      notes: null,
+    })
+  })
+
+  it('mode ubah transfer: tujuan terisi dan ikut dikirim ulang', async () => {
+    const detail = lpbDetail({
+      sub_type: 'TRANSFER_OUT',
+      type: 'OUTBOUND',
+      supplier_id: null,
+      supplier_name: null,
+      reference_number: null,
+      items: [
+        lpbItem({
+          dest_rack_id: 2,
+          dest_rack_code: 'A-02',
+          dest_warehouse_id: 1,
+          dest_warehouse_code: 'WH-A',
+        }),
+      ],
+    })
+    lpbService.get.mockResolvedValue(detail)
+    lpbService.update.mockResolvedValue(detail)
+    const { wrapper: w } = await open('/lpb/7/ubah')
+
+    expect(sel(w, 'items[0].dest_rack_id').element.value).toBe('2')
+    await submit(w)
+    expect(lpbService.update).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({
+        items: [expect.objectContaining({ rack_id: 1, dest_rack_id: 2 })],
+      }),
+    )
   })
 })
 

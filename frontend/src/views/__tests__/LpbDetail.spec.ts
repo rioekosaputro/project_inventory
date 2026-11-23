@@ -421,6 +421,128 @@ describe('LPB: persetujuan', () => {
   })
 })
 
+describe('LPB: transfer dan penghapusan', () => {
+  const transferItem = () =>
+    lpbItem({
+      qty: 1,
+      dest_rack_id: 3,
+      dest_rack_code: 'B-01',
+      dest_warehouse_id: 2,
+      dest_warehouse_code: 'WH-B',
+    })
+  const out = (over = {}) =>
+    lpbDetail({ sub_type: 'TRANSFER_OUT', type: 'OUTBOUND', items: [transferItem()], ...over })
+  const head = { perms: PERMS.head, userId: 50, role: 'HEAD_WAREHOUSE' as const }
+
+  it('transfer keluar: tujuan (gudang / rak) tampil di tabel dan kartu', async () => {
+    const { wrapper: w } = await open(out())
+    expect(w.find('tbody').text()).toContain('WH-B / B-01')
+    expect(w.find('ul[aria-label="Item LPB"]').text()).toContain('WH-B / B-01')
+  })
+
+  it('scanner transfer: label asset tag atau SN, tanpa pilihan kondisi, dan hanya serial_number dikirim', async () => {
+    lpbService.addSerial.mockResolvedValue(saved('SN-9', 1, 1))
+    const { wrapper: w } = await open(out())
+
+    expect(w.text()).toContain('Scan unit yang dipindahkan')
+    expect(w.find('label[for="scan-code"]').text()).toBe('Asset tag atau serial number')
+    expect(w.find('#scan-condition').exists()).toBe(false)
+    await scan(w, 'ast-2611-00001')
+    expect(lpbService.addSerial).toHaveBeenCalledWith(7, 70, { serial_number: 'AST-2611-00001' })
+  })
+
+  it('penghapusan: judul scanner khusus; dampak stok mengurangi saldo', async () => {
+    const { wrapper: w } = await open(
+      lpbDetail({
+        sub_type: 'DISPOSAL',
+        type: 'OUTBOUND',
+        items: [lpbItem({ qty: 2, current_qty: 5 })],
+      }),
+    )
+    expect(w.text()).toContain('Scan unit yang dihapus')
+    const impact = w.find('tbody td:last-child').text().replace(/\s+/g, ' ')
+    expect(impact).toContain('5')
+    expect(impact).toContain('3')
+  })
+
+  it('transfer keluar pending: dialog setujui menjelaskan pasangan LPB masuk dan unit dalam perjalanan', async () => {
+    const { wrapper: w } = await open(out({ status: 'PENDING_APPROVAL' }), head)
+    await button(w, 'Setujui LPB').trigger('click')
+    await settle()
+
+    const dialog = dialogFor(w, 'Setujui LPB LPBI')
+    expect(dialog.text()).toContain('dalam perjalanan')
+    expect(dialog.text()).toContain('LPB masuk pasangannya')
+  })
+
+  it('transfer masuk pending: tanpa tombol Tolak, ada penjelasan dan tautan ke transfer keluar asal', async () => {
+    const { wrapper: w } = await open(
+      lpbDetail({
+        sub_type: 'TRANSFER_IN',
+        type: 'INBOUND',
+        status: 'PENDING_APPROVAL',
+        counterpart_id: 11,
+        counterpart_number: 'LPBO/WH-A/2026/11/0003',
+        items: [lpbItem({ qty: 1 })],
+      }),
+      head,
+    )
+
+    expect(buttons(w)).toContain('Setujui LPB')
+    expect(buttons(w)).not.toContain('Tolak LPB')
+    expect(w.text()).toContain('transfer masuk tidak dapat ditolak')
+    const link = w.find('a[href="/lpb/11"]')
+    expect(link.text()).toBe('LPBO/WH-A/2026/11/0003')
+    expect(w.text()).toContain('Transfer keluar asal')
+  })
+
+  it('transfer keluar yang sudah disetujui menautkan LPB masuk pasangannya', async () => {
+    const { wrapper: w } = await open(
+      out({
+        status: 'APPROVED',
+        counterpart_id: 12,
+        counterpart_number: 'LPBI/WH-A/2026/11/0009',
+      }),
+    )
+    expect(w.text()).toContain('LPB masuk pasangan')
+    expect(w.find('a[href="/lpb/12"]').text()).toBe('LPBI/WH-A/2026/11/0009')
+  })
+})
+
+describe('LPB: berpindah antar dokumen', () => {
+  it('membuka dokumen pasangan dari tautan memuat ulang data (komponen yang sama dipakai ulang)', async () => {
+    const outDoc = lpbDetail({
+      id: 7,
+      lpb_number: 'LPBO/WH-A/2026/11/0001',
+      sub_type: 'TRANSFER_OUT',
+      type: 'OUTBOUND',
+      status: 'APPROVED',
+      counterpart_id: 8,
+      counterpart_number: 'LPBI/WH-A/2026/11/0009',
+    })
+    const inDoc = lpbDetail({
+      id: 8,
+      lpb_number: 'LPBI/WH-A/2026/11/0009',
+      sub_type: 'TRANSFER_IN',
+      type: 'INBOUND',
+      status: 'APPROVED',
+      counterpart_id: 7,
+      counterpart_number: 'LPBO/WH-A/2026/11/0001',
+    })
+    const { wrapper: w, router } = await open(outDoc)
+    lpbService.get.mockImplementation((id) => Promise.resolve(id === 7 ? outDoc : inDoc))
+    expect(w.find('h1').text()).toContain('LPBO/WH-A/2026/11/0001')
+
+    await w.find('a[href="/lpb/8"]').trigger('click')
+    await settle()
+
+    expect(router.currentRoute.value.path).toBe('/lpb/8')
+    expect(lpbService.get).toHaveBeenLastCalledWith(8)
+    expect(w.find('h1').text()).toContain('LPBI/WH-A/2026/11/0009')
+    expect(w.text()).toContain('Transfer keluar asal')
+  })
+})
+
 describe('LPB: status lain & riwayat', () => {
   it('Ditolak: alasan terlihat dan pembuat dapat Revisi → kembali draft', async () => {
     lpbService.revise.mockResolvedValue(

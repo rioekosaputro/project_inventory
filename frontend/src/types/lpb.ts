@@ -35,6 +35,9 @@ export interface LPB {
   supplier_id: number | null
   supplier_name: string | null
   notes: string | null
+  /** Pasangan transfer (TRANSFER_OUT ↔ TRANSFER_IN); null bila bukan transfer. */
+  counterpart_id: number | null
+  counterpart_number: string | null
   created_by: number
   created_by_name: string
   submitted_by: number | null
@@ -75,6 +78,11 @@ export interface LPBItem {
   rack_id: number
   rack_code: string
   rack_is_sellable: boolean
+  /** Tujuan transfer (hanya TRANSFER_OUT); rak tujuan boleh di gudang lain. */
+  dest_rack_id: number | null
+  dest_rack_code: string | null
+  dest_warehouse_id: number | null
+  dest_warehouse_code: string | null
   qty: number
   unit_cost: string | null
   notes: string | null
@@ -112,6 +120,8 @@ export interface AddSerialResult extends LPBItemSerial {
 export interface LPBItemInput {
   product_id: number
   rack_id: number
+  /** Hanya untuk TRANSFER_OUT; tidak dikirim untuk jenis lain. */
+  dest_rack_id?: number
   qty: number
   unit_cost: string | null
   notes: string | null

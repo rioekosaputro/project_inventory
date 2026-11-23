@@ -5,7 +5,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useScanQueue } from '@/composables/useScanQueue'
 import { isMuted, setMuted, unlockAudio } from '@/lib/audio'
-import { normalizeCode } from '@/lib/lpb'
+import { normalizeCode, scansRegisteredUnits } from '@/lib/lpb'
 import { btnPrimary, btnSecondary } from '@/lib/ui'
 import { lpbService } from '@/services/lpbService'
 import type { AddSerialResult, LPBItem, LPBSubType, SerialCondition } from '@/types/lpb'
@@ -18,7 +18,8 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ saved: [itemId: number, result: AddSerialResult] }>()
 
-const isDisposal = computed(() => props.subType === 'DISPOSAL')
+/** Penghapusan/transfer memindahkan unit yang sudah terdaftar: kode = asset tag atau SN, tanpa kondisi. */
+const isRegistered = computed(() => scansRegisteredUnits(props.subType))
 const serialItems = computed(() => props.items.filter((i) => i.has_serial_number))
 
 const remaining = (item: LPBItem): number => Math.max(item.qty - item.serials.length, 0)
@@ -49,7 +50,7 @@ const queue = useScanQueue<SerialCondition>({
   send: (itemId, serial, cond) =>
     lpbService.addSerial(props.lpbId, itemId, {
       serial_number: serial,
-      ...(isDisposal.value ? {} : { condition: cond }),
+      ...(isRegistered.value ? {} : { condition: cond }),
     }),
   known: () => known.value,
   capacity: (itemId) => {
@@ -124,7 +125,13 @@ const itemLabel = (i: LPBItem): string =>
     <div class="flex flex-wrap items-start justify-between gap-2">
       <div>
         <h2 id="scanner-title" class="text-base font-semibold text-slate-900">
-          {{ isDisposal ? 'Scan unit yang dihapus' : 'Scan serial number' }}
+          {{
+            props.subType === 'DISPOSAL'
+              ? 'Scan unit yang dihapus'
+              : props.subType === 'TRANSFER_OUT'
+                ? 'Scan unit yang dipindahkan'
+                : 'Scan serial number'
+          }}
         </h2>
         <p class="mt-1 text-sm text-slate-600">
           Arahkan alat scan ke barcode — setiap Enter menambahkan satu unit. Scan berikutnya tidak
@@ -158,9 +165,9 @@ const itemLabel = (i: LPBItem): string =>
           </select>
         </div>
 
-        <div :class="isDisposal ? 'sm:col-span-2' : ''">
+        <div :class="isRegistered ? 'sm:col-span-2' : ''">
           <label for="scan-code" class="block text-sm font-medium text-slate-800">
-            {{ isDisposal ? 'Asset tag atau serial number' : 'Serial number' }}
+            {{ isRegistered ? 'Asset tag atau serial number' : 'Serial number' }}
           </label>
           <input
             id="scan-code"
@@ -177,7 +184,7 @@ const itemLabel = (i: LPBItem): string =>
           />
         </div>
 
-        <div v-if="!isDisposal">
+        <div v-if="!isRegistered">
           <label for="scan-condition" class="block text-sm font-medium text-slate-800">
             Kondisi unit
           </label>

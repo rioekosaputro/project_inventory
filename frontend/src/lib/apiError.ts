@@ -90,3 +90,14 @@ export function toApiError(err: unknown): ApiError {
     'Terjadi kesalahan tak terduga. Muat ulang halaman lalu coba lagi.',
   )
 }
+
+/**
+ * Pesan untuk pengguna: bila server menyertakan rincian per field (422), tampilkan alasan sebenarnya
+ * ("unit dengan kode ini tidak ditemukan untuk produk pada item ini"), bukan kalimat umum "Data tidak valid".
+ */
+export function userMessage(err: ApiError): string {
+  if (err.fieldErrors.length === 0) return err.message
+  return err.fieldErrors
+    .map((fe) => fe.message.charAt(0).toUpperCase() + fe.message.slice(1))
+    .join('; ')
+}

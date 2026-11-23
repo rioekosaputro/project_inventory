@@ -5,6 +5,7 @@ import {
   eventLabel,
   normalizeCode,
   remainingScans,
+  scansRegisteredUnits,
   stockImpact,
   subTypeLabel,
 } from '@/lib/lpb'
@@ -69,7 +70,14 @@ describe('label', () => {
     expect(eventLabel('X')).toBe('X')
   })
 
-  it('form hanya menawarkan jenis yang dapat diselesaikan (DISPOSAL menunggu T1.8)', () => {
-    expect(CREATABLE_SUB_TYPES).toEqual(['PURCHASE', 'INITIAL_STOCK'])
+  it('form menawarkan jenis yang dapat dibuat manual dan disetujui', () => {
+    expect(CREATABLE_SUB_TYPES).toEqual(['PURCHASE', 'INITIAL_STOCK', 'TRANSFER_OUT', 'DISPOSAL'])
+  })
+
+  it('hanya penghapusan dan transfer keluar yang memindahkan unit terdaftar (scan asset tag atau SN)', () => {
+    expect(scansRegisteredUnits('DISPOSAL')).toBe(true)
+    expect(scansRegisteredUnits('TRANSFER_OUT')).toBe(true)
+    expect(scansRegisteredUnits('PURCHASE')).toBe(false)
+    expect(scansRegisteredUnits('INITIAL_STOCK')).toBe(false)
   })
 })

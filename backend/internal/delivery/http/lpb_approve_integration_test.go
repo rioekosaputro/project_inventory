@@ -320,21 +320,6 @@ func TestApprove_StateScopeAndUnsupported(t *testing.T) {
 	again := e.approve(f.headA, id, nextKey())
 	assert.Equal(t, 409, again.status(), "sudah APPROVED")
 	assert.Equal(t, "LPB_NOT_PENDING", again.code())
-
-	// Jenis yang efek stoknya belum ada (DISPOSAL → T1.8) tidak diproses sama sekali.
-	e.addSerial(f.p1, "AST-2611-00001", "BRK-1", "BROKEN", &f.a2, nil)
-	dr := e.mustLPB(f.staffA, map[string]any{"sub_type": "DISPOSAL", "warehouse_id": f.whA, "items": []map[string]any{lpbItem(f.p1, f.a2, 1)}})
-	require.Equal(t, 201, e.scan(f.staffA, idOf(dr), itemID(dr, 0), "BRK-1").status())
-	require.Equal(t, 200, e.post(f.staffA, lpbPath(idOf(dr), "/submit"), nil).status())
-	unsupported := e.approve(f.headA, idOf(dr), nextKey())
-	assert.Equal(t, 422, unsupported.status())
-	assert.Contains(t, fieldErrors(unsupported), "sub_type")
-	assert.Equal(t, "BROKEN", func() string {
-		var s string
-		require.NoError(t, e.pool.QueryRow(testCtx(), `SELECT status FROM product_serials WHERE serial_number = 'BRK-1'`).Scan(&s))
-		return s
-	}(), "unit tidak berubah")
-	assert.Equal(t, "PENDING_APPROVAL", e.get(f.headA, lpbPath(idOf(dr), "")).str("status"))
 }
 
 // ================================================================ atomik & validasi ulang

@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { beep } from '@/lib/audio'
-import { toApiError } from '@/lib/apiError'
+import { toApiError, userMessage } from '@/lib/apiError'
 import { normalizeCode } from '@/lib/lpb'
 import type { AddSerialResult } from '@/types/lpb'
 
@@ -73,7 +73,7 @@ export function useScanQueue<M = undefined>(opts: ScanQueueOptions<M>) {
       finish(entry, 'ok', `${entry.code} ditambahkan (${result.scanned_count}/${result.qty})`)
       beep('success')
     } catch (e) {
-      finish(entry, 'error', `${entry.code}: ${toApiError(e).message}`)
+      finish(entry, 'error', `${entry.code}: ${userMessage(toApiError(e))}`)
       beep('error')
     } finally {
       inflight.delete(entry.code)

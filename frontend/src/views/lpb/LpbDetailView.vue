@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Pola halaman: Detail / Record. Satu dokumen LPB: ringkasan, item + dampak stok, scan serial number
 // (selama draft), keputusan persetujuan, dan riwayat.
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Message from 'primevue/message'
 import { useToast } from 'primevue/usetoast'
@@ -13,7 +13,7 @@ import SlideOver from '@/components/SlideOver.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import StockImpactCell from '@/components/StockImpactCell.vue'
 import { usePermission } from '@/composables/usePermission'
-import { toApiError } from '@/lib/apiError'
+import { toApiError, userMessage } from '@/lib/apiError'
 import { focusFirstInvalid, isProgrammaticFocus } from '@/lib/focus'
 import { formatDate, formatDateTime, formatRupiah } from '@/lib/format'
 import { eventLabel, remainingScans, subTypeLabel } from '@/lib/lpb'
@@ -45,6 +45,10 @@ async function load(): Promise<void> {
   }
 }
 onMounted(load)
+// Pindah ke LPB lain (mis. tautan pasangan transfer) memakai komponen yang sama: muat ulang saat id berubah.
+watch(id, (next, prev) => {
+  if (Number.isInteger(next) && next > 0 && next !== prev) void load()
+})
 
 // ---- hak aksi (kenyamanan UI; otorisasi sebenarnya di backend)
 const status = computed(() => lpb.value?.status)
@@ -59,6 +63,21 @@ const canEdit = computed(() => canModify.value && status.value === 'DRAFT')
 const canSubmit = computed(() => canEdit.value && can('lpb.submit'))
 const canRevise = computed(() => canModify.value && status.value === 'REJECTED')
 const canDecide = computed(() => can('lpb.approve') && status.value === 'PENDING_APPROVAL')
+/** Transfer masuk tidak dapat ditolak: barang sudah keluar dari gudang asal (aturan backend). */
+const canReject = computed(() => canDecide.value && lpb.value?.sub_type !== 'TRANSFER_IN')
+
+const approveMessage = computed(() => {
+  switch (lpb.value?.sub_type) {
+    case 'TRANSFER_OUT':
+      return 'Stok rak asal berkurang dan unit berstatus dalam perjalanan. LPB masuk pasangannya dibuat otomatis: bila tujuannya satu gudang langsung disetujui, bila antar gudang menunggu Kepala Gudang tujuan. Tindakan ini tidak dapat diurungkan — koreksi dilakukan dengan dokumen baru.'
+    case 'TRANSFER_IN':
+      return 'Stok rak tujuan bertambah dan unit kembali tersedia di gudang ini, dicatat di buku besar. Pastikan barang sudah tiba. Tindakan ini tidak dapat diurungkan — koreksi dilakukan dengan dokumen baru.'
+    case 'DISPOSAL':
+      return 'Stok rak berkurang dan unit yang dihapus berstatus pensiun (tidak lagi ada di gudang), dicatat di buku besar. Tindakan ini tidak dapat diurungkan — koreksi dilakukan dengan dokumen baru.'
+    default:
+      return 'Stok rak akan berubah sesuai tabel dampak stok, unit baru dibuatkan asset tag, dan semuanya dicatat di buku besar. Tindakan ini tidak dapat diurungkan — koreksi dilakukan dengan dokumen baru.'
+  }
+})
 
 const serialItems = computed(() => lpb.value?.items.filter((i) => i.has_serial_number) ?? [])
 const missingScans = computed(() => serialItems.value.reduce((n, i) => n + remainingScans(i), 0))
@@ -100,7 +119,7 @@ async function run(action: () => Promise<LPBDetail>, success: string): Promise<b
     toast.add({
       severity: 'error',
       summary: 'Aksi gagal',
-      detail: toApiError(e).message,
+      detail: userMessage(toApiError(e)),
       life: 9000,
     })
     return false
@@ -199,7 +218,7 @@ async function removeSerial(item: LPBItem, serialId: number): Promise<void> {
     toast.add({
       severity: 'error',
       summary: 'Serial number gagal dihapus',
-      detail: toApiError(e).message,
+      detail: userMessage(toApiError(e)),
       life: 8000,
     })
   } finally {
@@ -278,7 +297,9 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
             Revisi LPB
           </button>
           <template v-if="canDecide">
-            <button type="button" :class="btnDanger" @click="openReject">Tolak LPB</button>
+            <button v-if="canReject" type="button" :class="btnDanger" @click="openReject">
+              Tolak LPB
+            </button>
             <button type="button" :class="btnPrimary" @click="askApprove">Setujui LPB</button>
           </template>
         </div>
@@ -297,6 +318,17 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
         >
       </Message>
 
+      <Message
+        v-if="lpb.sub_type === 'TRANSFER_IN' && lpb.status === 'PENDING_APPROVAL'"
+        severity="info"
+        :closable="false"
+        class="mt-4"
+      >
+        Barang dari transfer keluar {{ lpb.counterpart_number }} sedang dalam perjalanan. Setujui
+        setelah barang tiba dan diperiksa; transfer masuk tidak dapat ditolak karena stok asal sudah
+        berkurang.
+      </Message>
+
       <Message v-if="canEdit && missingScans > 0" severity="warn" :closable="false" class="mt-4">
         Serial number belum lengkap: masih kurang {{ missingScans }} unit. LPB baru dapat diajukan
         setelah jumlah scan sama dengan jumlah item.
@@ -309,6 +341,18 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
         <div>
           <dt class="text-xs font-medium text-slate-600">Supplier</dt>
           <dd class="mt-0.5 text-sm text-slate-900">{{ lpb.supplier_name ?? '—' }}</dd>
+        </div>
+        <div v-if="lpb.counterpart_id">
+          <dt class="text-xs font-medium text-slate-600">
+            {{ lpb.sub_type === 'TRANSFER_IN' ? 'Transfer keluar asal' : 'LPB masuk pasangan' }}
+          </dt>
+          <dd class="mt-0.5 text-sm">
+            <RouterLink
+              :to="`/lpb/${lpb.counterpart_id}`"
+              class="inline-flex min-h-11 items-center font-medium text-indigo-800 hover:underline"
+              >{{ lpb.counterpart_number }}</RouterLink
+            >
+          </dd>
         </div>
         <div>
           <dt class="text-xs font-medium text-slate-600">Nomor referensi</dt>
@@ -356,6 +400,13 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
         class="mt-3 hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block"
       >
         <DataTable :columns="columns" :rows="lpb.items" caption="Item LPB">
+          <template #cell-rack_code="{ row }">
+            {{ row.rack_code }}
+            <span v-if="row.dest_rack_id" class="block text-sm whitespace-nowrap text-slate-700">
+              <span aria-hidden="true">→</span><span class="sr-only">ke </span>
+              {{ row.dest_warehouse_code }} / {{ row.dest_rack_code }}
+            </span>
+          </template>
           <template #cell-product="{ row }">
             <span class="font-medium">{{ row.sku }}</span>
             <span class="block text-sm text-slate-700">{{ row.product_name }}</span>
@@ -391,7 +442,13 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
           <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div>
               <dt class="text-xs text-slate-600">Rak</dt>
-              <dd>{{ item.rack_code }}</dd>
+              <dd>
+                {{ item.rack_code }}
+                <span v-if="item.dest_rack_id" class="block text-slate-700">
+                  <span aria-hidden="true">→</span><span class="sr-only">ke </span>
+                  {{ item.dest_warehouse_code }} / {{ item.dest_rack_code }}
+                </span>
+              </dd>
             </div>
             <div>
               <dt class="text-xs text-slate-600">Jumlah</dt>
@@ -513,7 +570,7 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
   <ConfirmDialog
     :open="confirmApprove"
     :title="`Setujui LPB ${lpb?.lpb_number ?? ''}?`"
-    message="Stok rak akan berubah sesuai tabel dampak stok, unit baru dibuatkan asset tag, dan semuanya dicatat di buku besar. Tindakan ini tidak dapat diurungkan — koreksi dilakukan dengan dokumen baru."
+    :message="approveMessage"
     confirm-label="Setujui LPB"
     tone="primary"
     :busy="busy"

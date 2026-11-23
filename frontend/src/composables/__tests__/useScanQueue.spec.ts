@@ -128,6 +128,24 @@ describe('useScanQueue', () => {
     expect(calls).toHaveLength(2)
   })
 
+  it('galat validasi 422: alasan per field ditampilkan, bukan kalimat umum', async () => {
+    const { queue, pending } = setup()
+    queue.submit('SN-Z', 1, 'GOOD')
+    pending[0]!.reject(
+      new ApiError(422, 'VALIDATION_ERROR', 'Data LPB tidak valid', [
+        {
+          field: 'serial_number',
+          message: 'unit dengan kode ini tidak ditemukan untuk produk pada item ini',
+        },
+      ]),
+    )
+    await tick()
+
+    expect(queue.entries.value[0]!.message).toBe(
+      'SN-Z: Unit dengan kode ini tidak ditemukan untuk produk pada item ini',
+    )
+  })
+
   it('kapasitas item habis (termasuk yang masih dikirim): ditolak lokal tanpa API', () => {
     const { queue, calls } = setup({ capacity: 2 })
     queue.submit('A', 1, 'GOOD')

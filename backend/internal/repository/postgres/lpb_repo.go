@@ -24,12 +24,13 @@ var _ domain.LPBRepository = (*LPBRepo)(nil)
 const lpbFrom = `lpb_documents l
 	JOIN warehouses w ON w.id = l.warehouse_id
 	JOIN users cu ON cu.id = l.created_by
-	LEFT JOIN suppliers s ON s.id = l.supplier_id`
+	LEFT JOIN suppliers s ON s.id = l.supplier_id
+	LEFT JOIN lpb_documents cp ON cp.id = l.counterpart_lpb_id`
 
 const lpbColumns = `l.id, l.lpb_number, l.type, l.sub_type, l.status, l.warehouse_id, w.code, l.doc_date::text,
 	l.reference_type, l.reference_number, l.supplier_id, s.name, l.notes, l.created_by, cu.name,
 	l.submitted_by, l.submitted_at, l.approved_by, l.approved_at, l.rejected_by, l.rejected_at, l.rejection_reason,
-	l.created_at, l.updated_at`
+	l.created_at, l.updated_at, cp.id, cp.lpb_number`
 
 func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
 	var (
@@ -40,7 +41,7 @@ func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
 		&l.ID, &l.Number, &typ, &sub, &status, &l.WarehouseID, &l.WarehouseCode, &l.DocDate,
 		&l.ReferenceType, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.Notes, &l.CreatedBy, &l.CreatedByName,
 		&l.SubmittedBy, &l.SubmittedAt, &l.ApprovedBy, &l.ApprovedAt, &l.RejectedBy, &l.RejectedAt, &l.RejectionReason,
-		&l.CreatedAt, &l.UpdatedAt,
+		&l.CreatedAt, &l.UpdatedAt, &l.CounterpartID, &l.CounterpartNumber,
 	}, extra...)
 	err := row.Scan(dest...)
 	l.Type, l.SubType, l.Status = domain.LPBType(typ), domain.LPBSubType(sub), domain.LPBStatus(status)
@@ -73,18 +74,31 @@ func (r *LPBRepo) FindByIDForUpdate(ctx context.Context, id int64) (*domain.LPB,
 	return l, err
 }
 
+// Create menyimpan dokumen baru. Status kosong = DRAFT. Dokumen yang lahir dari proses lain (pasangan
+// transfer) boleh langsung PENDING_APPROVAL dengan counterpart dan pengaju terisi.
 func (r *LPBRepo) Create(ctx context.Context, l *domain.LPB) (*domain.LPB, error) {
+	status := string(l.Status)
+	if status == "" {
+		status = string(domain.LPBDraft)
+	}
 	var id int64
 	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO lpb_documents (lpb_number, type, sub_type, status, warehouse_id, doc_date, reference_type,
-		                           reference_number, supplier_id, notes, created_by)
-		VALUES ($1, $2, $3, 'DRAFT', $4, $5::date, $6, $7, $8, $9, $10) RETURNING id`,
-		l.Number, string(l.Type), string(l.SubType), l.WarehouseID, l.DocDate, l.ReferenceType,
-		l.ReferenceNumber, l.SupplierID, l.Notes, l.CreatedBy).Scan(&id)
+		                           reference_number, supplier_id, notes, created_by, counterpart_lpb_id,
+		                           submitted_by, submitted_at)
+		VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+		l.Number, string(l.Type), string(l.SubType), status, l.WarehouseID, l.DocDate, l.ReferenceType,
+		l.ReferenceNumber, l.SupplierID, l.Notes, l.CreatedBy, l.CounterpartID, l.SubmittedBy, l.SubmittedAt).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
 	return r.FindByID(ctx, id)
+}
+
+func (r *LPBRepo) SetCounterpart(ctx context.Context, id, counterpartID int64) error {
+	database.MustInTx(ctx)
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx,
+		`UPDATE lpb_documents SET counterpart_lpb_id = $2 WHERE id = $1`, id, counterpartID))
 }
 
 func (r *LPBRepo) List(ctx context.Context, f domain.LPBFilter, p domain.PageParams) ([]domain.LPBListItem, int64, error) {
@@ -155,18 +169,22 @@ func (r *LPBRepo) MarkRevised(ctx context.Context, id int64) error {
 const itemFrom = `lpb_items i
 	JOIN products p ON p.id = i.product_id
 	JOIN racks r ON r.id = i.rack_id
+	LEFT JOIN racks dr ON dr.id = i.dest_rack_id
+	LEFT JOIN warehouses dw ON dw.id = dr.warehouse_id
 	LEFT JOIN stock_balances sb ON sb.product_id = i.product_id AND sb.rack_id = i.rack_id
 	LEFT JOIN stock_ledgers lg ON lg.lpb_item_id = i.id`
 
 const itemColumns = `i.id, i.lpb_id, i.product_id, p.sku, p.name, p.unit, p.has_serial_number,
-	i.rack_id, r.code, r.is_sellable, i.qty, i.unit_cost::text, i.notes,
+	i.rack_id, r.code, r.is_sellable, i.dest_rack_id, dr.code, dr.is_sellable, dr.warehouse_id, dw.code,
+	i.qty, i.unit_cost::text, i.notes,
 	COALESCE(sb.qty_on_hand, 0), lg.balance_before, lg.balance_after`
 
 func scanItem(row pgx.Row) (domain.LPBItem, error) {
 	var it domain.LPBItem
 	var cost *string
 	err := row.Scan(&it.ID, &it.LPBID, &it.ProductID, &it.SKU, &it.ProductName, &it.Unit, &it.HasSerialNumber,
-		&it.RackID, &it.RackCode, &it.RackIsSellable, &it.Qty, &cost, &it.Notes,
+		&it.RackID, &it.RackCode, &it.RackIsSellable, &it.DestRackID, &it.DestRackCode, &it.DestRackIsSellable,
+		&it.DestWarehouseID, &it.DestWarehouseCode, &it.Qty, &cost, &it.Notes,
 		&it.CurrentQty, &it.BalanceBefore, &it.BalanceAfter)
 	if err != nil {
 		return it, err
@@ -249,9 +267,9 @@ func (r *LPBRepo) serialsOf(ctx context.Context, cond string, arg int64) (map[in
 func (r *LPBRepo) InsertItem(ctx context.Context, lpbID int64, it *domain.LPBItem) (int64, error) {
 	var id int64
 	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
-		INSERT INTO lpb_items (lpb_id, product_id, rack_id, qty, unit_cost, notes)
-		VALUES ($1, $2, $3, $4, $5::text::numeric, $6) RETURNING id`,
-		lpbID, it.ProductID, it.RackID, it.Qty, moneyArg(it.UnitCost), it.Notes).Scan(&id)
+		INSERT INTO lpb_items (lpb_id, product_id, rack_id, dest_rack_id, qty, unit_cost, notes)
+		VALUES ($1, $2, $3, $4, $5, $6::text::numeric, $7) RETURNING id`,
+		lpbID, it.ProductID, it.RackID, it.DestRackID, it.Qty, moneyArg(it.UnitCost), it.Notes).Scan(&id)
 	return id, duplicateOf(err, map[string]domain.DuplicateError{
 		"lpb_items_lpb_id_product_id_rack_id_key": {Field: "items", Message: "produk dan rak yang sama muncul lebih dari sekali"},
 	})
@@ -259,8 +277,8 @@ func (r *LPBRepo) InsertItem(ctx context.Context, lpbID int64, it *domain.LPBIte
 
 func (r *LPBRepo) UpdateItem(ctx context.Context, it *domain.LPBItem) error {
 	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
-		UPDATE lpb_items SET qty = $2, unit_cost = $3::text::numeric, notes = $4 WHERE id = $1`,
-		it.ID, it.Qty, moneyArg(it.UnitCost), it.Notes))
+		UPDATE lpb_items SET qty = $2, unit_cost = $3::text::numeric, notes = $4, dest_rack_id = $5 WHERE id = $1`,
+		it.ID, it.Qty, moneyArg(it.UnitCost), it.Notes, it.DestRackID))
 }
 
 func (r *LPBRepo) DeleteItem(ctx context.Context, itemID int64) error {
@@ -337,12 +355,11 @@ func (r *LPBRepo) SerialStates(ctx context.Context, ids []int64) ([]domain.Seria
 	return out, rows.Err()
 }
 
-func (r *LPBRepo) AvailableQty(ctx context.Context, productID, rackID int64) (int, error) {
+func (r *LPBRepo) FreeQty(ctx context.Context, productID, rackID int64) (int, error) {
 	var n int
 	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
-		SELECT COALESCE(SUM(CASE WHEN r.is_sellable THEN sb.qty_on_hand - sb.qty_reserved ELSE 0 END), 0)::int
-		FROM stock_balances sb JOIN racks r ON r.id = sb.rack_id
-		WHERE sb.product_id = $1 AND sb.rack_id = $2`, productID, rackID).Scan(&n)
+		SELECT COALESCE(SUM(qty_on_hand - qty_reserved), 0)::int
+		FROM stock_balances WHERE product_id = $1 AND rack_id = $2`, productID, rackID).Scan(&n)
 	return n, err
 }
 

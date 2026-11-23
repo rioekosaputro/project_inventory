@@ -133,3 +133,35 @@ func moneyFrom(s *string) (*decimal.Decimal, error) {
 	}
 	return &d, nil
 }
+
+// arg menambah argumen tanpa kondisi dan mengembalikan nomor placeholder-nya ($n).
+func (b *filterBuilder) arg(v any) int {
+	b.args = append(b.args, v)
+	return len(b.args)
+}
+
+// raw menambah kondisi yang sudah berisi placeholder dari arg().
+func (b *filterBuilder) raw(cond string) { b.conds = append(b.conds, cond) }
+
+// warehouseScope mendaftarkan batas gudang (cakupan pemanggil dan/atau pilihan pengguna) satu kali
+// dan mengembalikan fungsi yang menuliskannya untuk kolom tertentu — dipakai ulang di beberapa
+// subquery tanpa menggandakan argumen. Tanpa batas → "TRUE".
+func (b *filterBuilder) warehouseScope(scope, selected *int64) func(col string) string {
+	var idx []int
+	if scope != nil {
+		idx = append(idx, b.arg(*scope))
+	}
+	if selected != nil && (scope == nil || *selected != *scope) {
+		idx = append(idx, b.arg(*selected))
+	}
+	return func(col string) string {
+		if len(idx) == 0 {
+			return "TRUE"
+		}
+		parts := make([]string, len(idx))
+		for i, n := range idx {
+			parts[i] = fmt.Sprintf("%s = $%d", col, n)
+		}
+		return strings.Join(parts, " AND ")
+	}
+}

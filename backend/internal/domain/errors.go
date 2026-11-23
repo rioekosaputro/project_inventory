@@ -46,6 +46,9 @@ var (
 	ErrLocationHasStock = errors.New("Lokasi masih menyimpan stok; kosongkan terlebih dahulu")
 	ErrProductInUse     = errors.New("Produk sudah memiliki stok atau transaksi, SKU dan mode serial number tidak dapat diubah")
 	ErrCategoryInUse    = errors.New("Kategori sudah dipakai produk, jenis barang tidak dapat diubah")
+
+	// Inventory (T1.4)
+	ErrSerialAmbiguous = errors.New("Serial number cocok dengan lebih dari satu produk; scan asset tag unit")
 )
 
 // DuplicateError: nilai unik (kode, SKU, nama) sudah dipakai. Dipetakan ke 409 beserta field-nya

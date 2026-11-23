@@ -62,6 +62,7 @@ var mapping = []mapped{
 	{domain.ErrLocationHasStock, nethttp.StatusConflict, "LOCATION_HAS_STOCK"},
 	{domain.ErrProductInUse, nethttp.StatusConflict, "PRODUCT_IN_USE"},
 	{domain.ErrCategoryInUse, nethttp.StatusConflict, "CATEGORY_IN_USE"},
+	{domain.ErrSerialAmbiguous, nethttp.StatusConflict, "SERIAL_AMBIGUOUS"},
 	{domain.ErrSerialCountMismatch, nethttp.StatusUnprocessableEntity, "SERIAL_COUNT_MISMATCH"},
 	{domain.ErrSerialNotValid, nethttp.StatusUnprocessableEntity, "SERIAL_NOT_VALID"},
 	{domain.ErrLPBEmptyItems, nethttp.StatusUnprocessableEntity, "LPB_EMPTY"},

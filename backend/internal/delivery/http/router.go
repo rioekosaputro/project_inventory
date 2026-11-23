@@ -36,6 +36,9 @@ type Deps struct {
 	Products   *handler.ProductHandler
 	Suppliers  *handler.SupplierHandler
 
+	// Inventory baca (T1.4).
+	Inventory *handler.InventoryHandler
+
 	Tokens middleware.TokenParser
 	Clock  clock.Clock
 }
@@ -77,6 +80,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerAuthRoutes(api, deps)
 	registerUserRoutes(api, deps)
 	registerMasterRoutes(api, deps)
+	registerInventoryRoutes(api, deps)
 
 	return r
 }
@@ -189,4 +193,21 @@ func registerMasterRoutes(api *gin.RouterGroup, deps Deps) {
 		g.POST("", masterWrite, h.Create)
 		g.PATCH("/:id", masterWrite, h.Update)
 	}
+}
+
+// registerInventoryRoutes — plan Bagian 8.2: pembacaan saldo & unit (permission inventory.read).
+// Warehouse scoping ditegakkan di usecase.
+func registerInventoryRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Inventory
+	if h == nil {
+		return
+	}
+	g := api.Group("/inventory",
+		middleware.Authenticate(deps.Tokens, deps.Clock),
+		middleware.RequirePermission(domain.PermInventoryRead),
+	)
+	g.GET("/balances", h.Balances)
+	g.GET("/balances/summary", h.ProductStock)
+	g.GET("/serials", h.Serials)
+	g.GET("/serials/scan/:code", h.ScanSerial)
 }

@@ -2045,7 +2045,15 @@ volumes: { pgdata: {} }
   - Batasan yang diketahui: pilihan gudang/kategori pada select & filter memuat maksimal 100 data; nama kategori unik di database bersifat **peka huruf besar/kecil** ("Printer" dan "printer" dapat berdampingan) — pertimbangkan indeks unik `lower(name)` pada migrasi berikutnya.
 
 **Sprint 2 — LPB masuk & scanner**
-- [ ] **T1.4 API baca inventory** — balances (+ `qty_available`, `is_low_stock`), summary, serials, `scan/:code` (asset tag / SN).
+- [x] **T1.4 API baca inventory** — balances (+ `qty_available`, `is_low_stock`), summary, serials, `scan/:code` (asset tag / SN).
+  Keputusan T1.4 (plan tidak merinci; praktik terbaik yang konsisten dengan Bagian 4–5):
+  - Endpoint (semua `inventory.read`: MGMT, BIZ_ADMIN, STAFF, HEAD, TECH; DRIVER tidak): `GET /inventory/balances`, `/balances/summary`, `/serials`, `/serials/scan/:code`. Hanya baca — tidak mengubah stok, ledger, maupun audit. `/serials/:id/history` (timeline + tiket) ditunda ke **T1.13** sesuai plan; `scan` sudah memuat 5 histori terakhir.
+  - **`qty_available`** = `qty_on_hand − qty_reserved` pada rak `is_sellable`, selain itu **0** (stok karantina/workshop tetap tercatat tetapi tidak tersedia).
+  - **`is_low_stock`** dinilai di **tingkat produk** (`min_stock_alert` melekat pada produk): total `qty_available` produk di cakupan gudang pemanggil/filter `warehouse_id` `< min_stock_alert`, dan `min_stock_alert > 0`. Filter rak/pencarian tidak mengubah penilaian. Akun satu gudang menilai di gudangnya saja.
+  - `balances`: baris saldo per (produk, rak); rak yang saldonya 0 disembunyikan kecuali `include_zero=true`. `summary`: satu baris per **produk** (semua produk ikut, termasuk yang stoknya 0 → dapat ditandai menipis; produk nonaktif hanya bila masih menyimpan stok atau `is_active=false` diminta), `rack_count` = jumlah rak berstok; filter `low_stock`, `has_stock`, `category_id`, `item_type`, `warehouse_id`, `q`.
+  - **Warehouse scoping**: saldo dibatasi ke gudang akun (`warehouse_id` gudang lain → 403 `FORBIDDEN_WAREHOUSE`). Daftar unit SN: unit di gudang akun **plus** unit yang tidak berada di gudang mana pun (RENTED/IN_TRANSIT/LOST/RETIRED) tetap terlihat.
+  - **Scan**: urutan pencarian asset tag (tanpa peduli huruf) → SN persis → SN tanpa peduli huruf; spasi tepi dipangkas; tidak ketemu → 404 (pesan menyebut kodenya); SN yang sama pada >1 produk → **409 `SERIAL_AMBIGUOUS`** (minta scan asset tag, tidak menebak); unit di gudang lain dari akun yang dibatasi → 403 tanpa membocorkan detail unit.
+  - `purchase_price`/data biaya unit **tidak diekspos** di API baca ini (visibilitas biaya belum diatur di matriks 5.1; putuskan saat dibutuhkan).
 - [ ] **T1.5 API LPB draft** — create/update/detail/list, tambah-hapus SN scan (validasi Bagian 5.4), submit, cancel, revise.
 - [ ] **T1.6 ApproveLPB INBOUND** — `PURCHASE`, `INITIAL_STOCK` (+ pembuatan asset tag), reject. Ledger + histori SN + audit.
   DoD: test integrasi: approve → saldo, SN, ledger, histori sesuai; SN dobel → 409 & rollback total.

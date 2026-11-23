@@ -57,6 +57,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Categories: handler.NewCategoryHandler(usecase.NewCategoryUsecase(txManager, categoryRepo, auditRepo)),
 		Products:   handler.NewProductHandler(usecase.NewProductUsecase(txManager, productRepo, categoryRepo, auditRepo)),
 		Suppliers:  handler.NewSupplierHandler(usecase.NewSupplierUsecase(txManager, supplierRepo, auditRepo)),
+		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(postgres.NewInventoryRepo(pool))),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

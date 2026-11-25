@@ -63,6 +63,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	stockRepo := postgres.NewStockRepo(pool)
 	docGen := docnum.New(pool)
 
+	billingUC := usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk)
+	jobUC := usecase.NewJobUsecase(postgres.NewJobRepo(pool), billingUC, auditRepo, clk, logger)
+
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
 		Warehouses: handler.NewWarehouseHandler(usecase.NewWarehouseUsecase(txManager, warehouseRepo, auditRepo)),
@@ -88,9 +91,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			txManager, doRepo, rackRepo, stockRepo, lpbRepo, auditRepo, docGen, clk,
 		)),
 		Invoices: handler.NewInvoiceHandler(
-			usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk),
+			billingUC,
 			usecase.NewInvoiceUsecase(txManager, invoiceRepo, auditRepo, clk).WithPDF(pdfClient),
 		),
+		Jobs: handler.NewJobHandler(jobUC),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),
@@ -109,4 +113,16 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Name:  "database",
 		Check: pool.Ping,
 	}), nil
+}
+
+// NewJobUsecase merakit JobUsecase beserta dependensinya agar cmd/worker berbagi wiring
+// yang sama dengan cmd/api (T2.10).
+func NewJobUsecase(pool *pgxpool.Pool, clk clock.Clock, logger *slog.Logger) *usecase.JobUsecase {
+	txManager := database.NewTxManager(pool)
+	auditRepo := postgres.NewAuditRepo(pool)
+	invoiceRepo := postgres.NewInvoiceRepo(pool)
+	taxRepo := postgres.NewTaxSettingRepo(pool)
+	docGen := docnum.New(pool)
+	billingUC := usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk)
+	return usecase.NewJobUsecase(postgres.NewJobRepo(pool), billingUC, auditRepo, clk, logger)
 }

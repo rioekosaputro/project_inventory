@@ -1,0 +1,13 @@
+{
+  "framework": "go",
+  "crons": [
+    {
+      "path": "/api/v1/internal/jobs/billing",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/v1/internal/jobs/daily",
+      "schedule": "30 18 * * *"
+    }
+  ]
+}

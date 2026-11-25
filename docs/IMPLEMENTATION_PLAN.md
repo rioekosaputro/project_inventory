@@ -2219,7 +2219,17 @@ volumes: { pgdata: {} }
     - Pembayaran + PPh 23: menerima `amount` (> 0) + `pph23_withheld` (≥ 0) + `pph23_bukti_potong_no`; `total_settled = amount + pph23_withheld` tidak boleh melebihi sisa tagihan (`grand_total - paid_amount`), menambah `paid_amount` atomik dan memutakhirkan status otomatis (`PARTIALLY_PAID` / `PAID`).
   - Frontend: `types/invoice.ts`, `services/invoiceService.ts`, `InvoiceListView.vue` (`/invoices`, dilengkapi SlideOver **Generate Tagihan Bulanan** dengan Pratinjau `?preview=1` & Eksekusi + tombol **Export Excel**), `InvoiceDetailView.vue` (`/invoices/:id`, rincian item & pajak PMK 131/2024, riwayat pembayaran, aksi **Terbitkan**, **Catat Pembayaran + PPh 23** dengan `Idempotency-Key` UUID per dialog, **Batalkan (VOID)**, dan **Cetak PDF**). Menu sidebar **Tagihan** aktif otomatis.
   - Verifikasi: `go vet -tags=integration ./...` bersih, `TestInvoice_IssuePayPPh23IdempotencyVoidAndExport` (issue, partial pay, replay idempotency, overpayment ditolak, pelunasan dengan PPh 23 → `PAID`, void `PAID` ditolak, void `DRAFT` berhasil, PDF 200, Excel 2 sheet) lulus; frontend `check:lint` (0 error), `InvoiceViews.spec.ts` + `AppLayout.spec.ts`, `vue-tsc --build`, dan `vite build` lulus.
-- [ ] **T2.10 Penjadwalan** — `/internal/jobs/*` + Vercel Cron (staging) + `cmd/worker` (production), `job_runs`, alert kontrak berakhir.
+- [x] **T2.10 Penjadwalan** — `/internal/jobs/*` + Vercel Cron (staging) + `cmd/worker` (production), `job_runs`, alert kontrak berakhir.
+  Catatan T2.10:
+  - Backend (`domain/job.go`, `postgres/job_repo.go`, `usecase/jobs.go`, `middleware/cron.go`, `handler/jobs.go`, `router.go`, `app.go`):
+    - Pelacakan idempoten di `job_runs` (`TryAcquire` per `(job_name, run_key)`): mencegah eksekusi ganda bila status `SUCCESS`/`RUNNING`, namun mengizinkan retry atomik bila status sebelumnya `FAILED`.
+    - Endpoint internal terproteksi `Authorization: Bearer <CRON_SECRET>` (`subtle.ConstantTimeCompare`; menolak `503 CRON_NOT_CONFIGURED` bila `CRON_SECRET` kosong agar tidak pernah terbuka):
+      - `GET /api/v1/internal/jobs/billing` (`BILLING_MONTHLY`, mendukung `?date=YYYY-MM-DD`).
+      - `GET /api/v1/internal/jobs/daily` menjalankan 4 sub-job terpisah di `job_runs`: `CONTRACT_EXPIRY` (tandai kontrak `ACTIVE` lewat `end_date` → `EXPIRED` + alert kontrak berakhir ≤ 30 hari dikelompokkan H-7/H-14/H-30), `INVOICE_OVERDUE` (deteksi & rekap invoice `ISSUED`/`PARTIALLY_PAID` lewat `due_date`), `LOW_STOCK_ALERT` (produk aktif di bawah `min_stock_alert`), dan `STALE_DO_RESERVATION` (reservasi DO menggantung > 48 jam + pembersihan `idempotency_keys` > 24 jam).
+  - Penjadwalan staging & production:
+    - `backend/vercel.json`: Vercel Cron UTC (`0 18 * * *` = 01:00 WIB untuk billing, `30 18 * * *` = 01:30 WIB untuk daily).
+    - `backend/cmd/worker/main.go`: binary worker production memakai `robfig/cron/v3` di zona waktu WIB (`0 1 * * *` & `30 1 * * *`) dengan graceful shutdown dan flag `-run-once=billing|daily` untuk eksekusi manual.
+  - Verifikasi: `go vet -tags=integration ./...`, `go build ./cmd/api ./cmd/worker`, dan `TestInternalJobs_CronSecretProtection` + `TestInternalJobs_BillingAndDailyMaintenance_IdempotencyAndAlerts` lulus semua.
 - [ ] **T2.11 Dashboard komersial.**
   **🎯 Milestone M2:** siklus SO → DO → LPB → terkirim → invoice berjalan di staging.
 

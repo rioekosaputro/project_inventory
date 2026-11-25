@@ -55,6 +55,9 @@ type Deps struct {
 	DeliveryOrders *handler.DeliveryOrderHandler
 	Invoices       *handler.InvoiceHandler
 
+	// Penjadwalan internal jobs (T2.10).
+	Jobs *handler.JobHandler
+
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
 
@@ -110,6 +113,11 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerSalesOrderRoutes(api, deps)
 	registerDeliveryOrderRoutes(api, deps)
 	registerInvoiceRoutes(api, deps)
+	if deps.Jobs != nil {
+		internalJobs := api.Group("/internal/jobs", middleware.RequireCronSecret(cfg.CronSecret))
+		internalJobs.GET("/billing", deps.Jobs.RunBilling)
+		internalJobs.GET("/daily", deps.Jobs.RunDaily)
+	}
 	if deps.Dashboard != nil {
 		dg := api.Group("/dashboard",
 			middleware.Authenticate(deps.Tokens, deps.Clock),

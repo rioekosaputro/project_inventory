@@ -68,10 +68,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vercel rewrite "/(.*)" -> "/api/index.go?__path=$1" mengubah r.URL.Path menjadi "/api/index.go".
-	// Pulihkan path asli + bersihkan __path dari query string agar Gin mencocokkan route & query asli.
-	if r.URL.Path == "/api/index.go" || r.URL.Path == "/api/index" {
-		q := r.URL.Query()
+	// Vercel rewrite "/(.*)" -> "/api/index.go?__path=$1" dapat mengirim r.URL.Path sebagai
+	// "/api", "/api/index", atau "/api/index.go". Selalu pulihkan path asli dari __path bila ada.
+	q := r.URL.Query()
+	if q.Has("__path") {
 		orig := q.Get("__path")
 		q.Del("__path")
 		r.URL.RawQuery = q.Encode()

@@ -2177,7 +2177,11 @@ volumes: { pgdata: {} }
   - Verifikasi: `go vet -tags=integration ./...` bersih, `TestContract_RBACAndValidation` & `TestContract_Lifecycle_DraftUpdateActivateRenewTerminate` lulus; frontend `check:lint` (0 error), **293/293 Vitest** (25 file), `vue-tsc --build`, dan `vite build` lulus.
 
 **Sprint 6 — SO, DO, reservasi**
-- [ ] **T2.4 `pkg/money` + kalkulator pajak** — rumus Bagian 5.6 dengan `tax_settings` per tanggal.
+- [x] **T2.4 `pkg/money` + kalkulator pajak** — rumus Bagian 5.6 dengan `tax_settings` per tanggal.
+  Catatan T2.4:
+  - `backend/pkg/money` (`money.go`, `tax.go`, `money_test.go`): berbasis `shopspring/decimal` tanpa `float64`; `Parse`/`ParseNonNegative` (menolak notasi ilmiah), `RoundRupiah` (`HALF_UP` ke rupiah penuh), `Round2`, `LineTotal`, `Prorata`, `FormatRupiah`, dan `CalculateTax`/`CalculateLinesTax` (`dpp = subtotal - discount`, `dpp_other_value = RoundRupiah(dpp × num/den)`, `tax_amount = RoundRupiah(dpp_other_value × rate / 100)`, `grand_total = dpp + tax_amount`; `PMK131Rule()` 12% × 11/12 kode faktur `04`).
+  - `domain/tax.go` + `postgres/tax_repo.go`: `TaxSettingRepository.FindEffective(ctx, taxCode, onDate)` mengambil tarif efektif berdasarkan tanggal transaksi (`effective_from <= onDate AND (effective_to IS NULL OR effective_to >= onDate)`).
+  - Verifikasi: `go vet -tags=integration ./...` bersih, seluruh kasus tabel di `pkg/money/money_test.go` (PMK 131/2024, non-PPN, diskon, pembulatan `HALF_UP`, PPN 11% lawas, prorata) dan `TestTaxSettingRepo_FindEffectiveByDateAndCalculate` lulus.
   DoD: test tabel kasus (PPN, non-PPN, diskon, pembulatan).
 - [ ] **T2.5 Sales Order** — 4 tipe (`NEW_DELIVERY`, `WITHDRAWAL`, `UNIT_SWAP`, `CONSUMABLE`), confirm/cancel, terbitkan DO (OUTBOUND/INBOUND).
 - [ ] **T2.6 DO & reservasi** — reserve (scan SN / pilih rak), release, buat draft LPB dari DO; jalur ApproveLPB dari DO (pakai `qty_reserved`).

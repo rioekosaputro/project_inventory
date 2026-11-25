@@ -87,9 +87,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		DeliveryOrders: handler.NewDeliveryOrderHandler(usecase.NewDeliveryOrderUsecase(
 			txManager, doRepo, rackRepo, stockRepo, lpbRepo, auditRepo, docGen, clk,
 		)),
-		Invoices: handler.NewInvoiceHandler(usecase.NewBillingUsecase(
-			txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk,
-		)),
+		Invoices: handler.NewInvoiceHandler(
+			usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk),
+			usecase.NewInvoiceUsecase(txManager, invoiceRepo, auditRepo, clk).WithPDF(pdfClient),
+		),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),

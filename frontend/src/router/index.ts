@@ -279,6 +279,19 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/deliveryOrders/DeliveryOrderDetailView.vue'),
     meta: { layout: 'app', permission: 'do.read', title: 'Detail Delivery Order' },
   },
+  // Tagihan & Invoice (plan Bagian 9.4, T2.9).
+  {
+    path: '/invoices',
+    name: 'invoices',
+    component: () => import('@/views/invoices/InvoiceListView.vue'),
+    meta: { layout: 'app', permission: 'invoice.read', title: 'Tagihan' },
+  },
+  {
+    path: '/invoices/:id(\\d+)',
+    name: 'invoices-detail',
+    component: () => import('@/views/invoices/InvoiceDetailView.vue'),
+    meta: { layout: 'app', permission: 'invoice.read', title: 'Detail Invoice' },
+  },
   {
     path: '/403',
     name: 'forbidden',

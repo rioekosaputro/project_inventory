@@ -412,8 +412,22 @@ func registerInvoiceRoutes(api *gin.RouterGroup, deps Deps) {
 		return
 	}
 	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	read := middleware.RequirePermission(domain.PermInvoiceRead)
 	create := middleware.RequirePermission(domain.PermInvoiceCreate)
+	approve := middleware.RequirePermission(domain.PermInvoiceApprove)
+	pay := middleware.RequirePermission(domain.PermInvoicePay)
 
 	g := api.Group("/invoices", authn)
+	g.GET("", read, h.List)
+	g.GET("/export", read, h.Export)
 	g.POST("/generate", create, h.Generate)
+	g.GET("/:id", read, h.Get)
+	g.GET("/:id/pdf", read, h.PDF)
+	g.POST("/:id/issue", approve, h.Issue)
+	g.POST("/:id/void", approve, h.Void)
+	if deps.Idempotency != nil {
+		g.POST("/:id/payments", pay, middleware.Idempotency(deps.Idempotency, idempotencyTTL), h.RecordPayment)
+	} else {
+		g.POST("/:id/payments", pay, h.RecordPayment)
+	}
 }

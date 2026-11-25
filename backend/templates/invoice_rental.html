@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{.InvoiceNumber}}</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1e293b; margin: 0; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; }
+    .brand h1 { margin: 0; font-size: 18px; color: #0f172a; }
+    .brand p { margin: 2px 0 0; font-size: 10px; color: #475569; }
+    .doc-meta { text-align: right; }
+    .doc-meta .num { font-size: 14px; font-weight: 700; font-family: monospace; color: #0f172a; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; margin-top: 4px; background: #e2e8f0; color: #1e293b; }
+    .badge-paid { background: #dcfce7; color: #166534; }
+    .badge-void { background: #fee2e2; color: #991b1b; }
+    .grid { display: flex; gap: 16px; margin-bottom: 14px; }
+    .box { flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; }
+    .box h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+    .box p { margin: 2px 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: top; }
+    th { background: #f1f5f9; text-align: left; font-size: 10px; text-transform: uppercase; }
+    .num-col { text-align: right; font-family: monospace; white-space: nowrap; }
+    .totals { width: 320px; margin-left: auto; border-collapse: collapse; }
+    .totals td { border: 1px solid #cbd5e1; padding: 5px 8px; }
+    .totals .grand td { background: #0f172a; color: #fff; font-weight: 700; font-size: 12px; }
+    .footer { margin-top: 20px; font-size: 9px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <h1>INVOICE TAGIHAN</h1>
+      <p>Rental ERP-Lite · Manajemen Sewa &amp; Inventaris B2B</p>
+    </div>
+    <div class="doc-meta">
+      <div class="num">{{.InvoiceNumber}}</div>
+      <div class="badge {{if eq .Status "PAID"}}badge-paid{{else if eq .Status "VOID"}}badge-void{{end}}">{{.Status}}</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h3>Ditagihkan Kepada</h3>
+      <p><strong>{{.CustomerName}}</strong> ({{.CustomerCode}})</p>
+      {{if .CustomerNPWP}}<p>NPWP: {{.CustomerNPWP}}</p>{{end}}
+      <p>{{.BillingAddress}}</p>
+    </div>
+    <div class="box">
+      <h3>Informasi Tagihan</h3>
+      <p>Jenis: <strong>{{.InvoiceType}}</strong></p>
+      {{if .ContractNumber}}<p>Kontrak: {{.ContractNumber}}</p>{{end}}
+      {{if .PeriodLabel}}<p>Periode: {{.PeriodLabel}}</p>{{end}}
+      <p>Tanggal Invoice: {{.InvoiceDate}}</p>
+      <p>Jatuh Tempo: <strong>{{.DueDate}}</strong></p>
+      {{if .FakturPajak}}<p>No. Faktur Pajak: {{.FakturPajak}}</p>{{end}}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 32px;">No</th>
+        <th>Deskripsi</th>
+        <th style="width: 60px;" class="num-col">Qty</th>
+        <th style="width: 110px;" class="num-col">Harga / Tarif</th>
+        <th style="width: 115px;" class="num-col">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Items}}
+      <tr>
+        <td>{{.No}}</td>
+        <td>{{.Description}}</td>
+        <td class="num-col">{{.Qty}}</td>
+        <td class="num-col">{{.UnitPrice}}</td>
+        <td class="num-col">{{.LineTotal}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>Subtotal</td><td class="num-col">{{.Subtotal}}</td></tr>
+    <tr><td>Diskon</td><td class="num-col">{{.Discount}}</td></tr>
+    <tr><td>DPP</td><td class="num-col">{{.DPP}}</td></tr>
+    {{if .IsPPN}}
+    <tr><td>DPP Nilai Lain (11/12)</td><td class="num-col">{{.DPPOtherValue}}</td></tr>
+    <tr><td>PPN ({{.TaxRate}}%)</td><td class="num-col">{{.TaxAmount}}</td></tr>
+    {{else}}
+    <tr><td>PPN (Non-PPN)</td><td class="num-col">Rp 0</td></tr>
+    {{end}}
+    <tr class="grand"><td>Grand Total</td><td class="num-col">{{.GrandTotal}}</td></tr>
+    <tr><td>Terbayar (termasuk PPh 23)</td><td class="num-col">{{.PaidAmount}}</td></tr>
+    <tr><td><strong>Sisa Tagihan</strong></td><td class="num-col"><strong>{{.RemainingAmount}}</strong></td></tr>
+  </table>
+
+  {{if .Notes}}
+  <div class="box" style="margin-top: 12px;">
+    <h3>Catatan</h3>
+    <p>{{.Notes}}</p>
+  </div>
+  {{end}}
+
+  <div class="footer">
+    <span>Dicetak pada: {{.PrintedAt}}</span>
+    <span>Dokumen ini sah dan dihasilkan secara elektronik oleh sistem.</span>
+  </div>
+</body>
+</html>

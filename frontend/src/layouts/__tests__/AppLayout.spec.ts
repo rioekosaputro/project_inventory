@@ -77,7 +77,7 @@ describe('sidebar dinamis per permission', () => {
   })
 
   it('tanpa permission apa pun hanya Beranda; menu yang rutenya belum ada tidak tampil', async () => {
-    svc.refresh.mockResolvedValue(makeSession({ permissions: ['ticket.read', 'invoice.read'] }))
+    svc.refresh.mockResolvedValue(makeSession({ permissions: ['ticket.read', 'map.read'] }))
     const app = await mountApp('/beranda') // tanpa rute fase berikutnya
     wrapper = app.wrapper
 

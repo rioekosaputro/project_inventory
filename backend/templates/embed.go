@@ -15,6 +15,7 @@ var fs embed.FS
 var (
 	lpbSuratJalanTmpl = template.Must(template.ParseFS(fs, "lpb_surat_jalan.html"))
 	labelAssetTmpl    = template.Must(template.ParseFS(fs, "label_asset.html"))
+	invoiceRentalTmpl = template.Must(template.ParseFS(fs, "invoice_rental.html"))
 )
 
 // LPBSuratJalanItem merepresentasikan satu baris item pada PDF Surat Jalan / LPB.
@@ -85,6 +86,51 @@ func RenderLabels(data LabelsData) (string, error) {
 	var buf bytes.Buffer
 	if err := labelAssetTmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("templates: render label_asset: %w", err)
+	}
+	return buf.String(), nil
+}
+
+type InvoicePDFItem struct {
+	No          int
+	Description string
+	Qty         string
+	UnitPrice   string
+	LineTotal   string
+}
+
+type InvoicePDFData struct {
+	InvoiceNumber   string
+	InvoiceType     string
+	Status          string
+	CustomerCode    string
+	CustomerName    string
+	CustomerNPWP    string
+	BillingAddress  string
+	ContractNumber  string
+	PeriodLabel     string
+	InvoiceDate     string
+	DueDate         string
+	FakturPajak     string
+	IsPPN           bool
+	Subtotal        string
+	Discount        string
+	DPP             string
+	DPPOtherValue   string
+	TaxRate         string
+	TaxAmount       string
+	GrandTotal      string
+	PaidAmount      string
+	RemainingAmount string
+	Notes           string
+	PrintedAt       string
+	Items           []InvoicePDFItem
+}
+
+// RenderInvoicePDF merender HTML siap cetak A4 untuk invoice tagihan (T2.9).
+func RenderInvoicePDF(data InvoicePDFData) (string, error) {
+	var buf bytes.Buffer
+	if err := invoiceRentalTmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("templates: render invoice_rental: %w", err)
 	}
 	return buf.String(), nil
 }

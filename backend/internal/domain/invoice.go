@@ -53,10 +53,12 @@ type Invoice struct {
 	ID                 int64
 	InvoiceNumber      string
 	InvoiceType        InvoiceType
-	CustomerID         int64
-	CustomerCode       string // dari JOIN
-	CustomerName       string // dari JOIN
-	ContractID         *int64
+	CustomerID             int64
+	CustomerCode           string  // dari JOIN
+	CustomerName           string  // dari JOIN
+	CustomerNPWP           *string // dari JOIN
+	CustomerBillingAddress string  // dari JOIN
+	ContractID             *int64
 	ContractNumber     *string // dari JOIN
 	SOID               *int64
 	SONumber           *string // dari JOIN
@@ -149,9 +151,37 @@ type BillablePlacement struct {
 	DaysInPeriod    int
 }
 
+type InvoiceDetail struct {
+	Invoice  *Invoice
+	Items    []InvoiceItem
+	Payments []Payment
+}
+
+type InvoiceFilter struct {
+	Query       string
+	InvoiceType *InvoiceType
+	Status      *InvoiceStatus
+	CustomerID  *int64
+	ContractID  *int64
+	DateFrom    *time.Time
+	DateTo      *time.Time
+	OverdueOnly bool
+	Today       time.Time
+}
+
 type InvoiceRepository interface {
 	ListBillableContracts(ctx context.Context, billingDay int, contractID *int64) ([]BillableContract, error)
 	HasActiveRentalInvoice(ctx context.Context, contractID int64, periodStart, periodEnd time.Time) (bool, error)
 	ListPlacementsForPeriod(ctx context.Context, contractID int64, periodStart, periodEnd time.Time) ([]BillablePlacement, error)
 	CreateInvoiceWithItems(ctx context.Context, inv *Invoice, items []InvoiceItem) (*Invoice, error)
+
+	FindByID(ctx context.Context, id int64) (*Invoice, error)
+	FindByIDForUpdate(ctx context.Context, id int64) (*Invoice, error)
+	List(ctx context.Context, f InvoiceFilter, p PageParams) ([]Invoice, int64, error)
+	ListAll(ctx context.Context, f InvoiceFilter) ([]Invoice, error)
+	ListItems(ctx context.Context, invoiceID int64) ([]InvoiceItem, error)
+	ListPayments(ctx context.Context, invoiceID int64) ([]Payment, error)
+	MarkIssued(ctx context.Context, id, userID int64, at time.Time, fakturPajak *string) error
+	MarkVoided(ctx context.Context, id, userID int64, at time.Time, reason string) error
+	InsertPaymentAndUpdateInvoice(ctx context.Context, p *Payment, newPaid decimal.Decimal, newStatus InvoiceStatus) (*Payment, error)
 }

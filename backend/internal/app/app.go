@@ -78,7 +78,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			txManager, postgres.NewOpnameRepo(pool), lpbRepo, warehouseRepo, rackRepo, productRepo,
 			inventoryRepo, stockRepo, auditRepo, docGen, clk,
 		)),
-		Dashboard: handler.NewDashboardHandler(usecase.NewDashboardUsecase(postgres.NewDashboardRepo(pool))),
+		Dashboard: handler.NewDashboardHandler(usecase.NewDashboardUsecase(postgres.NewDashboardRepo(pool), clk)),
 		Customers: handler.NewCustomerHandler(usecase.NewCustomerUsecase(txManager, customerRepo, auditRepo)),
 		Contracts: handler.NewContractHandler(usecase.NewContractUsecase(
 			txManager, contractRepo, customerRepo, productRepo, auditRepo, docGen, clk,

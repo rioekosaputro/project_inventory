@@ -2,8 +2,10 @@ package postgres
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/pkg/database"
@@ -65,6 +67,12 @@ func (r *DashboardRepo) WarehouseSummary(ctx context.Context, warehouseID *int64
 		SELECT count(*)::int FROM stock_opnames
 		WHERE status IN ('IN_PROGRESS', 'SUBMITTED') AND ($1::bigint IS NULL OR warehouse_id = $1)`, warehouseID).
 		Scan(&out.ActiveOpnames); err != nil {
+		return nil, err
+	}
+	if err := db.QueryRow(ctx, `
+		SELECT count(*)::int FROM delivery_orders
+		WHERE status = 'OPEN' AND ($1::bigint IS NULL OR warehouse_id = $1)`, warehouseID).
+		Scan(&out.PendingDOReservations); err != nil {
 		return nil, err
 	}
 
@@ -146,4 +154,135 @@ func (r *DashboardRepo) WarehouseSummary(ctx context.Context, warehouseID *int64
 	}
 	lRows.Close()
 	return out, lRows.Err()
+}
+
+// CommercialSummary menghitung metrik komersial (Bagian 9.5, T2.11):
+// utilisasi aset, omzet bulan berjalan, piutang/overdue, dan kontrak berakhir <= 30 hari.
+func (r *DashboardRepo) CommercialSummary(ctx context.Context, today time.Time) (*domain.CommercialDashboardSummary, error) {
+	db := database.GetExecutor(ctx, r.pool)
+	todayStr := today.Format("2006-01-02")
+	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	monthEnd := time.Date(today.Year(), today.Month()+1, 0, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	dueSoonStr := today.AddDate(0, 0, 7).Format("2006-01-02")
+	expiring30Str := today.AddDate(0, 0, 30).Format("2006-01-02")
+
+	out := &domain.CommercialDashboardSummary{
+		ExpiringContracts: make([]domain.ExpiringContractAlert, 0),
+		OverdueInvoices:   make([]domain.OverdueInvoiceAlert, 0),
+	}
+
+	// 1. Pelanggan & kontrak aktif.
+	if err := db.QueryRow(ctx, `SELECT count(*)::int FROM customers WHERE is_active = TRUE`).Scan(&out.ActiveCustomers); err != nil {
+		return nil, err
+	}
+	if err := db.QueryRow(ctx, `SELECT count(*)::int FROM rental_contracts WHERE status = 'ACTIVE'`).Scan(&out.ActiveContracts); err != nil {
+		return nil, err
+	}
+
+	// 2. Utilisasi aset: RENTED / total unit SN non-RETIRED.
+	if err := db.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE status = 'RENTED')::int,
+		       count(*) FILTER (WHERE status <> 'RETIRED')::int
+		FROM product_serials`).Scan(&out.RentedUnits, &out.TotalActiveAssets); err != nil {
+		return nil, err
+	}
+	if out.TotalActiveAssets > 0 {
+		out.AssetUtilizationPct = decimal.NewFromInt(int64(out.RentedUnits)).
+			Mul(decimal.NewFromInt(100)).
+			DivRound(decimal.NewFromInt(int64(out.TotalActiveAssets)), 2)
+	} else {
+		out.AssetUtilizationPct = decimal.Zero
+	}
+
+	// 3. Omzet bulan berjalan (invoice terbit/dibayar di bulan ini) & piutang/overdue.
+	var revStr, outStr, overdueAmtStr string
+	if err := db.QueryRow(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN status IN ('ISSUED','PARTIALLY_PAID','PAID')
+			                  AND invoice_date >= $1::date AND invoice_date <= $2::date
+			             THEN grand_total ELSE 0 END), 0)::text,
+			COALESCE(SUM(CASE WHEN status IN ('ISSUED','PARTIALLY_PAID')
+			             THEN grand_total - paid_amount ELSE 0 END), 0)::text,
+			count(*) FILTER (WHERE status IN ('ISSUED','PARTIALLY_PAID') AND due_date < $3::date)::int,
+			COALESCE(SUM(CASE WHEN status IN ('ISSUED','PARTIALLY_PAID') AND due_date < $3::date
+			             THEN grand_total - paid_amount ELSE 0 END), 0)::text,
+			count(*) FILTER (WHERE status IN ('ISSUED','PARTIALLY_PAID') AND due_date >= $3::date AND due_date <= $4::date)::int
+		FROM invoices`, monthStart, monthEnd, todayStr, dueSoonStr).Scan(
+		&revStr, &outStr, &out.OverdueInvoiceCount, &overdueAmtStr, &out.DueSoonInvoiceCount,
+	); err != nil {
+		return nil, err
+	}
+	out.MonthlyRevenue, _ = decimal.NewFromString(revStr)
+	out.OutstandingReceivables, _ = decimal.NewFromString(outStr)
+	out.OverdueInvoiceAmount, _ = decimal.NewFromString(overdueAmtStr)
+
+	// 4. Pembayaran tertagih bulan berjalan (amount_received + pph23_amount).
+	var collectedStr string
+	if err := db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(amount_received + pph23_amount), 0)::text
+		FROM payments
+		WHERE payment_date >= $1::date AND payment_date <= $2::date`, monthStart, monthEnd).Scan(&collectedStr); err != nil {
+		return nil, err
+	}
+	out.MonthlyCollected, _ = decimal.NewFromString(collectedStr)
+
+	// 5. Jumlah & top 5 kontrak akan berakhir <= 30 hari.
+	if err := db.QueryRow(ctx, `
+		SELECT count(*)::int FROM rental_contracts
+		WHERE status = 'ACTIVE' AND end_date >= $1::date AND end_date <= $2::date`,
+		todayStr, expiring30Str).Scan(&out.ExpiringContractsCount); err != nil {
+		return nil, err
+	}
+	cRows, err := db.Query(ctx, `
+		SELECT rc.id, rc.contract_number, rc.customer_id, c.company_name,
+		       TO_CHAR(rc.end_date, 'YYYY-MM-DD'),
+		       (rc.end_date - $1::date) AS days_remaining
+		FROM rental_contracts rc
+		JOIN customers c ON c.id = rc.customer_id
+		WHERE rc.status = 'ACTIVE'
+		  AND rc.end_date >= $1::date
+		  AND rc.end_date <= $2::date
+		ORDER BY rc.end_date ASC, rc.id ASC
+		LIMIT 5`, todayStr, expiring30Str)
+	if err != nil {
+		return nil, err
+	}
+	for cRows.Next() {
+		var a domain.ExpiringContractAlert
+		if err := cRows.Scan(&a.ContractID, &a.ContractNumber, &a.CustomerID, &a.CustomerName, &a.EndDate, &a.DaysRemaining); err != nil {
+			cRows.Close()
+			return nil, err
+		}
+		out.ExpiringContracts = append(out.ExpiringContracts, a)
+	}
+	cRows.Close()
+	if err := cRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// 6. Top 5 invoice melewati jatuh tempo (terlama dulu).
+	iRows, err := db.Query(ctx, `
+		SELECT i.id, i.invoice_number, i.customer_id, c.company_name,
+		       TO_CHAR(i.due_date, 'YYYY-MM-DD'),
+		       ($1::date - i.due_date) AS days_overdue,
+		       TO_CHAR(i.grand_total - i.paid_amount, 'FM999999999999990.00') AS remaining_amount
+		FROM invoices i
+		JOIN customers c ON c.id = i.customer_id
+		WHERE i.status IN ('ISSUED', 'PARTIALLY_PAID')
+		  AND i.due_date < $1::date
+		ORDER BY i.due_date ASC, i.id ASC
+		LIMIT 5`, todayStr)
+	if err != nil {
+		return nil, err
+	}
+	for iRows.Next() {
+		var a domain.OverdueInvoiceAlert
+		if err := iRows.Scan(&a.InvoiceID, &a.InvoiceNumber, &a.CustomerID, &a.CustomerName, &a.DueDate, &a.DaysOverdue, &a.RemainingAmount); err != nil {
+			iRows.Close()
+			return nil, err
+		}
+		out.OverdueInvoices = append(out.OverdueInvoices, a)
+	}
+	iRows.Close()
+	return out, iRows.Err()
 }

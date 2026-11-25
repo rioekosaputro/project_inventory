@@ -7,6 +7,7 @@ import (
 
 	"rental-inventory-api/internal/delivery/http/dto"
 	"rental-inventory-api/internal/delivery/http/httperr"
+	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/internal/usecase"
 	"rental-inventory-api/pkg/response"
 )
@@ -39,19 +40,37 @@ type pendingLPBResp struct {
 	SubmittedAt   *time.Time `json:"submitted_at"`
 }
 
+type commercialDashboardResp struct {
+	ActiveCustomers        int                            `json:"active_customers"`
+	ActiveContracts        int                            `json:"active_contracts"`
+	RentedUnits            int                            `json:"rented_units"`
+	TotalActiveAssets      int                            `json:"total_active_assets"`
+	AssetUtilizationPct    string                         `json:"asset_utilization_pct"`
+	MonthlyRevenue         string                         `json:"monthly_revenue"`
+	MonthlyCollected       string                         `json:"monthly_collected"`
+	OutstandingReceivables string                         `json:"outstanding_receivables"`
+	OverdueInvoiceCount    int                            `json:"overdue_invoice_count"`
+	OverdueInvoiceAmount   string                         `json:"overdue_invoice_amount"`
+	DueSoonInvoiceCount    int                            `json:"due_soon_invoice_count"`
+	ExpiringContractsCount int                            `json:"expiring_contracts_count"`
+	ExpiringContracts      []domain.ExpiringContractAlert `json:"expiring_contracts"`
+	OverdueInvoices        []domain.OverdueInvoiceAlert   `json:"overdue_invoices"`
+}
+
 type dashboardSummaryResp struct {
-	TotalActiveProducts   int                     `json:"total_active_products"`
-	SafeStockProducts     int                     `json:"safe_stock_products"`
-	LowStockProducts      int                     `json:"low_stock_products"`
-	TotalQtyAvailable     int                     `json:"total_qty_available"`
-	SerialUnitsTotal      int                     `json:"serial_units_total"`
-	SerialUnitsAvailable  int                     `json:"serial_units_available"`
-	PendingLPBApprovals   int                     `json:"pending_lpb_approvals"`
-	ActiveOpnames         int                     `json:"active_opnames"`
-	PendingDOReservations int                     `json:"pending_do_reservations"`
-	LowStockItems         []lowStockItemResp      `json:"low_stock_items"`
-	RecentPendingLPBs     []pendingLPBResp        `json:"recent_pending_lpbs"`
-	RecentMovements       []dto.LedgerRowResponse `json:"recent_movements"`
+	TotalActiveProducts   int                      `json:"total_active_products"`
+	SafeStockProducts     int                      `json:"safe_stock_products"`
+	LowStockProducts      int                      `json:"low_stock_products"`
+	TotalQtyAvailable     int                      `json:"total_qty_available"`
+	SerialUnitsTotal      int                      `json:"serial_units_total"`
+	SerialUnitsAvailable  int                      `json:"serial_units_available"`
+	PendingLPBApprovals   int                      `json:"pending_lpb_approvals"`
+	ActiveOpnames         int                      `json:"active_opnames"`
+	PendingDOReservations int                      `json:"pending_do_reservations"`
+	LowStockItems         []lowStockItemResp       `json:"low_stock_items"`
+	RecentPendingLPBs     []pendingLPBResp         `json:"recent_pending_lpbs"`
+	RecentMovements       []dto.LedgerRowResponse  `json:"recent_movements"`
+	Commercial            *commercialDashboardResp `json:"commercial,omitempty"`
 }
 
 // Summary — GET /dashboard/summary (plan Bagian 8.5 & 9.5)
@@ -89,6 +108,27 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		moves = append(moves, dto.NewLedgerRowResponse(&s.RecentMovements[i]))
 	}
 
+	var comm *commercialDashboardResp
+	if s.Commercial != nil {
+		c := s.Commercial
+		comm = &commercialDashboardResp{
+			ActiveCustomers:        c.ActiveCustomers,
+			ActiveContracts:        c.ActiveContracts,
+			RentedUnits:            c.RentedUnits,
+			TotalActiveAssets:      c.TotalActiveAssets,
+			AssetUtilizationPct:    c.AssetUtilizationPct.StringFixed(2),
+			MonthlyRevenue:         c.MonthlyRevenue.StringFixed(2),
+			MonthlyCollected:       c.MonthlyCollected.StringFixed(2),
+			OutstandingReceivables: c.OutstandingReceivables.StringFixed(2),
+			OverdueInvoiceCount:    c.OverdueInvoiceCount,
+			OverdueInvoiceAmount:   c.OverdueInvoiceAmount.StringFixed(2),
+			DueSoonInvoiceCount:    c.DueSoonInvoiceCount,
+			ExpiringContractsCount: c.ExpiringContractsCount,
+			ExpiringContracts:      c.ExpiringContracts,
+			OverdueInvoices:        c.OverdueInvoices,
+		}
+	}
+
 	response.OK(c, dashboardSummaryResp{
 		TotalActiveProducts:   s.TotalActiveProducts,
 		SafeStockProducts:     s.SafeStockProducts,
@@ -102,5 +142,6 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		LowStockItems:         low,
 		RecentPendingLPBs:     pend,
 		RecentMovements:       moves,
+		Commercial:            comm,
 	})
 }

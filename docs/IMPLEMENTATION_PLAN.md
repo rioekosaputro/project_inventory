@@ -2230,8 +2230,14 @@ volumes: { pgdata: {} }
     - `backend/vercel.json`: Vercel Cron UTC (`0 18 * * *` = 01:00 WIB untuk billing, `30 18 * * *` = 01:30 WIB untuk daily).
     - `backend/cmd/worker/main.go`: binary worker production memakai `robfig/cron/v3` di zona waktu WIB (`0 1 * * *` & `30 1 * * *`) dengan graceful shutdown dan flag `-run-once=billing|daily` untuk eksekusi manual.
   - Verifikasi: `go vet -tags=integration ./...`, `go build ./cmd/api ./cmd/worker`, dan `TestInternalJobs_CronSecretProtection` + `TestInternalJobs_BillingAndDailyMaintenance_IdempotencyAndAlerts` lulus semua.
-- [ ] **T2.11 Dashboard komersial.**
-  **🎯 Milestone M2:** siklus SO → DO → LPB → terkirim → invoice berjalan di staging.
+- [x] **T2.11 Dashboard komersial.**
+  Catatan T2.11:
+  - Backend (`domain/dashboard.go`, `postgres/dashboard_repo.go`, `usecase/dashboard.go`, `handler/dashboard.go`, `app/app.go`):
+    - Mengisi `pending_do_reservations` secara nyata dari `delivery_orders` berstatus `OPEN` (per warehouse scope).
+    - Menambahkan objek `commercial` pada `GET /api/v1/dashboard/summary` (khusus role yang memiliki `invoice.read`/`contract.read` — `MANAGEMENT`, `BUSINESS_ADMIN`, `ADMIN`; staf gudang tidak menerima data finansial): `active_customers`, `active_contracts`, `rented_units`, `total_active_assets`, `asset_utilization_pct` (`RENTED / non-RETIRED × 100%`), `monthly_revenue` & `monthly_collected` bulan berjalan (WIB), `outstanding_receivables`, `overdue_invoice_count` & `overdue_invoice_amount`, `due_soon_invoice_count` (≤ 7 hari), `expiring_contracts_count` (≤ 30 hari), plus top 5 daftar `overdue_invoices` dan `expiring_contracts`.
+  - Frontend: `services/dashboardService.ts` & `views/dashboard/DashboardView.vue` menampilkan bagian **Komersial** (4 kartu KPI + daftar Invoice Overdue & Kontrak Akan Berakhir ≤30 Hari) di atas bagian **Gudang** (termasuk antrean DO menunggu reservasi).
+  - Verifikasi: `go vet -tags=integration ./...` bersih, `TestDashboard_WarehouseSummary` & `TestDashboard_CommercialMetricsAndRoleVisibility` lulus; frontend `check:lint` (0 error), `DashboardView.spec.ts` (2/2), `vue-tsc --build`, dan `vite build` lulus.
+  **🎯 Milestone M2 (TERCAPAI di lokal):** seluruh Fase 2 Komersial (`T2.1`–`T2.11`) — siklus Pelanggan → Kontrak → SO → DO → Reservasi → LPB → POD/Pickup → Invoice + PPh 23 + PDF/Excel → Penjadwalan → Dashboard Komersial — selesai dan terverifikasi!
 
 ### Fase 3 — Lapangan (Sprint 8–10)
 

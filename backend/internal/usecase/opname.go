@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/pkg/clock"
@@ -589,12 +590,11 @@ func (u *OpnameUsecase) applyOpnameAdjustmentLPB(
 	ctx context.Context,
 	op *domain.Opname,
 	approverID int64,
-	nowTime interface{ Format(string) string },
+	now time.Time,
 	typ domain.LPBType,
 	subType domain.LPBSubType,
 	lines []*opnameAdjLine,
 ) (int64, error) {
-	now := u.clock.Now()
 	prefix := "LPBI"
 	dir := "IN"
 	if typ == domain.LPBOutbound {

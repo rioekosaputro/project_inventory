@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/pkg/pdf"
 )
 
 const (
@@ -20,11 +21,18 @@ const (
 // Warehouse scoping: akun yang dibatasi ke satu gudang hanya melihat saldo di gudangnya; unit SN
 // yang sedang tidak berada di gudang mana pun (disewa, dalam perjalanan, hilang, pensiun) tetap terlihat.
 type InventoryUsecase struct {
-	repo domain.InventoryRepository
+	repo        domain.InventoryRepository
+	pdfRenderer pdf.Renderer
 }
 
 func NewInventoryUsecase(repo domain.InventoryRepository) *InventoryUsecase {
 	return &InventoryUsecase{repo: repo}
+}
+
+// WithPDF memasang renderer PDF (Gotenberg) untuk cetak label asset tag batch.
+func (u *InventoryUsecase) WithPDF(renderer pdf.Renderer) *InventoryUsecase {
+	u.pdfRenderer = renderer
+	return u
 }
 
 // SerialScan: hasil pencarian unit lewat asset tag / SN beserta histori terbarunya.

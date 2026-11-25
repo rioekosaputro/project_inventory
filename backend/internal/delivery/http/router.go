@@ -179,6 +179,7 @@ func registerMasterRoutes(api *gin.RouterGroup, deps Deps) {
 		g.GET("", masterRead, h.List)
 		g.GET("/:id", masterRead, h.Get)
 		g.POST("", rackWrite, h.Create)
+		g.POST("/labels/pdf", masterRead, h.LabelsPDF)
 		g.PATCH("/:id", rackWrite, h.Update)
 	}
 	if h := deps.Categories; h != nil {
@@ -220,6 +221,7 @@ func registerInventoryRoutes(api *gin.RouterGroup, deps Deps) {
 	g.GET("/balances/summary", h.ProductStock)
 	g.GET("/serials", h.Serials)
 	g.GET("/serials/scan/:code", h.ScanSerial)
+	g.POST("/serials/labels/pdf", h.SerialLabelsPDF)
 }
 
 // registerLPBRoutes — plan Bagian 8.3 (tahap draft): baca lpb.read, ubah/scan/batal/revisi lpb.create,

@@ -2119,7 +2119,12 @@ volumes: { pgdata: {} }
   - Frontend: tombol **"Cetak Surat Jalan"** pada `LpbDetailView.vue` (tampil saat `APPROVED` & punya `lpb.print`, ambil blob via Bearer token di memori) dan halaman publik `LPBVerifyView.vue` di `/verify/lpb/:token`.
   - Verifikasi: unit test `pkg/qrcode`, `pkg/pdf`, `templates`; integrasi `TestLPB_PDF_And_PublicVerify` (fake Gotenberg + RBAC + 422 non-APPROVED + 503 + verifikasi publik); 288 tes Vitest, `check:lint`, `type-check`, `vite build` lulus.
   DoD: PDF A4 rapi, QR dari HP membuka halaman verifikasi; LPB non-APPROVED → 422.
-- [ ] **T1.11 Label** — PDF label asset tag (batch) & label kode rak.
+- [x] **T1.11 Label** — PDF label asset tag (batch) & label kode rak.
+  Catatan T1.11:
+  - Template `templates/label_asset.html` (`//go:embed`, lembar A4 grid 3 kolom dengan QR per stiker, garis potong, dan badge `NON-SELLABLE` untuk rak karantina/workshop).
+  - Endpoint: `POST /api/v1/racks/labels/pdf` (`master.read`, body `{rack_ids}`, maks 200) dan `POST /api/v1/inventory/serials/labels/pdf` (`inventory.read`, body `{serial_ids}`, maks 200); keduanya menegakkan warehouse scoping, mendukung `?download=1`, dan mengembalikan `503 PDF_SERVICE_UNAVAILABLE` bila Gotenberg tidak tersedia.
+  - Frontend: tombol **"Cetak Label"** per baris di `RackListView.vue` dan tombol **"Cetak Label Aset"** batch di `LpbDetailView.vue` untuk LPB `APPROVED` yang memiliki unit SN terdaftar (helper bersama `src/lib/pdf.ts`).
+  - Verifikasi: `TestRenderLabels`, `TestLabels_RackAndSerialBatchPDF` (RBAC, scoping, validasi, 200 PDF, 503), `check:lint`, 288 Vitest, `type-check`, dan `vite build` lulus.
 
 **Sprint 4 — Opname, laporan stok, dashboard gudang**
 - [ ] **T1.12 Stock opname** — mulai (kunci rak + snapshot), hitung non-SN, scan SN (FOUND/MISSING/UNEXPECTED/WRONG_RACK), submit, finalize (LPB adjustment auto-approve), cancel; UI mode HP/tablet.

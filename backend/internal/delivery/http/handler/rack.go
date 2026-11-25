@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"fmt"
+	nethttp "net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"rental-inventory-api/internal/delivery/http/dto"
@@ -109,4 +112,31 @@ func (h *RackHandler) Update(c *gin.Context) {
 		return
 	}
 	response.OK(c, dto.NewRackResponse(r))
+}
+
+type rackLabelsRequest struct {
+	RackIDs []int64 `json:"rack_ids" binding:"required"`
+}
+
+// LabelsPDF — POST /racks/labels/pdf (cetak label barcode kode rak)
+func (h *RackHandler) LabelsPDF(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	var req rackLabelsRequest
+	if !httperr.BindJSON(c, &req) {
+		return
+	}
+	pdfBytes, err := h.uc.RenderLabelsPDF(c.Request.Context(), a, req.RackIDs)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	disposition := "inline"
+	if c.Query("download") == "1" || c.Query("download") == "true" {
+		disposition = "attachment"
+	}
+	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="label-rak.pdf"`, disposition))
+	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
 }

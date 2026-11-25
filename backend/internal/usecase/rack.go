@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/pkg/pdf"
 )
 
 const (
@@ -19,14 +20,21 @@ var nonSellableZones = map[string]bool{"KARANTINA": true, "WORKSHOP": true}
 // RackUsecase: master rak. Baca: master.read; tulis: rack.write (STAFF_WAREHOUSE & HEAD_WAREHOUSE).
 // Setiap akses dibatasi ke gudang pemanggil (warehouse scoping).
 type RackUsecase struct {
-	tx         domain.TxManager
-	repo       domain.RackRepository
-	warehouses domain.WarehouseRepository
-	audit      domain.AuditRepository
+	tx          domain.TxManager
+	repo        domain.RackRepository
+	warehouses  domain.WarehouseRepository
+	audit       domain.AuditRepository
+	pdfRenderer pdf.Renderer
 }
 
 func NewRackUsecase(tx domain.TxManager, repo domain.RackRepository, warehouses domain.WarehouseRepository, audit domain.AuditRepository) *RackUsecase {
 	return &RackUsecase{tx: tx, repo: repo, warehouses: warehouses, audit: audit}
+}
+
+// WithPDF memasang renderer PDF (Gotenberg) untuk cetak label kode rak.
+func (u *RackUsecase) WithPDF(renderer pdf.Renderer) *RackUsecase {
+	u.pdfRenderer = renderer
+	return u
 }
 
 type CreateRackInput struct {

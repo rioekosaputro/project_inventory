@@ -163,6 +163,7 @@ type RackRepository interface {
 	// selama transaksi approve berjalan. Wajib di dalam transaksi.
 	LockForShare(ctx context.Context, ids []int64) ([]Rack, error)
 	FindByID(ctx context.Context, id int64) (*Rack, error)
+	FindByIDs(ctx context.Context, ids []int64) ([]Rack, error)
 	FindByIDForUpdate(ctx context.Context, id int64) (*Rack, error)
 	List(ctx context.Context, f RackFilter, scopeWarehouseID *int64, p PageParams) ([]Rack, int64, error)
 	// Create: kode bentrok pada gudang yang sama → *DuplicateError.

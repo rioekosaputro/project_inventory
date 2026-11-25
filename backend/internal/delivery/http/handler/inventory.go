@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"fmt"
+	nethttp "net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"rental-inventory-api/internal/delivery/http/dto"
@@ -145,4 +148,31 @@ func (h *InventoryHandler) ScanSerial(c *gin.Context) {
 		return
 	}
 	response.OK(c, dto.NewSerialScanResponse(scan))
+}
+
+type serialLabelsRequest struct {
+	SerialIDs []int64 `json:"serial_ids" binding:"required"`
+}
+
+// SerialLabelsPDF — POST /inventory/serials/labels/pdf (cetak label asset tag batch)
+func (h *InventoryHandler) SerialLabelsPDF(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	var req serialLabelsRequest
+	if !httperr.BindJSON(c, &req) {
+		return
+	}
+	pdfBytes, err := h.uc.RenderSerialLabelsPDF(c.Request.Context(), a, req.SerialIDs)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	disposition := "inline"
+	if c.Query("download") == "1" || c.Query("download") == "true" {
+		disposition = "attachment"
+	}
+	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="label-aset.pdf"`, disposition))
+	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
 }

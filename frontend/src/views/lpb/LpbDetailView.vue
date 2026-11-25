@@ -17,6 +17,7 @@ import { toApiError, userMessage } from '@/lib/apiError'
 import { focusFirstInvalid, isProgrammaticFocus } from '@/lib/focus'
 import { formatDate, formatDateTime, formatRupiah } from '@/lib/format'
 import { eventLabel, remainingScans, subTypeLabel } from '@/lib/lpb'
+import { openPdfBlob } from '@/lib/pdf'
 import { btnDanger, btnPrimary, btnSecondary } from '@/lib/ui'
 import { lpbService } from '@/services/lpbService'
 import { useAuthStore } from '@/stores/auth'
@@ -66,6 +67,15 @@ const canDecide = computed(() => can('lpb.approve') && status.value === 'PENDING
 /** Transfer masuk tidak dapat ditolak: barang sudah keluar dari gudang asal (aturan backend). */
 const canReject = computed(() => canDecide.value && lpb.value?.sub_type !== 'TRANSFER_IN')
 const canPrint = computed(() => can('lpb.print') && status.value === 'APPROVED')
+const registeredSerialIds = computed(() =>
+  (lpb.value?.items ?? [])
+    .flatMap((i) => i.serials)
+    .map((s) => s.product_serial_id)
+    .filter((sid): sid is number => sid !== null),
+)
+const canPrintAssetLabels = computed(
+  () => can('inventory.read') && status.value === 'APPROVED' && registeredSerialIds.value.length > 0,
+)
 
 const approveMessage = computed(() => {
   switch (lpb.value?.sub_type) {
@@ -109,21 +119,14 @@ const columns = computed<Column[]>(() => {
 // ---- aksi
 const busy = ref(false)
 const printing = ref(false)
+const printingLabels = ref(false)
 
 async function printPdf(): Promise<void> {
   if (printing.value || !lpb.value) return
   printing.value = true
   try {
     const blob = await lpbService.fetchPdf(lpb.value.id)
-    const url = URL.createObjectURL(blob)
-    const opened = window.open(url, '_blank', 'noopener')
-    if (!opened) {
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${lpb.value.lpb_number.replace(/\//g, '-')}.pdf`
-      a.click()
-    }
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    openPdfBlob(blob, `${lpb.value.lpb_number.replace(/\//g, '-')}.pdf`)
   } catch (e) {
     toast.add({
       severity: 'error',
@@ -133,6 +136,24 @@ async function printPdf(): Promise<void> {
     })
   } finally {
     printing.value = false
+  }
+}
+
+async function printAssetLabels(): Promise<void> {
+  if (printingLabels.value || registeredSerialIds.value.length === 0) return
+  printingLabels.value = true
+  try {
+    const blob = await lpbService.fetchSerialLabelsPdf(registeredSerialIds.value)
+    openPdfBlob(blob, `label-aset-${lpb.value?.lpb_number.replace(/\//g, '-') ?? 'batch'}.pdf`)
+  } catch (e) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal mencetak label aset',
+      detail: userMessage(toApiError(e)),
+      life: 9000,
+    })
+  } finally {
+    printingLabels.value = false
   }
 }
 
@@ -339,6 +360,16 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
           >
             <i class="pi pi-print text-xs" aria-hidden="true" />
             {{ printing ? 'Menyiapkan PDF…' : 'Cetak Surat Jalan' }}
+          </button>
+          <button
+            v-if="canPrintAssetLabels"
+            type="button"
+            :class="btnSecondary"
+            :aria-busy="printingLabels"
+            @click="printAssetLabels"
+          >
+            <i class="pi pi-qrcode text-xs" aria-hidden="true" />
+            {{ printingLabels ? 'Menyiapkan Label…' : 'Cetak Label Aset' }}
           </button>
         </div>
       </header>

@@ -64,4 +64,17 @@ export const lpbService = {
   /** Verifikasi QR publik (tanpa login). */
   verifyPublic: (token: string): Promise<LPBVerifySummary> =>
     api.get<LPBVerifySummary>(`/public/lpb/verify/${encodeURIComponent(token)}`),
+  /** Cetak label stiker asset tag batch (PDF A4, POST /inventory/serials/labels/pdf). */
+  fetchSerialLabelsPdf: async (serialIds: number[], download = false): Promise<Blob> => {
+    const res = await http.post<Blob>(
+      '/inventory/serials/labels/pdf',
+      { serial_ids: serialIds },
+      {
+        params: download ? { download: 1 } : undefined,
+        responseType: 'blob',
+        headers: { Accept: 'application/pdf' },
+      },
+    )
+    return res.data
+  },
 }

@@ -217,6 +217,27 @@ func (r *InventoryRepo) FindSerialsByCode(ctx context.Context, code string) ([]d
 	return nil, nil
 }
 
+func (r *InventoryRepo) FindSerialsByIDs(ctx context.Context, ids []int64) ([]domain.Serial, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx,
+		`SELECT `+serialColumns+` FROM `+serialFrom+` WHERE ps.id = ANY($1) ORDER BY ps.asset_tag`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]domain.Serial, 0, len(ids))
+	for rows.Next() {
+		s, err := scanSerial(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 func (r *InventoryRepo) RecentSerialHistory(ctx context.Context, serialID int64, limit int) ([]domain.SerialHistory, error) {
 	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
 		SELECT h.id, h.from_status, h.to_status, fr.code, tr.code, h.customer_id, h.event_type,

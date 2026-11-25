@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Pola halaman: List / Index.
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useToast } from 'primevue/usetoast'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ListPage from '@/components/ListPage.vue'
 import MasterTabs from '@/components/MasterTabs.vue'
@@ -11,11 +12,33 @@ import { useActiveToggle } from '@/composables/useActiveToggle'
 import { useOptions } from '@/composables/useOptions'
 import { usePermission } from '@/composables/usePermission'
 import { useServerTable } from '@/composables/useServerTable'
+import { toApiError, userMessage } from '@/lib/apiError'
+import { openPdfBlob } from '@/lib/pdf'
 import { btnRow, rowLink } from '@/lib/ui'
 import { rackService, warehouseService } from '@/services/masterService'
 import type { Rack } from '@/types/master'
 
 const { can } = usePermission()
+const toast = useToast()
+const printingRackId = ref<number | null>(null)
+
+async function printRackLabel(rack: Rack): Promise<void> {
+  if (printingRackId.value !== null) return
+  printingRackId.value = rack.id
+  try {
+    const blob = await rackService.fetchLabelsPdf([rack.id])
+    openPdfBlob(blob, `label-rak-${rack.code}.pdf`)
+  } catch (e) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal mencetak label rak',
+      detail: userMessage(toApiError(e)),
+      life: 9000,
+    })
+  } finally {
+    printingRackId.value = null
+  }
+}
 
 const table = useServerTable<Rack>({
   fetch: (p) => rackService.list(p),
@@ -99,8 +122,17 @@ const toggle = useActiveToggle<Rack>({
       </div>
     </template>
     <template #cell-actions="{ row }">
-      <div v-if="can('rack.write')" class="flex justify-end">
-        <button type="button" :class="btnRow" @click="toggle.request(row)">
+      <div class="flex justify-end gap-1">
+        <button
+          type="button"
+          :class="btnRow"
+          :aria-busy="printingRackId === row.id"
+          @click="printRackLabel(row)"
+        >
+          {{ printingRackId === row.id ? 'Menyiapkan…' : 'Cetak Label' }}
+          <span class="sr-only">rak {{ row.code }} di gudang {{ row.warehouse_code }}</span>
+        </button>
+        <button v-if="can('rack.write')" type="button" :class="btnRow" @click="toggle.request(row)">
           {{ row.is_active ? 'Nonaktifkan' : 'Aktifkan' }}
           <span class="sr-only">rak {{ row.code }} di gudang {{ row.warehouse_code }}</span>
         </button>

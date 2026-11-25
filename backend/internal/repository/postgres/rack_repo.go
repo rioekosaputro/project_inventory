@@ -41,6 +41,27 @@ func (r *RackRepo) FindByID(ctx context.Context, id int64) (*domain.Rack, error)
 	return r.find(ctx, id, "")
 }
 
+func (r *RackRepo) FindByIDs(ctx context.Context, ids []int64) ([]domain.Rack, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx,
+		`SELECT `+rackColumns+` FROM `+rackFrom+` WHERE r.id = ANY($1) ORDER BY w.code, r.code`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]domain.Rack, 0, len(ids))
+	for rows.Next() {
+		rk, err := scanRack(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rk)
+	}
+	return out, rows.Err()
+}
+
 func (r *RackRepo) FindByIDForUpdate(ctx context.Context, id int64) (*domain.Rack, error) {
 	database.MustInTx(ctx)
 	return r.find(ctx, id, " FOR UPDATE OF r")

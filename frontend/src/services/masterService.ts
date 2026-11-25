@@ -1,4 +1,4 @@
-import { api } from '@/lib/axios'
+import { api, http } from '@/lib/axios'
 import type { PageMeta } from '@/types/api'
 import type {
   Category,
@@ -43,7 +43,22 @@ function crud<T, C, P>(base: string) {
 }
 
 export const warehouseService = crud<Warehouse, WarehouseCreate, WarehousePatch>('/warehouses')
-export const rackService = crud<Rack, RackCreate, RackPatch>('/racks')
+export const rackService = {
+  ...crud<Rack, RackCreate, RackPatch>('/racks'),
+  /** Cetak label kode rak (PDF A4, POST /racks/labels/pdf). */
+  fetchLabelsPdf: async (rackIds: number[], download = false): Promise<Blob> => {
+    const res = await http.post<Blob>(
+      '/racks/labels/pdf',
+      { rack_ids: rackIds },
+      {
+        params: download ? { download: 1 } : undefined,
+        responseType: 'blob',
+        headers: { Accept: 'application/pdf' },
+      },
+    )
+    return res.data
+  },
+}
 export const categoryService = crud<Category, CategoryCreate, CategoryPatch>('/categories')
 export const productService = crud<Product, ProductCreate, ProductPatch>('/products')
 export const supplierService = crud<Supplier, SupplierCreate, SupplierPatch>('/suppliers')

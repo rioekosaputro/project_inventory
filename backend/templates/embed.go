@@ -12,7 +12,10 @@ import (
 //go:embed *.html
 var fs embed.FS
 
-var lpbSuratJalanTmpl = template.Must(template.ParseFS(fs, "lpb_surat_jalan.html"))
+var (
+	lpbSuratJalanTmpl = template.Must(template.ParseFS(fs, "lpb_surat_jalan.html"))
+	labelAssetTmpl    = template.Must(template.ParseFS(fs, "label_asset.html"))
+)
 
 // LPBSuratJalanItem merepresentasikan satu baris item pada PDF Surat Jalan / LPB.
 type LPBSuratJalanItem struct {
@@ -57,6 +60,31 @@ func RenderLPBSuratJalan(data LPBSuratJalanData) (string, error) {
 	var buf bytes.Buffer
 	if err := lpbSuratJalanTmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("templates: render lpb_surat_jalan: %w", err)
+	}
+	return buf.String(), nil
+}
+
+// LabelItem adalah satu stiker label (asset tag unit atau kode rak).
+type LabelItem struct {
+	Kind      string       // mis. "ASET" atau "RAK"
+	Code      string       // kode utama yang di-encode ke QR (asset tag / kode rak)
+	Subtitle  string       // nama produk / kode gudang
+	Meta      string       // SN / zona
+	Badge     string       // opsional (mis. "NON-SELLABLE")
+	QRDataURI template.URL // data:image/png;base64,...
+}
+
+// LabelsData adalah view-model untuk template label_asset.html.
+type LabelsData struct {
+	Title  string
+	Labels []LabelItem
+}
+
+// RenderLabels merender lembar stiker label (asset tag atau kode rak) siap cetak A4.
+func RenderLabels(data LabelsData) (string, error) {
+	var buf bytes.Buffer
+	if err := labelAssetTmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("templates: render label_asset: %w", err)
 	}
 	return buf.String(), nil
 }

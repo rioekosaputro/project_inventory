@@ -35,3 +35,31 @@ func TestRenderLPBSuratJalan(t *testing.T) {
 	assert.NotContains(t, html, "<script>alert(1)</script>")
 	assert.Contains(t, html, "&lt;script&gt;alert(1)&lt;/script&gt;")
 }
+
+func TestRenderLabels(t *testing.T) {
+	html, err := RenderLabels(LabelsData{
+		Title: "Label Aset",
+		Labels: []LabelItem{
+			{
+				Kind:      "ASET",
+				Code:      "AST-2611-00001",
+				Subtitle:  "Epson L3210",
+				Meta:      "SN: SN-001",
+				QRDataURI: template.URL("data:image/png;base64,iVBORw0KGgo="),
+			},
+			{
+				Kind:      "RAK",
+				Code:      "A-02-01",
+				Subtitle:  "WH-A",
+				Meta:      "Zona: KARANTINA",
+				Badge:     "NON-SELLABLE",
+				QRDataURI: template.URL("data:image/png;base64,iVBORw0KGgo="),
+			},
+		},
+	})
+	require.NoError(t, err)
+	assert.Contains(t, html, "AST-2611-00001")
+	assert.Contains(t, html, "SN: SN-001")
+	assert.Contains(t, html, "A-02-01")
+	assert.Contains(t, html, "NON-SELLABLE")
+}

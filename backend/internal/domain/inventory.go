@@ -166,6 +166,8 @@ type InventoryRepository interface {
 	// FindSerialsByCode mencari unit lewat asset tag (unik) atau, bila tidak ada, serial number
 	// (bisa lebih dari satu produk). Hasil kosong = tidak ditemukan.
 	FindSerialsByCode(ctx context.Context, code string) ([]Serial, error)
+	// FindSerialsByIDs mengambil daftar unit SN untuk cetak label batch.
+	FindSerialsByIDs(ctx context.Context, ids []int64) ([]Serial, error)
 	// RecentSerialHistory: riwayat terbaru (terbaru dulu), maksimal limit entri.
 	RecentSerialHistory(ctx context.Context, serialID int64, limit int) ([]SerialHistory, error)
 }

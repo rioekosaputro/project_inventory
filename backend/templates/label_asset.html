@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>{{.Title}}</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: #0f172a;
+    margin: 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4mm;
+  }
+  .label {
+    border: 1px dashed #94a3b8;
+    border-radius: 4px;
+    padding: 3mm;
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    min-height: 29mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    background: #fff;
+  }
+  .qr {
+    width: 21mm;
+    height: 21mm;
+    flex-shrink: 0;
+  }
+  .qr img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .info {
+    min-width: 0;
+    flex: 1;
+  }
+  .kind {
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .code {
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 1px;
+    word-break: break-all;
+  }
+  .sub {
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #334155;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .meta {
+    font-size: 7.5px;
+    color: #475569;
+    margin-top: 1px;
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .badge {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 6.5px;
+    font-weight: 700;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+  }
+</style>
+</head>
+<body>
+  <div class="grid">
+    {{range .Labels}}
+    <div class="label">
+      <div class="qr"><img src="{{.QRDataURI}}" alt="{{.Code}}"></div>
+      <div class="info">
+        <div class="kind">{{.Kind}}</div>
+        <div class="code">{{.Code}}</div>
+        {{if .Subtitle}}<div class="sub">{{.Subtitle}}</div>{{end}}
+        {{if .Meta}}<div class="meta">{{.Meta}}</div>{{end}}
+        {{if .Badge}}<div class="badge">{{.Badge}}</div>{{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</body>
+</html>

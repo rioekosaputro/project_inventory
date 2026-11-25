@@ -51,20 +51,21 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	supplierRepo := postgres.NewSupplierRepo(pool)
 
 	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
+	pdfClient := pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword)
 
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
 		Warehouses: handler.NewWarehouseHandler(usecase.NewWarehouseUsecase(txManager, warehouseRepo, auditRepo)),
-		Racks:      handler.NewRackHandler(usecase.NewRackUsecase(txManager, rackRepo, warehouseRepo, auditRepo)),
+		Racks:      handler.NewRackHandler(usecase.NewRackUsecase(txManager, rackRepo, warehouseRepo, auditRepo).WithPDF(pdfClient)),
 		Categories: handler.NewCategoryHandler(usecase.NewCategoryUsecase(txManager, categoryRepo, auditRepo)),
 		Products:   handler.NewProductHandler(usecase.NewProductUsecase(txManager, productRepo, categoryRepo, auditRepo)),
 		Suppliers:  handler.NewSupplierHandler(usecase.NewSupplierUsecase(txManager, supplierRepo, auditRepo)),
-		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(postgres.NewInventoryRepo(pool))),
+		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(postgres.NewInventoryRepo(pool)).WithPDF(pdfClient)),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, postgres.NewLPBRepo(pool), warehouseRepo, rackRepo, productRepo, supplierRepo,
 			postgres.NewInventoryRepo(pool), postgres.NewStockRepo(pool), postgres.NewSettingsRepo(pool),
 			auditRepo, docnum.New(pool), clk,
-		).WithPDF(pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword), cfg.AppBaseURL)),
+		).WithPDF(pdfClient, cfg.AppBaseURL)),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

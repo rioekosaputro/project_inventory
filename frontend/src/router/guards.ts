@@ -9,9 +9,16 @@ export function routeExists(router: Router, path: string): boolean {
   return resolved.matched.length > 0 && resolved.name !== 'not-found'
 }
 
-/** Beranda pengguna: default_home dari backend bila halamannya sudah ada, selain itu /beranda. */
-export function homeFor(router: Router, defaultHome: string): string {
-  return routeExists(router, defaultHome) ? defaultHome : FALLBACK_HOME
+/** Beranda pengguna: default_home dari backend bila halamannya sudah ada dan boleh diakses, selain itu /beranda. */
+export function homeFor(
+  router: Router,
+  defaultHome: string,
+  can?: (permission: string) => boolean,
+): string {
+  if (!routeExists(router, defaultHome)) return FALLBACK_HOME
+  const perm = router.resolve(defaultHome).meta.permission
+  if (perm && can && !can(perm)) return FALLBACK_HOME
+  return defaultHome
 }
 
 /**
@@ -34,12 +41,17 @@ export function installGuards(router: Router): void {
     await auth.bootstrap()
 
     if (to.name === 'home') {
-      return auth.isAuthenticated ? homeFor(router, auth.defaultHome) : { name: 'login' }
+      return auth.isAuthenticated
+        ? homeFor(router, auth.defaultHome, (p) => auth.can(p))
+        : { name: 'login' }
     }
 
     if (to.meta.public) {
       if (to.meta.guestOnly && auth.isAuthenticated) {
-        return safeRedirectTarget(router, to.query.redirect) ?? homeFor(router, auth.defaultHome)
+        return (
+          safeRedirectTarget(router, to.query.redirect) ??
+          homeFor(router, auth.defaultHome, (p) => auth.can(p))
+        )
       }
       return true
     }

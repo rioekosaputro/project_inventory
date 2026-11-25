@@ -67,7 +67,7 @@ const submit = handleSubmit(
       await auth.changePassword(values.current_password, values.new_password)
       toast.add({ severity: 'success', summary: 'Password berhasil diganti', life: 4000 })
       if (wasForced) {
-        await router.replace(homeFor(router, auth.defaultHome))
+        await router.replace(homeFor(router, auth.defaultHome, (p) => auth.can(p)))
       } else {
         resetForm()
       }

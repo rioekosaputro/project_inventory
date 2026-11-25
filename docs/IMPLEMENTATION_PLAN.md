@@ -2143,7 +2143,11 @@ volumes: { pgdata: {} }
     - `GET /api/v1/inventory/stock-card` (`ledger.read`) — kartu stok per produk/rak/periode (saldo awal, total masuk, total keluar, saldo akhir, daftar mutasi kronologis) + `?format=xlsx` untuk export Excel.
   - Frontend: 5 halaman gudang lengkap — `/stok` (`StockBalanceListView`), `/stok/serial` (`SerialListView`), `/stok/serial/:id` (`SerialDetailView` + timeline + cetak label), `/stok/buku-besar` (`StockLedgerView` + export Excel), dan `/stok/kartu-stok` (`StockCardView` + export Excel). Menu sidebar **Stok**, **Serial Number**, dan **Buku Besar** otomatis aktif.
   - Verifikasi: `TestLedger_StockCard_SerialHistory_And_ExcelExport` lulus (termasuk parsing ulang file `.xlsx` hasil export); `go mod tidy` bersih; `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
-- [ ] **T1.14 Dashboard gudang** — metrik Bagian 9.5 (gudang).
+- [x] **T1.14 Dashboard gudang** — metrik Bagian 9.5 (gudang).
+  Catatan T1.14:
+  - Backend (`domain/dashboard.go`, `postgres/dashboard_repo.go`, `usecase/dashboard.go`, `handler/dashboard.go`): `GET /api/v1/dashboard/summary` (permission `dashboard.read`, mendukung `?warehouse_id=` + warehouse scoping). Mengembalikan jumlah produk aktif/aman/menipis, total qty tersedia, unit SN tersedia/aktif, antrean LPB `PENDING_APPROVAL`, stock opname berjalan, `pending_do_reservations` (0 di Fase 1), top 5 produk menipis, 5 antrean LPB tertua, dan 5 mutasi ledger terbaru.
+  - Frontend: `DashboardView.vue` di `/dashboard` (menu **Dashboard** di sidebar aktif otomatis) dengan 4 kartu KPI, filter gudang, daftar peringatan stok menipis, antrean LPB, dan mutasi terbaru. `homeFor` di `guards.ts` diperkuat agar memeriksa permission rute `default_home` sebelum redirect (fallback aman ke `/beranda`).
+  - Verifikasi: `TestDashboard_WarehouseSummary`, `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
 - [ ] **T1.15 Import stok awal** — upload Excel/CSV (template disediakan) → draft LPB `INITIAL_STOCK` → approve.
   **🎯 Milestone M1:** gudang bisa dipakai (boleh paralel dengan pencatatan manual 2–4 minggu untuk validasi).
 

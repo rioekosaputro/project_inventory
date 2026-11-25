@@ -76,6 +76,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { layout: 'app', title: 'Beranda' },
   },
   {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: () => import('@/views/dashboard/DashboardView.vue'),
+    meta: { layout: 'app', permission: 'dashboard.read', title: 'Dashboard' },
+  },
+  {
     path: '/akun/password',
     name: 'change-password',
     component: () => import('@/views/ChangePasswordView.vue'),

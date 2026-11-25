@@ -45,6 +45,9 @@ type Deps struct {
 	// Stock Opname (T1.12).
 	Opname *handler.OpnameHandler
 
+	// Dashboard (T1.14).
+	Dashboard *handler.DashboardHandler
+
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
 
@@ -95,6 +98,13 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerInventoryRoutes(api, deps)
 	registerOpnameRoutes(api, deps)
 	registerLPBRoutes(api, deps)
+	if deps.Dashboard != nil {
+		dg := api.Group("/dashboard",
+			middleware.Authenticate(deps.Tokens, deps.Clock),
+			middleware.RequirePermission(domain.PermDashboardRead),
+		)
+		dg.GET("/summary", deps.Dashboard.Summary)
+	}
 
 	return r
 }

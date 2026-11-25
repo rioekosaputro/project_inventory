@@ -47,7 +47,8 @@ const submit = handleSubmit(
     try {
       await auth.login(values.email, values.password)
       await router.replace(
-        safeRedirectTarget(router, route.query.redirect) ?? homeFor(router, auth.defaultHome),
+        safeRedirectTarget(router, route.query.redirect) ??
+          homeFor(router, auth.defaultHome, (p) => auth.can(p)),
       )
     } catch (e) {
       // Nilai yang sudah diisi dipertahankan agar pengguna tinggal memperbaiki.

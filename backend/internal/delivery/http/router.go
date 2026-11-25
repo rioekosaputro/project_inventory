@@ -42,6 +42,9 @@ type Deps struct {
 	// LPB draft (T1.5).
 	LPB *handler.LPBHandler
 
+	// Stock Opname (T1.12).
+	Opname *handler.OpnameHandler
+
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
 
@@ -90,6 +93,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerUserRoutes(api, deps)
 	registerMasterRoutes(api, deps)
 	registerInventoryRoutes(api, deps)
+	registerOpnameRoutes(api, deps)
 	registerLPBRoutes(api, deps)
 
 	return r
@@ -222,6 +226,27 @@ func registerInventoryRoutes(api *gin.RouterGroup, deps Deps) {
 	g.GET("/serials", h.Serials)
 	g.GET("/serials/scan/:code", h.ScanSerial)
 	g.POST("/serials/labels/pdf", h.SerialLabelsPDF)
+}
+
+// registerOpnameRoutes — plan Bagian 8.3: stock opname per rak.
+func registerOpnameRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Opname
+	if h == nil {
+		return
+	}
+	read := middleware.RequirePermission(domain.PermOpnameRead)
+	create := middleware.RequirePermission(domain.PermOpnameCreate)
+	finalize := middleware.RequirePermission(domain.PermOpnameFinalize)
+
+	g := api.Group("/inventory/opnames", middleware.Authenticate(deps.Tokens, deps.Clock))
+	g.GET("", read, h.List)
+	g.POST("", create, h.Start)
+	g.GET("/:id", read, h.Get)
+	g.PUT("/:id/counts", create, h.SaveCounts)
+	g.POST("/:id/scans", create, h.ScanSerial)
+	g.POST("/:id/submit", create, h.Submit)
+	g.POST("/:id/finalize", finalize, h.Finalize)
+	g.POST("/:id/cancel", finalize, h.Cancel)
 }
 
 // registerLPBRoutes — plan Bagian 8.3 (tahap draft): baca lpb.read, ubah/scan/batal/revisi lpb.create,

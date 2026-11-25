@@ -141,6 +141,19 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/public/LPBVerifyView.vue'),
     meta: { layout: 'public', public: true, title: 'Verifikasi Surat Jalan' },
   },
+  // Stock Opname (plan Bagian 9.4, T1.12).
+  {
+    path: '/opname',
+    name: 'opname',
+    component: () => import('@/views/opname/OpnameListView.vue'),
+    meta: { layout: 'app', permission: 'opname.read', title: 'Stock Opname' },
+  },
+  {
+    path: '/opname/:id(\\d+)',
+    name: 'opname-detail',
+    component: () => import('@/views/opname/OpnameDetailView.vue'),
+    meta: { layout: 'app', permission: 'opname.read', title: 'Rincian Stock Opname' },
+  },
   {
     path: '/403',
     name: 'forbidden',

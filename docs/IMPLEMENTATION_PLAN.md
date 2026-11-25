@@ -2127,7 +2127,13 @@ volumes: { pgdata: {} }
   - Verifikasi: `TestRenderLabels`, `TestLabels_RackAndSerialBatchPDF` (RBAC, scoping, validasi, 200 PDF, 503), `check:lint`, 288 Vitest, `type-check`, dan `vite build` lulus.
 
 **Sprint 4 — Opname, laporan stok, dashboard gudang**
-- [ ] **T1.12 Stock opname** — mulai (kunci rak + snapshot), hitung non-SN, scan SN (FOUND/MISSING/UNEXPECTED/WRONG_RACK), submit, finalize (LPB adjustment auto-approve), cancel; UI mode HP/tablet.
+- [x] **T1.12 Stock opname** — mulai (kunci rak + snapshot), hitung non-SN, scan SN (FOUND/MISSING/UNEXPECTED/WRONG_RACK), submit, finalize (LPB adjustment auto-approve), cancel; UI mode HP/tablet.
+  Catatan T1.12:
+  - Backend (`domain/opname.go`, `postgres/opname_repo.go`, `usecase/opname.go`, `handler/opname.go`): `GET/POST /inventory/opnames`, `GET /inventory/opnames/:id`, `PUT /inventory/opnames/:id/counts`, `POST /inventory/opnames/:id/scans`, `POST /inventory/opnames/:id/{submit,finalize,cancel}`.
+  - Mulai opname mengunci rak (`racks.locked_by_opname_id`, LPB/opname lain pada rak terkunci → **409 `RACK_LOCKED_BY_OPNAME`**), men-snapshot saldo non-SN (>0) dan unit SN fisik (awal `MISSING`). Mode `is_blind_count=true` menyembunyikan `system_qty`/`diff_qty` dari staf gudang selama `IN_PROGRESS`.
+  - Finalize (`SUBMITTED → FINALIZED`) berjalan atomik dalam 1 transaksi: membuat & auto-approve `OPNAME_ADJUSTMENT_IN` (surplus non-SN + unit `LOST` yang ditemukan kembali → `AVAILABLE`) dan/atau `OPNAME_ADJUSTMENT_OUT` (kekurangan non-SN + unit `MISSING` → `LOST`), menulis `stock_ledgers` + `product_serial_histories` + `audit_logs`, lalu membuka kunci rak. Cancel membuka kunci rak tanpa mengubah stok.
+  - Frontend: `OpnameListView.vue` (daftar + slide-over mulai opname pilih rak & blind count) dan `OpnameDetailView.vue` (responsif HP/tablet: tab Hitung Non-SN + tab Scan SN dengan umpan balik audio `beep()`, tombol Ajukan/Finalisasi/Batalkan, tautan LPB penyesuaian). Menu sidebar "Stock Opname" muncul otomatis.
+  - Verifikasi: `TestOpname_FullLifecycle_LockAdjustInvariantsAndRediscoverLost` & `TestOpname_Cancel_UnlocksRacksWithoutChangingStock` lulus dengan `pgtest.AssertInvariants` = 0 pelanggaran; `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
   DoD: LPB lain ke rak terkunci → 409; setelah finalize invariant = 0 baris.
 - [ ] **T1.13 Ledger, kartu stok, riwayat SN** — API + UI + export Excel.
 - [ ] **T1.14 Dashboard gudang** — metrik Bagian 9.5 (gudang).

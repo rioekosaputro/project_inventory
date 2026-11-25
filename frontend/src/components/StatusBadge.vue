@@ -25,6 +25,14 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   CANCELLED: { label: 'Dibatalkan', tone: 'slate' },
   INBOUND: { label: 'Masuk', tone: 'sky' },
   OUTBOUND: { label: 'Keluar', tone: 'indigo' },
+  // Stock Opname (T1.12)
+  IN_PROGRESS: { label: 'Sedang berjalan', tone: 'sky' },
+  SUBMITTED: { label: 'Diajukan', tone: 'amber' },
+  FINALIZED: { label: 'Difinalisasi', tone: 'green' },
+  FOUND: { label: 'Ditemukan', tone: 'green' },
+  MISSING: { label: 'Belum ditemukan', tone: 'red' },
+  UNEXPECTED: { label: 'Tak terduga', tone: 'amber' },
+  WRONG_RACK: { label: 'Salah rak', tone: 'indigo' },
 }
 
 const TONES: Record<Tone, string> = {

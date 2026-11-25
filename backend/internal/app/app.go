@@ -52,6 +52,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 
 	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
 	pdfClient := pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword)
+	inventoryRepo := postgres.NewInventoryRepo(pool)
+	lpbRepo := postgres.NewLPBRepo(pool)
+	stockRepo := postgres.NewStockRepo(pool)
+	docGen := docnum.New(pool)
 
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
@@ -60,11 +64,15 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Categories: handler.NewCategoryHandler(usecase.NewCategoryUsecase(txManager, categoryRepo, auditRepo)),
 		Products:   handler.NewProductHandler(usecase.NewProductUsecase(txManager, productRepo, categoryRepo, auditRepo)),
 		Suppliers:  handler.NewSupplierHandler(usecase.NewSupplierUsecase(txManager, supplierRepo, auditRepo)),
-		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(postgres.NewInventoryRepo(pool)).WithPDF(pdfClient)),
+		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(inventoryRepo).WithPDF(pdfClient)),
+		Opname: handler.NewOpnameHandler(usecase.NewOpnameUsecase(
+			txManager, postgres.NewOpnameRepo(pool), lpbRepo, warehouseRepo, rackRepo, productRepo,
+			inventoryRepo, stockRepo, auditRepo, docGen, clk,
+		)),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
-			txManager, postgres.NewLPBRepo(pool), warehouseRepo, rackRepo, productRepo, supplierRepo,
-			postgres.NewInventoryRepo(pool), postgres.NewStockRepo(pool), postgres.NewSettingsRepo(pool),
-			auditRepo, docnum.New(pool), clk,
+			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
+			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),
+			auditRepo, docGen, clk,
 		).WithPDF(pdfClient, cfg.AppBaseURL)),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,

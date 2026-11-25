@@ -90,7 +90,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),
 			auditRepo, docGen, clk,
-		).WithPDF(pdfClient, cfg.AppBaseURL)),
+		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(postgres.NewDeliveryPODRepo(pool))),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

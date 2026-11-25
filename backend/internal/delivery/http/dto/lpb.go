@@ -82,6 +82,11 @@ type LPBResponse struct {
 	ReferenceNumber   *string    `json:"reference_number"`
 	SupplierID        *int64     `json:"supplier_id"`
 	SupplierName      *string    `json:"supplier_name"`
+	RequiresDelivery  bool       `json:"requires_delivery"`
+	DeliveryStatus    *string    `json:"delivery_status"`
+	DeliveredAt       *time.Time `json:"delivered_at"`
+	ReceiverName      *string    `json:"receiver_name"`
+	PODPhotoPath      *string    `json:"pod_photo_path"`
 	Notes             *string    `json:"notes"`
 	CounterpartID     *int64     `json:"counterpart_id"`
 	CounterpartNumber *string    `json:"counterpart_number"`
@@ -103,6 +108,8 @@ func NewLPBResponse(l *domain.LPB) LPBResponse {
 		ID: l.ID, LPBNumber: l.Number, Type: string(l.Type), SubType: string(l.SubType), Status: string(l.Status),
 		WarehouseID: l.WarehouseID, WarehouseCode: l.WarehouseCode, DocDate: l.DocDate,
 		ReferenceType: l.ReferenceType, ReferenceNumber: l.ReferenceNumber,
+		RequiresDelivery: l.RequiresDelivery, DeliveryStatus: l.DeliveryStatus,
+		DeliveredAt: l.DeliveredAt, ReceiverName: l.ReceiverName, PODPhotoPath: l.PODPhotoPath,
 		SupplierID: l.SupplierID, SupplierName: l.SupplierName, Notes: l.Notes,
 		CounterpartID: l.CounterpartID, CounterpartNumber: l.CounterpartNumber,
 		CreatedBy: l.CreatedBy, CreatedByName: l.CreatedByName,

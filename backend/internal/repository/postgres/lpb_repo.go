@@ -30,7 +30,7 @@ const lpbFrom = `lpb_documents l
 
 const lpbColumns = `l.id, l.lpb_number, l.type, l.sub_type, l.status, l.warehouse_id, w.code, w.name, w.address, l.doc_date::text,
 	l.reference_type, l.reference_id, l.reference_number, l.supplier_id, s.name, l.customer_id, l.customer_site_id,
-	l.requires_delivery, l.delivery_status, l.driver_id, l.notes, l.created_by, cu.name,
+	l.requires_delivery, l.delivery_status, l.delivered_at, l.receiver_name, l.pod_photo_path, l.driver_id, l.notes, l.created_by, cu.name,
 	l.submitted_by, l.submitted_at, l.approved_by, au.name, l.approved_at, l.rejected_by, l.rejected_at, l.rejection_reason,
 	l.verify_token, l.created_at, l.updated_at, cp.id, cp.lpb_number`
 
@@ -42,7 +42,7 @@ func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
 	dest := append([]any{
 		&l.ID, &l.Number, &typ, &sub, &status, &l.WarehouseID, &l.WarehouseCode, &l.WarehouseName, &l.WarehouseAddress, &l.DocDate,
 		&l.ReferenceType, &l.ReferenceID, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.CustomerID, &l.CustomerSiteID,
-		&l.RequiresDelivery, &l.DeliveryStatus, &l.DriverID, &l.Notes, &l.CreatedBy, &l.CreatedByName,
+		&l.RequiresDelivery, &l.DeliveryStatus, &l.DeliveredAt, &l.ReceiverName, &l.PODPhotoPath, &l.DriverID, &l.Notes, &l.CreatedBy, &l.CreatedByName,
 		&l.SubmittedBy, &l.SubmittedAt, &l.ApprovedBy, &l.ApprovedByName, &l.ApprovedAt, &l.RejectedBy, &l.RejectedAt, &l.RejectionReason,
 		&l.VerifyToken, &l.CreatedAt, &l.UpdatedAt, &l.CounterpartID, &l.CounterpartNumber,
 	}, extra...)

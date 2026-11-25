@@ -34,6 +34,11 @@ export interface LPB {
   reference_number: string | null
   supplier_id: number | null
   supplier_name: string | null
+  requires_delivery?: boolean
+  delivery_status?: string | null
+  delivered_at?: string | null
+  receiver_name?: string | null
+  pod_photo_path?: string | null
   notes: string | null
   /** Pasangan transfer (TRANSFER_OUT ↔ TRANSFER_IN); null bila bukan transfer. */
   counterpart_id: number | null

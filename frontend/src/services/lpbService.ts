@@ -101,4 +101,37 @@ export const lpbService = {
     })
     return res.data.data
   },
+  /** Tandai LPB pengiriman terkirim (POD manual, multipart jika ada foto atau JSON). */
+  deliver: async (
+    id: number,
+    payload: {
+      receiverName: string
+      deliveredDate?: string
+      notes?: string
+      photo?: File | null
+    },
+  ): Promise<LPBDetail> => {
+    if (payload.photo) {
+      const form = new FormData()
+      form.append('receiver_name', payload.receiverName)
+      if (payload.deliveredDate) form.append('delivered_date', payload.deliveredDate)
+      if (payload.notes) form.append('notes', payload.notes)
+      form.append('photo', payload.photo)
+      const res = await http.post<{ data: LPBDetail }>(`${base}/${id}/deliver`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data.data
+    }
+    return api.post<LPBDetail>(`${base}/${id}/deliver`, {
+      receiver_name: payload.receiverName,
+      delivered_date: payload.deliveredDate || undefined,
+      notes: payload.notes || undefined,
+    })
+  },
+  /** Tandai unit penarikan (LPB RENTAL_RETURN) sudah dijemput di pelanggan. */
+  pickup: (id: number, payload?: { pickupDate?: string; notes?: string }): Promise<LPBDetail> =>
+    api.post<LPBDetail>(`${base}/${id}/pickup`, {
+      pickup_date: payload?.pickupDate || undefined,
+      notes: payload?.notes || undefined,
+    }),
 }

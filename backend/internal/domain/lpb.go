@@ -130,6 +130,9 @@ type LPB struct {
 	CustomerSiteID   *int64
 	RequiresDelivery bool
 	DeliveryStatus   *string
+	DeliveredAt      *time.Time
+	ReceiverName     *string
+	PODPhotoPath     *string
 	DriverID         *int64
 	Notes            *string
 	// CounterpartID/Number: pasangan transfer (TRANSFER_OUT ↔ TRANSFER_IN); nil bila bukan transfer.

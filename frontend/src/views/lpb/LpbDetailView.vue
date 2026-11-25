@@ -76,6 +76,97 @@ const registeredSerialIds = computed(() =>
 const canPrintAssetLabels = computed(
   () => can('inventory.read') && status.value === 'APPROVED' && registeredSerialIds.value.length > 0,
 )
+const canDeliverPOD = computed(
+  () =>
+    can('lpb.approve') &&
+    status.value === 'APPROVED' &&
+    (lpb.value?.sub_type === 'RENTAL_DELIVERY' || lpb.value?.sub_type === 'CONSUMABLE_DELIVERY') &&
+    lpb.value?.delivery_status !== 'DELIVERED',
+)
+const canPickupReturn = computed(
+  () =>
+    can('lpb.approve') &&
+    lpb.value?.sub_type === 'RENTAL_RETURN' &&
+    (status.value === 'DRAFT' || status.value === 'PENDING_APPROVAL') &&
+    lpb.value?.delivery_status !== 'PICKED_UP',
+)
+
+// ---- POD manual & pickup penarikan (T2.7)
+const podOpen = ref(false)
+const podBusy = ref(false)
+const podError = ref('')
+const podReceiver = ref('')
+const podDate = ref('')
+const podNotes = ref('')
+const podFile = ref<File | null>(null)
+const pickupConfirmOpen = ref(false)
+
+function openPod(): void {
+  podError.value = ''
+  podReceiver.value = ''
+  podDate.value = ''
+  podNotes.value = ''
+  podFile.value = null
+  podOpen.value = true
+}
+
+function onPodFileChange(ev: Event): void {
+  const input = ev.target as HTMLInputElement
+  podFile.value = input.files?.[0] ?? null
+}
+
+async function submitPod(): Promise<void> {
+  if (!lpb.value) return
+  podError.value = ''
+  if (podReceiver.value.trim().length < 2) {
+    podError.value = 'Nama penerima wajib diisi minimal 2 karakter.'
+    return
+  }
+  podBusy.value = true
+  try {
+    lpb.value = await lpbService.deliver(lpb.value.id, {
+      receiverName: podReceiver.value.trim(),
+      deliveredDate: podDate.value || undefined,
+      notes: podNotes.value.trim() || undefined,
+      photo: podFile.value,
+    })
+    podOpen.value = false
+    toast.add({
+      severity: 'success',
+      summary: 'Berhasil',
+      detail: `Pengiriman ${lpb.value.lpb_number} ditandai DELIVERED (POD)`,
+      life: 3500,
+    })
+  } catch (e) {
+    podError.value = userMessage(toApiError(e))
+  } finally {
+    podBusy.value = false
+  }
+}
+
+async function confirmPickup(): Promise<void> {
+  if (!lpb.value) return
+  podBusy.value = true
+  try {
+    lpb.value = await lpbService.pickup(lpb.value.id)
+    pickupConfirmOpen.value = false
+    toast.add({
+      severity: 'success',
+      summary: 'Berhasil',
+      detail: `Unit penarikan ${lpb.value.lpb_number} ditandai PICKED_UP`,
+      life: 3500,
+    })
+  } catch (e) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal',
+      detail: userMessage(toApiError(e)),
+      life: 5000,
+    })
+  } finally {
+    podBusy.value = false
+  }
+}
 
 const approveMessage = computed(() => {
   switch (lpb.value?.sub_type) {
@@ -371,8 +462,41 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
             <i class="pi pi-qrcode text-xs" aria-hidden="true" />
             {{ printingLabels ? 'Menyiapkan Label…' : 'Cetak Label Aset' }}
           </button>
+          <button v-if="canDeliverPOD" type="button" :class="btnPrimary" @click="openPod">
+            <i class="pi pi-check-circle text-xs" aria-hidden="true" />
+            Tandai Terkirim (POD)
+          </button>
+          <button
+            v-if="canPickupReturn"
+            type="button"
+            :class="btnPrimary"
+            @click="pickupConfirmOpen = true"
+          >
+            <i class="pi pi-truck text-xs" aria-hidden="true" />
+            Tandai Dijemput (Pickup)
+          </button>
         </div>
       </header>
+
+      <Message
+        v-if="lpb.delivery_status === 'DELIVERED'"
+        severity="success"
+        :closable="false"
+        class="mt-4"
+      >
+        <strong>Terkirim (POD)</strong>
+        <template v-if="lpb.delivered_at"> pada {{ formatDateTime(lpb.delivered_at) }}</template>
+        · Penerima: <strong>{{ lpb.receiver_name ?? '—' }}</strong>
+      </Message>
+      <Message
+        v-else-if="lpb.delivery_status === 'PICKED_UP'"
+        severity="info"
+        :closable="false"
+        class="mt-4"
+      >
+        <strong>Unit sudah dijemput (PICKED_UP)</strong> dan dalam perjalanan kembali ke gudang.
+        Lanjutkan ajukan &amp; setujui LPB saat barang tiba di rak.
+      </Message>
 
       <Message
         v-if="lpb.rejection_reason && (lpb.status === 'REJECTED' || lpb.status === 'DRAFT')"
@@ -681,4 +805,85 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
       </button>
     </form>
   </SlideOver>
+
+  <SlideOver :open="podOpen" :title="`POD Pengiriman ${lpb?.lpb_number ?? ''}`" @close="podOpen = false">
+    <form class="space-y-4" @submit.prevent="submitPod">
+      <p class="text-sm text-slate-700">
+        Menandai pengiriman selesai akan memindahkan unit sewa ke status <strong>RENTED</strong>,
+        mencatat <code>rental_placements</code> mulai tanggal POD, dan menandai DO/SO selesai.
+      </p>
+      <div
+        v-if="podError"
+        class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+        role="alert"
+      >
+        {{ podError }}
+      </div>
+      <div>
+        <label for="pod-receiver" class="block text-sm font-medium text-slate-800">
+          Nama Penerima <span class="text-red-700" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="pod-receiver"
+          v-model="podReceiver"
+          type="text"
+          required
+          minlength="2"
+          maxlength="100"
+          placeholder="Nama PIC / penerima di lokasi pelanggan"
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label for="pod-date" class="block text-sm font-medium text-slate-800">
+          Tanggal Diterima (opsional, default hari ini WIB)
+        </label>
+        <input
+          id="pod-date"
+          v-model="podDate"
+          type="date"
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label for="pod-photo" class="block text-sm font-medium text-slate-800">
+          Foto Surat Jalan Bertanda Tangan (opsional)
+        </label>
+        <input
+          id="pod-photo"
+          type="file"
+          accept="image/*"
+          class="mt-1 block w-full text-sm text-slate-700"
+          @change="onPodFileChange"
+        />
+      </div>
+      <div>
+        <label for="pod-notes" class="block text-sm font-medium text-slate-800">Catatan</label>
+        <textarea
+          id="pod-notes"
+          v-model="podNotes"
+          rows="2"
+          maxlength="500"
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+        />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" :class="btnSecondary" @click="podOpen = false">Batal</button>
+        <button type="submit" :disabled="podBusy" :class="btnPrimary">
+          {{ podBusy ? 'Menyimpan…' : 'Konfirmasi Terkirim (POD)' }}
+        </button>
+      </div>
+    </form>
+  </SlideOver>
+
+  <ConfirmDialog
+    :open="pickupConfirmOpen"
+    :title="`Tandai unit pada ${lpb?.lpb_number ?? ''} sudah dijemput?`"
+    message="Unit akan berubah dari RENTED ke IN_TRANSIT dan periode tagihan (rental_placements) ditutup per hari ini (WIB)."
+    confirm-label="Konfirmasi Dijemput"
+    tone="primary"
+    :busy="podBusy"
+    @confirm="confirmPickup"
+    @cancel="pickupConfirmOpen = false"
+  />
 </template>

@@ -40,6 +40,7 @@ type LPBUsecase struct {
 	clock       clock.Clock
 	pdfRenderer pdf.Renderer
 	appBaseURL  string
+	pod         domain.DeliveryPODRepository
 }
 
 func NewLPBUsecase(

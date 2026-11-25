@@ -127,6 +127,11 @@ func (u *LPBUsecase) Approve(ctx context.Context, actor domain.Principal, id int
 		if err := u.repo.MarkApproved(ctx, l.ID, actor.UserID, now, token); err != nil {
 			return err
 		}
+		if l.SubType == domain.LPBRentalReturn && l.ReferenceType != nil && *l.ReferenceType == "DELIVERY_ORDER" && l.ReferenceID != nil && u.pod != nil {
+			if err := u.pod.CompleteDOAndMaybeSO(ctx, *l.ReferenceID); err != nil {
+				return err
+			}
+		}
 		after := map[string]any{"status": string(domain.LPBApproved), "items": summary}
 		for k, v := range extra {
 			after[k] = v

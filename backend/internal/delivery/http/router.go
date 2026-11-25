@@ -310,6 +310,8 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 		g.POST("/:id/approve", approve, middleware.Idempotency(deps.Idempotency, idempotencyTTL), h.Approve)
 	}
 	g.POST("/:id/reject", approve, h.Reject)
+	g.POST("/:id/deliver", approve, h.Deliver)
+	g.POST("/:id/pickup", approve, h.Pickup)
 
 	// Verifikasi QR publik (plan Bagian 7.6 & 8.3): tanpa autentikasi.
 	api.GET("/public/lpb/verify/:token", h.VerifyPublic)

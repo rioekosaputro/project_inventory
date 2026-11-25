@@ -51,6 +51,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	supplierRepo := postgres.NewSupplierRepo(pool)
 	customerRepo := postgres.NewCustomerRepo(pool)
 	contractRepo := postgres.NewContractRepo(pool)
+	soRepo := postgres.NewSalesOrderRepo(pool)
+	taxRepo := postgres.NewTaxSettingRepo(pool)
 
 	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
 	pdfClient := pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword)
@@ -75,6 +77,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Customers: handler.NewCustomerHandler(usecase.NewCustomerUsecase(txManager, customerRepo, auditRepo)),
 		Contracts: handler.NewContractHandler(usecase.NewContractUsecase(
 			txManager, contractRepo, customerRepo, productRepo, auditRepo, docGen, clk,
+		)),
+		SalesOrders: handler.NewSalesOrderHandler(usecase.NewSalesOrderUsecase(
+			txManager, soRepo, customerRepo, contractRepo, productRepo, warehouseRepo,
+			inventoryRepo, taxRepo, auditRepo, docGen, clk,
 		)),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,

@@ -241,6 +241,31 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/contracts/ContractFormView.vue'),
     meta: { layout: 'app', permission: 'contract.write', title: 'Ubah Draft Kontrak' },
   },
+  // Sales Order (plan Bagian 9.4, T2.5).
+  {
+    path: '/sales-orders',
+    name: 'sales-orders',
+    component: () => import('@/views/salesOrders/SalesOrderListView.vue'),
+    meta: { layout: 'app', permission: 'so.read', title: 'Sales Order' },
+  },
+  {
+    path: '/sales-orders/baru',
+    name: 'sales-orders-baru',
+    component: () => import('@/views/salesOrders/SalesOrderFormView.vue'),
+    meta: { layout: 'app', permission: 'so.write', title: 'Buat Sales Order' },
+  },
+  {
+    path: '/sales-orders/:id(\\d+)',
+    name: 'sales-orders-detail',
+    component: () => import('@/views/salesOrders/SalesOrderDetailView.vue'),
+    meta: { layout: 'app', permission: 'so.read', title: 'Detail Sales Order' },
+  },
+  {
+    path: '/sales-orders/:id(\\d+)/ubah',
+    name: 'sales-orders-ubah',
+    component: () => import('@/views/salesOrders/SalesOrderFormView.vue'),
+    meta: { layout: 'app', permission: 'so.write', title: 'Ubah Draft Sales Order' },
+  },
   {
     path: '/403',
     name: 'forbidden',

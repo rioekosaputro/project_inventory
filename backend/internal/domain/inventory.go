@@ -168,6 +168,58 @@ type InventoryRepository interface {
 	FindSerialsByCode(ctx context.Context, code string) ([]Serial, error)
 	// FindSerialsByIDs mengambil daftar unit SN untuk cetak label batch.
 	FindSerialsByIDs(ctx context.Context, ids []int64) ([]Serial, error)
+	FindSerialByID(ctx context.Context, id int64) (*Serial, error)
 	// RecentSerialHistory: riwayat terbaru (terbaru dulu), maksimal limit entri.
 	RecentSerialHistory(ctx context.Context, serialID int64, limit int) ([]SerialHistory, error)
+
+	// Buku besar & kartu stok (T1.13).
+	ListLedgers(ctx context.Context, f LedgerFilter, p PageParams) ([]LedgerRow, int64, error)
+	// OpeningBalance menghitung saldo (Σ IN − Σ OUT) sebelum tanggal DateFrom (00:00 WIB).
+	OpeningBalance(ctx context.Context, f StockCardFilter) (int, error)
+}
+
+// LedgerRow: satu baris buku besar mutasi stok beserta relasi produk/rak/LPB/approver.
+type LedgerRow struct {
+	ID            int64
+	OccurredAt    time.Time
+	ProductID     int64
+	SKU           string
+	ProductName   string
+	Unit          string
+	WarehouseID   int64
+	WarehouseCode string
+	RackID        int64
+	RackCode      string
+	Direction     string
+	Qty           int
+	BalanceBefore int
+	BalanceAfter  int
+	MovementType  LPBSubType
+	LPBID         int64
+	LPBNumber     string
+	SerialCount   int
+	CreatedBy     int64
+	CreatedByName string
+	Notes         *string
+}
+
+type LedgerFilter struct {
+	Query            string // SKU, nama produk, atau nomor LPB
+	ProductID        *int64
+	RackID           *int64
+	WarehouseID      *int64
+	ScopeWarehouseID *int64
+	Direction        *string // IN | OUT
+	MovementType     *LPBSubType
+	DateFrom         *string // YYYY-MM-DD (WIB)
+	DateTo           *string // YYYY-MM-DD (WIB)
+}
+
+type StockCardFilter struct {
+	ProductID        int64
+	RackID           *int64
+	WarehouseID      *int64
+	ScopeWarehouseID *int64
+	DateFrom         *string // YYYY-MM-DD (WIB)
+	DateTo           *string // YYYY-MM-DD (WIB)
 }

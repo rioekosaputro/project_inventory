@@ -265,3 +265,92 @@ func (r *InventoryRepo) RecentSerialHistory(ctx context.Context, serialID int64,
 	}
 	return out, rows.Err()
 }
+
+func (r *InventoryRepo) FindSerialByID(ctx context.Context, id int64) (*domain.Serial, error) {
+	s, err := scanSerial(database.GetExecutor(ctx, r.pool).QueryRow(ctx,
+		`SELECT `+serialColumns+` FROM `+serialFrom+` WHERE ps.id = $1`, id))
+	if err != nil {
+		return nil, notFound(err)
+	}
+	return &s, nil
+}
+
+const ledgerFrom = `stock_ledgers l
+	JOIN products p ON p.id = l.product_id
+	JOIN warehouses w ON w.id = l.warehouse_id
+	JOIN racks r ON r.id = l.rack_id
+	JOIN lpb_documents d ON d.id = l.lpb_id
+	JOIN users u ON u.id = l.created_by`
+
+const ledgerColumns = `l.id, l.occurred_at, l.product_id, p.sku, p.name, p.unit,
+	l.warehouse_id, w.code, l.rack_id, r.code, l.direction, l.qty,
+	l.balance_before, l.balance_after, l.movement_type, l.lpb_id, d.lpb_number,
+	COALESCE(array_length(l.serial_ids, 1), 0)::int, l.created_by, u.name, l.notes`
+
+func scanLedgerRow(row pgx.Row) (domain.LedgerRow, error) {
+	var (
+		lr  domain.LedgerRow
+		mov string
+	)
+	err := row.Scan(
+		&lr.ID, &lr.OccurredAt, &lr.ProductID, &lr.SKU, &lr.ProductName, &lr.Unit,
+		&lr.WarehouseID, &lr.WarehouseCode, &lr.RackID, &lr.RackCode, &lr.Direction, &lr.Qty,
+		&lr.BalanceBefore, &lr.BalanceAfter, &mov, &lr.LPBID, &lr.LPBNumber,
+		&lr.SerialCount, &lr.CreatedBy, &lr.CreatedByName, &lr.Notes,
+	)
+	lr.MovementType = domain.LPBSubType(mov)
+	return lr, err
+}
+
+func (r *InventoryRepo) ListLedgers(ctx context.Context, f domain.LedgerFilter, p domain.PageParams) ([]domain.LedgerRow, int64, error) {
+	var b filterBuilder
+	b.like(f.Query, "p.sku", "p.name", "d.lpb_number")
+	if f.ProductID != nil {
+		b.add("l.product_id = $%d", *f.ProductID)
+	}
+	if f.RackID != nil {
+		b.add("l.rack_id = $%d", *f.RackID)
+	}
+	if f.WarehouseID != nil {
+		b.add("l.warehouse_id = $%d", *f.WarehouseID)
+	}
+	if f.ScopeWarehouseID != nil {
+		b.add("l.warehouse_id = $%d", *f.ScopeWarehouseID)
+	}
+	if f.Direction != nil {
+		b.add("l.direction = $%d", *f.Direction)
+	}
+	if f.MovementType != nil {
+		b.add("l.movement_type = $%d", string(*f.MovementType))
+	}
+	if f.DateFrom != nil {
+		b.add("(l.occurred_at AT TIME ZONE 'Asia/Jakarta')::date >= $%d::date", *f.DateFrom)
+	}
+	if f.DateTo != nil {
+		b.add("(l.occurred_at AT TIME ZONE 'Asia/Jakarta')::date <= $%d::date", *f.DateTo)
+	}
+	return queryPage(ctx, database.GetExecutor(ctx, r.pool), ledgerFrom, ledgerColumns, &b, p, "l.id", scanLedgerRow)
+}
+
+func (r *InventoryRepo) OpeningBalance(ctx context.Context, f domain.StockCardFilter) (int, error) {
+	if f.DateFrom == nil || *f.DateFrom == "" {
+		return 0, nil
+	}
+	var b filterBuilder
+	b.add("l.product_id = $%d", f.ProductID)
+	b.add("(l.occurred_at AT TIME ZONE 'Asia/Jakarta')::date < $%d::date", *f.DateFrom)
+	if f.RackID != nil {
+		b.add("l.rack_id = $%d", *f.RackID)
+	}
+	if f.WarehouseID != nil {
+		b.add("l.warehouse_id = $%d", *f.WarehouseID)
+	}
+	if f.ScopeWarehouseID != nil {
+		b.add("l.warehouse_id = $%d", *f.ScopeWarehouseID)
+	}
+	var bal int
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx,
+		`SELECT COALESCE(SUM(CASE WHEN l.direction = 'IN' THEN l.qty ELSE -l.qty END), 0)::int FROM stock_ledgers l`+b.where(),
+		b.args...).Scan(&bal)
+	return bal, err
+}

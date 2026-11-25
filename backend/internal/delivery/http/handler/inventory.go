@@ -176,3 +176,143 @@ func (h *InventoryHandler) SerialLabelsPDF(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="label-aset.pdf"`, disposition))
 	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
 }
+
+var ledgerSort = pagination.SortSpec{
+	Allowed: map[string]string{"occurred_at": "l.occurred_at", "id": "l.id", "qty": "l.qty"},
+	Default: "-occurred_at,-id",
+}
+
+const xlsxMIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+// SerialHistory — GET /inventory/serials/:id/history (detail unit + timeline lengkap)
+func (h *InventoryHandler) SerialHistory(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	res, err := h.uc.SerialHistory(c.Request.Context(), a, id)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.OK(c, dto.NewSerialScanResponse(res))
+}
+
+func buildLedgerFilter(c *gin.Context, q *dto.ListLedgersQuery) (domain.LedgerFilter, bool) {
+	f := domain.LedgerFilter{Query: q.Q, ProductID: q.ProductID, RackID: q.RackID, WarehouseID: q.WarehouseID}
+	if q.Direction != "" {
+		dir := q.Direction
+		f.Direction = &dir
+	}
+	if q.MovementType != "" {
+		mt := domain.LPBSubType(q.MovementType)
+		if !mt.Valid() {
+			httperr.BadQueryField(c, "movement_type", "tidak valid")
+			return f, false
+		}
+		f.MovementType = &mt
+	}
+	if q.DateFrom != "" {
+		df := q.DateFrom
+		f.DateFrom = &df
+	}
+	if q.DateTo != "" {
+		dt := q.DateTo
+		f.DateTo = &dt
+	}
+	return f, true
+}
+
+// Ledgers — GET /inventory/ledgers
+func (h *InventoryHandler) Ledgers(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	page, pp, ok := pageOf(c, ledgerSort)
+	if !ok {
+		return
+	}
+	var q dto.ListLedgersQuery
+	if !httperr.BindQuery(c, &q) {
+		return
+	}
+	f, ok := buildLedgerFilter(c, &q)
+	if !ok {
+		return
+	}
+	items, total, err := h.uc.Ledgers(c.Request.Context(), a, f, pp)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	out := make([]dto.LedgerRowResponse, 0, len(items))
+	for i := range items {
+		out = append(out, dto.NewLedgerRowResponse(&items[i]))
+	}
+	response.Paginated(c, out, pagination.NewMeta(page, total))
+}
+
+// ExportLedgers — GET /inventory/ledgers/export (.xlsx)
+func (h *InventoryHandler) ExportLedgers(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	var q dto.ListLedgersQuery
+	if !httperr.BindQuery(c, &q) {
+		return
+	}
+	f, ok := buildLedgerFilter(c, &q)
+	if !ok {
+		return
+	}
+	data, err := h.uc.ExportLedgersXLSX(c.Request.Context(), a, f)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="buku-besar-stok.xlsx"`)
+	c.Data(nethttp.StatusOK, xlsxMIME, data)
+}
+
+// StockCard — GET /inventory/stock-card (?format=xlsx untuk export Excel)
+func (h *InventoryHandler) StockCard(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	var q dto.StockCardQuery
+	if !httperr.BindQuery(c, &q) {
+		return
+	}
+	f := domain.StockCardFilter{ProductID: q.ProductID, RackID: q.RackID, WarehouseID: q.WarehouseID}
+	if q.DateFrom != "" {
+		df := q.DateFrom
+		f.DateFrom = &df
+	}
+	if q.DateTo != "" {
+		dt := q.DateTo
+		f.DateTo = &dt
+	}
+	if q.Format == "xlsx" {
+		data, err := h.uc.ExportStockCardXLSX(c.Request.Context(), a, f)
+		if err != nil {
+			httperr.Write(c, err)
+			return
+		}
+		c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="kartu-stok-%d.xlsx"`, q.ProductID))
+		c.Data(nethttp.StatusOK, xlsxMIME, data)
+		return
+	}
+	card, err := h.uc.StockCard(c.Request.Context(), a, f)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.OK(c, dto.NewStockCardResponse(card))
+}

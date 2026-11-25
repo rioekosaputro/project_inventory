@@ -33,6 +33,18 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   MISSING: { label: 'Belum ditemukan', tone: 'red' },
   UNEXPECTED: { label: 'Tak terduga', tone: 'amber' },
   WRONG_RACK: { label: 'Salah rak', tone: 'indigo' },
+  // Inventory & Serial (T1.13)
+  AVAILABLE: { label: 'Tersedia', tone: 'green' },
+  RESERVED: { label: 'Direservasi', tone: 'amber' },
+  IN_TRANSIT: { label: 'Dalam perjalanan', tone: 'sky' },
+  RENTED: { label: 'Disewa', tone: 'indigo' },
+  MAINTENANCE: { label: 'Perawatan', tone: 'amber' },
+  BROKEN: { label: 'Rusak', tone: 'red' },
+  LOST: { label: 'Hilang', tone: 'red' },
+  RETIRED: { label: 'Pensiun', tone: 'slate' },
+  IN: { label: 'Masuk', tone: 'green' },
+  OUT: { label: 'Keluar', tone: 'indigo' },
+  LOW_STOCK: { label: 'Menipis', tone: 'red' },
 }
 
 const TONES: Record<Tone, string> = {

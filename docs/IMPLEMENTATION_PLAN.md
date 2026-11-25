@@ -2135,7 +2135,14 @@ volumes: { pgdata: {} }
   - Frontend: `OpnameListView.vue` (daftar + slide-over mulai opname pilih rak & blind count) dan `OpnameDetailView.vue` (responsif HP/tablet: tab Hitung Non-SN + tab Scan SN dengan umpan balik audio `beep()`, tombol Ajukan/Finalisasi/Batalkan, tautan LPB penyesuaian). Menu sidebar "Stock Opname" muncul otomatis.
   - Verifikasi: `TestOpname_FullLifecycle_LockAdjustInvariantsAndRediscoverLost` & `TestOpname_Cancel_UnlocksRacksWithoutChangingStock` lulus dengan `pgtest.AssertInvariants` = 0 pelanggaran; `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
   DoD: LPB lain ke rak terkunci → 409; setelah finalize invariant = 0 baris.
-- [ ] **T1.13 Ledger, kartu stok, riwayat SN** — API + UI + export Excel.
+- [x] **T1.13 Ledger, kartu stok, riwayat SN** — API + UI + export Excel.
+  Catatan T1.13:
+  - Backend (`usecase/inventory_ledger.go`, `postgres/inventory_repo.go`, `handler/inventory.go`, `excelize/v2`):
+    - `GET /api/v1/inventory/serials/:id/history` (`inventory.read`) — detail unit + timeline `product_serial_histories` lengkap (dengan warehouse scoping).
+    - `GET /api/v1/inventory/ledgers` (`ledger.read`) — daftar buku besar mutasi stok terpaginasi (filter produk/rak/gudang/arah/jenis/rentang tanggal WIB/cari) + `GET /api/v1/inventory/ledgers/export` (`.xlsx`).
+    - `GET /api/v1/inventory/stock-card` (`ledger.read`) — kartu stok per produk/rak/periode (saldo awal, total masuk, total keluar, saldo akhir, daftar mutasi kronologis) + `?format=xlsx` untuk export Excel.
+  - Frontend: 5 halaman gudang lengkap — `/stok` (`StockBalanceListView`), `/stok/serial` (`SerialListView`), `/stok/serial/:id` (`SerialDetailView` + timeline + cetak label), `/stok/buku-besar` (`StockLedgerView` + export Excel), dan `/stok/kartu-stok` (`StockCardView` + export Excel). Menu sidebar **Stok**, **Serial Number**, dan **Buku Besar** otomatis aktif.
+  - Verifikasi: `TestLedger_StockCard_SerialHistory_And_ExcelExport` lulus (termasuk parsing ulang file `.xlsx` hasil export); `go mod tidy` bersih; `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
 - [ ] **T1.14 Dashboard gudang** — metrik Bagian 9.5 (gudang).
 - [ ] **T1.15 Import stok awal** — upload Excel/CSV (template disediakan) → draft LPB `INITIAL_STOCK` → approve.
   **🎯 Milestone M1:** gudang bisa dipakai (boleh paralel dengan pencatatan manual 2–4 minggu untuk validasi).

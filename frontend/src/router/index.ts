@@ -141,6 +141,37 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/public/LPBVerifyView.vue'),
     meta: { layout: 'public', public: true, title: 'Verifikasi Surat Jalan' },
   },
+  // Inventory, Serial, Buku Besar & Kartu Stok (plan Bagian 9.4, T1.13).
+  {
+    path: '/stok',
+    name: 'stok',
+    component: () => import('@/views/inventory/StockBalanceListView.vue'),
+    meta: { layout: 'app', permission: 'inventory.read', title: 'Saldo Stok' },
+  },
+  {
+    path: '/stok/serial',
+    name: 'stok-serial',
+    component: () => import('@/views/inventory/SerialListView.vue'),
+    meta: { layout: 'app', permission: 'inventory.read', title: 'Serial Number' },
+  },
+  {
+    path: '/stok/serial/:id(\\d+)',
+    name: 'stok-serial-detail',
+    component: () => import('@/views/inventory/SerialDetailView.vue'),
+    meta: { layout: 'app', permission: 'inventory.read', title: 'Riwayat Unit' },
+  },
+  {
+    path: '/stok/buku-besar',
+    name: 'stok-buku-besar',
+    component: () => import('@/views/inventory/StockLedgerView.vue'),
+    meta: { layout: 'app', permission: 'ledger.read', title: 'Buku Besar Stok' },
+  },
+  {
+    path: '/stok/kartu-stok',
+    name: 'stok-kartu-stok',
+    component: () => import('@/views/inventory/StockCardView.vue'),
+    meta: { layout: 'app', permission: 'ledger.read', title: 'Kartu Stok' },
+  },
   // Stock Opname (plan Bagian 9.4, T1.12).
   {
     path: '/opname',

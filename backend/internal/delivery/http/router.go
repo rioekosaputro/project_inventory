@@ -225,7 +225,17 @@ func registerInventoryRoutes(api *gin.RouterGroup, deps Deps) {
 	g.GET("/balances/summary", h.ProductStock)
 	g.GET("/serials", h.Serials)
 	g.GET("/serials/scan/:code", h.ScanSerial)
+	g.GET("/serials/:id/history", h.SerialHistory)
 	g.POST("/serials/labels/pdf", h.SerialLabelsPDF)
+
+	// Buku besar & kartu stok (permission ledger.read: MGMT, STAFF, HEAD, ADMIN).
+	lg := api.Group("/inventory",
+		middleware.Authenticate(deps.Tokens, deps.Clock),
+		middleware.RequirePermission(domain.PermLedgerRead),
+	)
+	lg.GET("/ledgers", h.Ledgers)
+	lg.GET("/ledgers/export", h.ExportLedgers)
+	lg.GET("/stock-card", h.StockCard)
 }
 
 // registerOpnameRoutes — plan Bagian 8.3: stock opname per rak.

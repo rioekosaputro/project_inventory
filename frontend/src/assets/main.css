@@ -20,6 +20,21 @@
     @apply bg-slate-50 font-sans text-slate-900 antialiased;
   }
 
+  /* Tailwind v4 mengembalikan kursor button ke default; pastikan elemen klik aktif pakai tangan (pointer). */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  a[href],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  select:disabled {
+    cursor: not-allowed;
+  }
+
   /* Fokus keyboard selalu terlihat. */
   :focus-visible {
     outline: 2px solid var(--p-primary-color, #4f46e5);

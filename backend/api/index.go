@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,5 +67,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"success":false,"code":"INIT_ERROR","message":"Inisialisasi API gagal: %v"}`, initErr)
 		return
 	}
+
+	// Vercel rewrite "/(.*)" -> "/api/index.go?__path=$1" mengubah r.URL.Path menjadi "/api/index.go".
+	// Pulihkan path asli + bersihkan __path dari query string agar Gin mencocokkan route & query asli.
+	if r.URL.Path == "/api/index.go" || r.URL.Path == "/api/index" {
+		q := r.URL.Query()
+		orig := q.Get("__path")
+		q.Del("__path")
+		r.URL.RawQuery = q.Encode()
+		r.URL.Path = "/" + strings.TrimPrefix(orig, "/")
+	}
+
 	engine.ServeHTTP(w, r)
 }

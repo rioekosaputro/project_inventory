@@ -57,12 +57,16 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	taxRepo := postgres.NewTaxSettingRepo(pool)
 
 	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
-	var pdfClient pdf.Renderer = pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword)
+	var localChrome pdf.Renderer
 	if cfg.IsLocal() && cfg.GotenbergURL == "http://localhost:3000" {
 		if chrome := pdf.NewLocalChromeRenderer(); chrome.Available() {
-			pdfClient = pdf.NewFallbackRenderer(pdfClient, chrome)
+			localChrome = chrome
 		}
 	}
+	pdfClient := pdf.NewFallbackRenderer(
+		pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword),
+		localChrome,
+	)
 	inventoryRepo := postgres.NewInventoryRepo(pool)
 	lpbRepo := postgres.NewLPBRepo(pool)
 	stockRepo := postgres.NewStockRepo(pool)

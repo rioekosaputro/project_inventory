@@ -9,7 +9,22 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
+
+type htmlFallbackKey struct{}
+
+// WithHTMLFallback mengizinkan FallbackRenderer mengembalikan HTML siap-cetak (A4 + auto window.print)
+// bila Gotenberg & Chrome lokal tidak tersedia (mis. Vercel Free Serverless).
+func WithHTMLFallback(ctx context.Context) context.Context {
+	return context.WithValue(ctx, htmlFallbackKey{}, true)
+}
+
+// AllowsHTMLFallback true bila pemanggil mengizinkan fallback HTML siap-cetak.
+func AllowsHTMLFallback(ctx context.Context) bool {
+	v, _ := ctx.Value(htmlFallbackKey{}).(bool)
+	return v
+}
 
 // LocalChromeRenderer merender HTML menjadi PDF secara lokal memakai Chrome/Edge headless
 // sebagai fallback development saat container Gotenberg belum dijalankan.
@@ -80,12 +95,55 @@ func (f *FallbackRenderer) RenderHTML(ctx context.Context, html string, opts Opt
 	if err == nil {
 		return data, nil
 	}
-	if errors.Is(err, ErrUnavailable) && f.fallback != nil {
-		if fbData, fbErr := f.fallback.RenderHTML(ctx, html, opts); fbErr == nil {
-			return fbData, nil
+	if errors.Is(err, ErrUnavailable) {
+		if f.fallback != nil {
+			if fbData, fbErr := f.fallback.RenderHTML(ctx, html, opts); fbErr == nil {
+				return fbData, nil
+			}
+		}
+		if AllowsHTMLFallback(ctx) {
+			return []byte(injectAutoPrintToolbar(html)), nil
 		}
 	}
 	return nil, err
+}
+
+const printToolbarSnippet = `
+<style>
+  @media print { .erp-print-bar { display: none !important; } }
+  .erp-print-bar {
+    position: sticky; top: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #1e1b4b; color: #fff; padding: 10px 18px;
+    font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
+    box-shadow: 0 2px 8px rgba(15,23,42,.2);
+  }
+  .erp-print-bar button {
+    background: #4f46e5; color: #fff; border: 0; border-radius: 6px;
+    padding: 7px 14px; font-weight: 600; cursor: pointer; font-size: 13px;
+  }
+  .erp-print-bar button:hover { background: #6366f1; }
+</style>
+<div class="erp-print-bar">
+  <span>Pratinjau Cetak A4 — pilih <strong>Simpan sebagai PDF</strong> pada dialog cetak browser.</span>
+  <button type="button" onclick="window.print()">Cetak / Simpan PDF</button>
+</div>
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () { window.print(); }, 250);
+  });
+</script>
+`
+
+func injectAutoPrintToolbar(html string) string {
+	lower := strings.ToLower(html)
+	if idx := strings.Index(lower, "<body"); idx >= 0 {
+		if end := strings.Index(html[idx:], ">"); end >= 0 {
+			pos := idx + end + 1
+			return html[:pos] + printToolbarSnippet + html[pos:]
+		}
+	}
+	return printToolbarSnippet + html
 }
 
 func detectLocalBrowser() string {

@@ -51,9 +51,9 @@ export const rackService = {
       '/racks/labels/pdf',
       { rack_ids: rackIds },
       {
-        params: download ? { download: 1 } : undefined,
+        params: download ? { download: 1, fallback: 'html' } : { fallback: 'html' },
         responseType: 'blob',
-        headers: { Accept: 'application/pdf' },
+        headers: { Accept: 'application/pdf, text/html' },
       },
     )
     return res.data

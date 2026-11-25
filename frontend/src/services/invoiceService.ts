@@ -53,9 +53,9 @@ export const invoiceService = {
 
   async fetchPdf(id: number, download = false): Promise<Blob> {
     const res = await http.get<Blob>(`/invoices/${id}/pdf`, {
-      params: download ? { download: 1 } : undefined,
+      params: download ? { download: 1, fallback: 'html' } : { fallback: 'html' },
       responseType: 'blob',
-      headers: { Accept: 'application/pdf' },
+      headers: { Accept: 'application/pdf, text/html' },
     })
     return res.data
   },

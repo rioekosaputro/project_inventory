@@ -55,9 +55,9 @@ export const lpbService = {
   /** Mengambil PDF Surat Jalan (hanya LPB APPROVED, memakai Bearer token di memori). */
   fetchPdf: async (id: number, download = false): Promise<Blob> => {
     const res = await http.get<Blob>(`${base}/${id}/pdf`, {
-      params: download ? { download: 1 } : undefined,
+      params: download ? { download: 1, fallback: 'html' } : { fallback: 'html' },
       responseType: 'blob',
-      headers: { Accept: 'application/pdf' },
+      headers: { Accept: 'application/pdf, text/html' },
     })
     return res.data
   },
@@ -70,9 +70,9 @@ export const lpbService = {
       '/inventory/serials/labels/pdf',
       { serial_ids: serialIds },
       {
-        params: download ? { download: 1 } : undefined,
+        params: download ? { download: 1, fallback: 'html' } : { fallback: 'html' },
         responseType: 'blob',
-        headers: { Accept: 'application/pdf' },
+        headers: { Accept: 'application/pdf, text/html' },
       },
     )
     return res.data

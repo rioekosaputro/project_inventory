@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	nethttp "net/http"
 	"strconv"
@@ -340,17 +339,12 @@ func (h *LPBHandler) PDF(c *gin.Context) {
 	if !ok {
 		return
 	}
-	filename, pdfBytes, err := h.uc.RenderPDF(c.Request.Context(), a, id)
+	filename, pdfBytes, err := h.uc.RenderPDF(pdfContext(c), a, id)
 	if err != nil {
 		httperr.Write(c, err)
 		return
 	}
-	disposition := "inline"
-	if c.Query("download") == "1" || c.Query("download") == "true" {
-		disposition = "attachment"
-	}
-	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, filename))
-	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
+	writePDFOrHTML(c, filename, pdfBytes)
 }
 
 // VerifyPublic — GET /public/lpb/verify/:token (publik, tanpa login; ringkas tanpa harga/SN)

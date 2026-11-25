@@ -213,23 +213,18 @@ func (h *InvoiceHandler) RecordPayment(c *gin.Context) {
 	response.Created(c, dto.NewInvoiceDetailResponse(det))
 }
 
-// PDF — GET /api/v1/invoices/:id/pdf(?download=1)
+// PDF — GET /api/v1/invoices/:id/pdf(?download=1&fallback=html)
 func (h *InvoiceHandler) PDF(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
 		return
 	}
-	data, filename, err := h.uc.RenderPDF(c.Request.Context(), id)
+	data, filename, err := h.uc.RenderPDF(pdfContext(c), id)
 	if err != nil {
 		httperr.Write(c, err)
 		return
 	}
-	disp := "inline"
-	if c.Query("download") == "1" {
-		disp = "attachment"
-	}
-	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disp, filename))
-	c.Data(nethttp.StatusOK, "application/pdf", data)
+	writePDFOrHTML(c, filename, data)
 }
 
 // Export — GET /api/v1/invoices/export

@@ -1,9 +1,6 @@
 package handler
 
 import (
-	"fmt"
-	nethttp "net/http"
-
 	"github.com/gin-gonic/gin"
 
 	"rental-inventory-api/internal/delivery/http/dto"
@@ -128,15 +125,10 @@ func (h *RackHandler) LabelsPDF(c *gin.Context) {
 	if !httperr.BindJSON(c, &req) {
 		return
 	}
-	pdfBytes, err := h.uc.RenderLabelsPDF(c.Request.Context(), a, req.RackIDs)
+	pdfBytes, err := h.uc.RenderLabelsPDF(pdfContext(c), a, req.RackIDs)
 	if err != nil {
 		httperr.Write(c, err)
 		return
 	}
-	disposition := "inline"
-	if c.Query("download") == "1" || c.Query("download") == "true" {
-		disposition = "attachment"
-	}
-	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="label-rak.pdf"`, disposition))
-	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
+	writePDFOrHTML(c, "label-rak.pdf", pdfBytes)
 }

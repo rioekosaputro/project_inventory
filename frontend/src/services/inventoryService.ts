@@ -47,7 +47,11 @@ export const inventoryService = {
     const res = await http.post<Blob>(
       '/inventory/serials/labels/pdf',
       { serial_ids: serialIds },
-      { responseType: 'blob', headers: { Accept: 'application/pdf' } },
+      {
+        params: { fallback: 'html' },
+        responseType: 'blob',
+        headers: { Accept: 'application/pdf, text/html' },
+      },
     )
     return res.data
   },

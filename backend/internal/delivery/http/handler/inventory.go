@@ -164,17 +164,12 @@ func (h *InventoryHandler) SerialLabelsPDF(c *gin.Context) {
 	if !httperr.BindJSON(c, &req) {
 		return
 	}
-	pdfBytes, err := h.uc.RenderSerialLabelsPDF(c.Request.Context(), a, req.SerialIDs)
+	pdfBytes, err := h.uc.RenderSerialLabelsPDF(pdfContext(c), a, req.SerialIDs)
 	if err != nil {
 		httperr.Write(c, err)
 		return
 	}
-	disposition := "inline"
-	if c.Query("download") == "1" || c.Query("download") == "true" {
-		disposition = "attachment"
-	}
-	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="label-aset.pdf"`, disposition))
-	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
+	writePDFOrHTML(c, "label-aset.pdf", pdfBytes)
 }
 
 var ledgerSort = pagination.SortSpec{

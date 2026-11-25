@@ -1,11 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index.go?__path=$1"
-    }
-  ],
   "crons": [
     {
       "path": "/api/v1/internal/jobs/billing",
@@ -15,10 +9,5 @@
       "path": "/api/v1/internal/jobs/daily",
       "schedule": "30 18 * * *"
     }
-  ],
-  "build": {
-    "env": {
-      "GO_BUILD_FLAGS": "-ldflags '-s -w'"
-    }
-  }
+  ]
 }

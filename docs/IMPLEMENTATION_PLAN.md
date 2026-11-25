@@ -1998,7 +1998,7 @@ volumes: { pgdata: {} }
 
 - [x] **T0.1 Inisialisasi monorepo** — struktur folder Bagian 3.5, `.gitignore`, `README.md`, `CLAUDE.md`, `docs/`, `.editorconfig`.
   DoD: repo ter-push, README berisi cara menjalankan lokal.
-- [ ] **T0.2 Skeleton backend** — `go.mod` (module `rental-inventory-api`), `config` (env), slog, Gin router, `/healthz` `/readyz`, graceful shutdown, baca `PORT`, `Dockerfile` multi-stage, `Makefile`.
+- [x] **T0.2 Skeleton backend** — `go.mod` (module `rental-inventory-api`), `config` (env), slog, Gin router, `/healthz` `/readyz`, graceful shutdown, baca `PORT`, `Dockerfile` multi-stage, `Makefile`.
   DoD: `make dev` jalan; `docker build` sukses; `/healthz` 200.
 - [x] **T0.3 Lapisan database** — `pkg/database` (pgxpool + `DB_POOLER_MODE`, TxManager, `GetExecutor`, `MustInTx`), `cmd/migrate`, `deploy/docker-compose.dev.yml`.
   DoD: test integrasi TxManager (commit, rollback saat error, rollback saat panic, nested pakai tx yang sama).
@@ -2106,7 +2106,11 @@ volumes: { pgdata: {} }
   - Temuan sepanjang T1.8 (diperbaiki): (1) membuka LPB pasangan lewat tautan tidak memuat ulang data (komponen rincian dipakai ulang) — kini memantau `id` rute; (2) galat validasi 422 dari server tampil sebagai "Data LPB tidak valid" — kini rincian per field yang ditampilkan (scanner dan toast aksi); (3) field biaya yang tidak dirender dibuang vee-validate sehingga validasi gagal diam-diam untuk transfer/penghapusan — dibuat opsional.
   - Pengujian: tes integrasi baru (penghapusan SN dan non-SN dari karantina, stok habis di tengah → rollback, scan hanya unit BROKEN di rak item, transfer satu gudang + pasangan otomatis + ledger + riwayat, penggabungan item, antar gudang + antrean + 403 + tolak ditolak + persetujuan tujuan, validasi, rollback total termasuk dokumen pasangan, transfer berlawanan serentak) + tes unit urutan saldo; 286 tes Vitest; uji browser 1280px dan 375px terhadap backend dan database nyata (transfer satu gudang, antar gudang oleh Kepala Gudang B, penghapusan) tanpa overflow dan semua target sentuh ≥ 44px.
   DoD (terpenuhi): transfer satu gudang menghasilkan dua dokumen APPROVED dengan ledger di kedua sisi; DISPOSAL menghapus unit BROKEN; kegagalan = rollback total.
-- [ ] **T1.9 Test konkurensi & invariant** — helper `assertInvariants`, skenario paralel Bagian 11.
+- [x] **T1.9 Test konkurensi & invariant** — helper `assertInvariants`, skenario paralel Bagian 11.
+  Catatan T1.9:
+  - `internal/testutil/pgtest/invariants.go`: menambahkan `CheckInvariants` (diekspos agar dapat diuji langsung), memperluas invarian dengan `I1b` (unit fisik SN di rak tanpa baris saldo) dan `I5b` (rantai ledger per `(product_id, rack_id)` berkesinambungan tanpa celah `LAG(balance_after) = balance_before`). Dilengkapi `invariants_integration_test.go` untuk memastikan pelanggaran `I1`, `I1b`, `I2`, `I3`, `I5b` benar-benar terdeteksi.
+  - `internal/delivery/http/lpb_concurrency_integration_test.go`: 6 skenario balapan paralel dengan barrier (`close(start)`): approve paralel banyak LPB OUT pada stok non-SN sama (tepat 1 menang, saldo tidak negatif), balapan `TRANSFER_OUT` vs `DISPOSAL` pada stok sama (tanpa pasangan `TRANSFER_IN` yatim), campuran `PURCHASE` + `DISPOSAL` paralel pada saldo sama (rantai ledger utuh), balapan `approve` vs `reject` pada LPB sama, approve paralel `TRANSFER_IN` antar gudang, dan approve paralel dua `PURCHASE` dengan SN sama (`SERIAL_EXISTS` + rollback penuh). Skenario reservasi SN DO paralel diuji di Fase 2 (`T2.6`).
+  - Verifikasi: `go vet -tags=integration ./...` bersih; 12 tes konkurensi lulus **`-count=20`** (206s) + seluruh suite integrasi backend lulus terhadap PostgreSQL 16 lokal. Catatan: `-race` butuh CGO/`gcc` yang belum terpasang di Windows lokal; CI GitHub Actions (Linux) menjalankan `go test -race`.
   DoD: `go test -race` lulus 20x berulang.
 - [ ] **T1.10 PDF Surat Jalan** — Gotenberg client, template embed, QR token, `GET /lpb/:id/pdf`, `GET /public/lpb/verify/:token`, halaman `/verify/lpb/:token`.
   DoD: PDF A4 rapi, QR dari HP membuka halaman verifikasi; LPB non-APPROVED → 422.

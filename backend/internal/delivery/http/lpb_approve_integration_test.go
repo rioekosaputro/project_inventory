@@ -329,7 +329,7 @@ func TestApprove_FailureRollsBackEverything(t *testing.T) {
 	f := newLPBFixture(t, e)
 	// Item 1 (produk non-SN, id lebih besar diproses belakangan) dan item 2 (SN): kegagalan di tengah.
 	id, _ := e.pending(f.staffA, f.purchase(lpbItem(f.p1, f.a1, 1), lpbItem(f.p2, f.a1, 5)), map[int][]string{0: {"SN-DUP"}})
-	e.addSerial(f.p1, "AST-2611-00099", "SN-DUP", "AVAILABLE", &f.a1, nil) // didaftarkan pihak lain setelah submit
+	e.addSerial(f.p1, "AST-2611-00099", "SN-DUP", "RETIRED", nil, nil) // didaftarkan pihak lain setelah submit (unik per produk)
 	seqBefore := e.count(`SELECT COALESCE(SUM(last_number), 0) FROM document_sequences`)
 
 	r := e.approve(f.headA, id, nextKey())

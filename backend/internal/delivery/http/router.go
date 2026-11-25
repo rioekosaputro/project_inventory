@@ -48,8 +48,9 @@ type Deps struct {
 	// Dashboard (T1.14).
 	Dashboard *handler.DashboardHandler
 
-	// Komersial: Pelanggan & site (T2.2).
+	// Komersial: Pelanggan & site (T2.2), Kontrak sewa (T2.3).
 	Customers *handler.CustomerHandler
+	Contracts *handler.ContractHandler
 
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
@@ -102,6 +103,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerOpnameRoutes(api, deps)
 	registerLPBRoutes(api, deps)
 	registerCustomerRoutes(api, deps)
+	registerContractRoutes(api, deps)
 	if deps.Dashboard != nil {
 		dg := api.Group("/dashboard",
 			middleware.Authenticate(deps.Tokens, deps.Clock),
@@ -330,4 +332,26 @@ func registerCustomerRoutes(api *gin.RouterGroup, deps Deps) {
 
 	sites := api.Group("/customer-sites", authn)
 	sites.PATCH("/:id", write, h.UpdateSite)
+}
+
+// registerContractRoutes — plan Bagian 8.4 (T2.3): baca contract.read, tulis contract.write,
+// aktivasi/terminasi/perpanjang contract.approve.
+func registerContractRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Contracts
+	if h == nil {
+		return
+	}
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	read := middleware.RequirePermission(domain.PermContractRead)
+	write := middleware.RequirePermission(domain.PermContractWrite)
+	approve := middleware.RequirePermission(domain.PermContractApprove)
+
+	g := api.Group("/contracts", authn)
+	g.GET("", read, h.List)
+	g.POST("", write, h.Create)
+	g.GET("/:id", read, h.Get)
+	g.PATCH("/:id", write, h.Update)
+	g.POST("/:id/activate", approve, h.Activate)
+	g.POST("/:id/terminate", approve, h.Terminate)
+	g.POST("/:id/renew", approve, h.Renew)
 }

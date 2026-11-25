@@ -50,6 +50,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	productRepo := postgres.NewProductRepo(pool)
 	supplierRepo := postgres.NewSupplierRepo(pool)
 	customerRepo := postgres.NewCustomerRepo(pool)
+	contractRepo := postgres.NewContractRepo(pool)
 
 	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
 	pdfClient := pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword)
@@ -72,6 +73,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		)),
 		Dashboard: handler.NewDashboardHandler(usecase.NewDashboardUsecase(postgres.NewDashboardRepo(pool))),
 		Customers: handler.NewCustomerHandler(usecase.NewCustomerUsecase(txManager, customerRepo, auditRepo)),
+		Contracts: handler.NewContractHandler(usecase.NewContractUsecase(
+			txManager, contractRepo, customerRepo, productRepo, auditRepo, docGen, clk,
+		)),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),

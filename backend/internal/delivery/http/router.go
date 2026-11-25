@@ -48,6 +48,9 @@ type Deps struct {
 	// Dashboard (T1.14).
 	Dashboard *handler.DashboardHandler
 
+	// Komersial: Pelanggan & site (T2.2).
+	Customers *handler.CustomerHandler
+
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
 
@@ -98,6 +101,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerInventoryRoutes(api, deps)
 	registerOpnameRoutes(api, deps)
 	registerLPBRoutes(api, deps)
+	registerCustomerRoutes(api, deps)
 	if deps.Dashboard != nil {
 		dg := api.Group("/dashboard",
 			middleware.Authenticate(deps.Tokens, deps.Clock),
@@ -303,4 +307,27 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 
 	// Verifikasi QR publik (plan Bagian 7.6 & 8.3): tanpa autentikasi.
 	api.GET("/public/lpb/verify/:token", h.VerifyPublic)
+}
+
+// registerCustomerRoutes — plan Bagian 8.4 (T2.2): baca customer.read, tulis customer.write.
+func registerCustomerRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Customers
+	if h == nil {
+		return
+	}
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	read := middleware.RequirePermission(domain.PermCustomerRead)
+	write := middleware.RequirePermission(domain.PermCustomerWrite)
+
+	g := api.Group("/customers", authn)
+	g.GET("", read, h.List)
+	g.POST("", write, h.Create)
+	g.GET("/:id", read, h.Get)
+	g.PATCH("/:id", write, h.Update)
+	g.GET("/:id/sites", read, h.ListSites)
+	g.POST("/:id/sites", write, h.CreateSite)
+	g.GET("/:id/assets", read, h.ListAssets)
+
+	sites := api.Group("/customer-sites", authn)
+	sites.PATCH("/:id", write, h.UpdateSite)
 }

@@ -191,6 +191,56 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/opname/OpnameDetailView.vue'),
     meta: { layout: 'app', permission: 'opname.read', title: 'Rincian Stock Opname' },
   },
+  // Pelanggan & Site (plan Bagian 9.4, T2.2).
+  {
+    path: '/pelanggan',
+    name: 'pelanggan',
+    component: () => import('@/views/customers/CustomerListView.vue'),
+    meta: { layout: 'app', permission: 'customer.read', title: 'Pelanggan' },
+  },
+  {
+    path: '/pelanggan/baru',
+    name: 'pelanggan-baru',
+    component: () => import('@/views/customers/CustomerFormView.vue'),
+    meta: { layout: 'app', permission: 'customer.write', title: 'Tambah Pelanggan' },
+  },
+  {
+    path: '/pelanggan/:id(\\d+)',
+    name: 'pelanggan-detail',
+    component: () => import('@/views/customers/CustomerDetailView.vue'),
+    meta: { layout: 'app', permission: 'customer.read', title: 'Detail Pelanggan' },
+  },
+  {
+    path: '/pelanggan/:id(\\d+)/ubah',
+    name: 'pelanggan-ubah',
+    component: () => import('@/views/customers/CustomerFormView.vue'),
+    meta: { layout: 'app', permission: 'customer.write', title: 'Ubah Pelanggan' },
+  },
+  // Pelanggan & Site (plan Bagian 9.4, T2.2).
+  {
+    path: '/pelanggan',
+    name: 'pelanggan',
+    component: () => import('@/views/customers/CustomerListView.vue'),
+    meta: { layout: 'app', permission: 'customer.read', title: 'Pelanggan' },
+  },
+  {
+    path: '/pelanggan/baru',
+    name: 'pelanggan-baru',
+    component: () => import('@/views/customers/CustomerFormView.vue'),
+    meta: { layout: 'app', permission: 'customer.write', title: 'Tambah Pelanggan' },
+  },
+  {
+    path: '/pelanggan/:id(\\d+)',
+    name: 'pelanggan-detail',
+    component: () => import('@/views/customers/CustomerDetailView.vue'),
+    meta: { layout: 'app', permission: 'customer.read', title: 'Rincian Pelanggan' },
+  },
+  {
+    path: '/pelanggan/:id(\\d+)/ubah',
+    name: 'pelanggan-ubah',
+    component: () => import('@/views/customers/CustomerFormView.vue'),
+    meta: { layout: 'app', permission: 'customer.write', title: 'Ubah Pelanggan' },
+  },
   {
     path: '/403',
     name: 'forbidden',

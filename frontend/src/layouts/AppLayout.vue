@@ -66,7 +66,7 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
 <template>
   <a href="#main" class="skip-link">Lewati ke konten utama</a>
 
-  <div class="min-h-dvh md:flex">
+  <div class="min-h-dvh overflow-x-clip md:flex">
     <!-- Sidebar: hanya layar lebar, dapat dibuka/tutup (konten utama dinamis flex-1). -->
     <aside
       v-if="showNav"
@@ -131,7 +131,7 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
       <main
         id="main"
         tabindex="-1"
-        class="w-full flex-1 bg-slate-50/50 p-4 outline-none md:px-6 md:py-5"
+        class="w-full min-w-0 flex-1 bg-slate-50/50 p-4 outline-none md:px-6 md:py-5"
       >
         <slot />
       </main>
@@ -148,9 +148,12 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
     @click="onDrawerClick"
     @close="drawerOpen = false"
   >
-    <div class="flex h-full flex-col">
-      <div class="flex h-14 items-center justify-between border-b border-slate-200 ps-4 pe-2">
-        <p class="text-base font-semibold">Rental ERP</p>
+    <div class="flex h-full min-h-0 flex-1 flex-col">
+      <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 ps-4 pe-2">
+        <p class="flex items-center gap-2 text-base font-semibold text-slate-900">
+          <i class="pi pi-box text-indigo-700" aria-hidden="true" />
+          <span>Rental ERP</span>
+        </p>
         <button
           type="button"
           class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-800 hover:bg-slate-100"
@@ -161,8 +164,8 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
           <i class="pi pi-times" aria-hidden="true" />
         </button>
       </div>
-      <div class="flex-1 overflow-y-auto p-3"><NavMenu /></div>
-      <div class="border-t border-slate-200 p-3"><UserPanel /></div>
+      <div class="min-h-0 flex-1 overflow-y-auto p-3"><NavMenu /></div>
+      <div class="shrink-0 border-t border-slate-200 bg-white p-3"><UserPanel /></div>
     </div>
   </dialog>
 </template>

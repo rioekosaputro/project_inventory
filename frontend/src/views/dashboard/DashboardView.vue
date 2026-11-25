@@ -49,9 +49,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="w-full">
+  <div class="w-full min-w-0">
     <header class="flex flex-wrap items-center justify-between gap-3">
-      <div>
+      <div class="min-w-0">
         <h1 class="text-xl font-semibold text-slate-900">
           {{ summary?.commercial ? 'Dashboard Komersial & Gudang' : 'Dashboard Gudang' }}
         </h1>
@@ -63,12 +63,12 @@ onMounted(async () => {
           }}
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <select
           v-if="warehouses.length > 0"
           v-model="selectedWh"
           aria-label="Filter gudang"
-          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm sm:flex-initial"
           @change="load"
         >
           <option value="">Semua gudang</option>
@@ -76,7 +76,12 @@ onMounted(async () => {
             {{ w.code }} — {{ w.name }}
           </option>
         </select>
-        <button type="button" :class="btnSecondary" :aria-busy="loading" @click="load">
+        <button
+          type="button"
+          :class="[btnSecondary, 'shrink-0 whitespace-nowrap']"
+          :aria-busy="loading"
+          @click="load"
+        >
           <i class="pi pi-refresh text-xs" aria-hidden="true" />Muat Ulang
         </button>
       </div>
@@ -192,21 +197,23 @@ onMounted(async () => {
               <li
                 v-for="inv in summary.commercial.overdue_invoices"
                 :key="inv.invoice_id"
-                class="flex items-center justify-between gap-2 py-2.5 text-sm"
+                class="flex items-center justify-between gap-3 py-2.5 text-sm"
               >
-                <div>
-                  <RouterLink :to="`/invoices/${inv.invoice_id}`" :class="rowLink">
+                <div class="min-w-0 flex-1">
+                  <RouterLink :to="`/invoices/${inv.invoice_id}`" :class="rowLink" class="block truncate">
                     {{ inv.invoice_number }}
                   </RouterLink>
-                  <div class="text-xs text-slate-500">
+                  <div class="truncate text-xs text-slate-500">
                     {{ inv.customer_name }} · Jatuh tempo {{ inv.due_date }}
                   </div>
                 </div>
-                <div class="text-right">
-                  <div class="font-mono text-xs font-bold text-rose-700">
+                <div class="shrink-0 text-right">
+                  <div class="font-mono text-xs font-bold whitespace-nowrap text-rose-700">
                     {{ formatRupiah(inv.remaining_amount) }}
                   </div>
-                  <div class="text-xs text-rose-600">Terlambat {{ inv.days_overdue }} hari</div>
+                  <div class="text-xs whitespace-nowrap text-rose-600">
+                    Terlambat {{ inv.days_overdue }} hari
+                  </div>
                 </div>
               </li>
             </ul>
@@ -233,18 +240,18 @@ onMounted(async () => {
               <li
                 v-for="c in summary.commercial.expiring_contracts"
                 :key="c.contract_id"
-                class="flex items-center justify-between gap-2 py-2.5 text-sm"
+                class="flex items-center justify-between gap-3 py-2.5 text-sm"
               >
-                <div>
-                  <RouterLink :to="`/kontrak/${c.contract_id}`" :class="rowLink">
+                <div class="min-w-0 flex-1">
+                  <RouterLink :to="`/kontrak/${c.contract_id}`" :class="rowLink" class="block truncate">
                     {{ c.contract_number }}
                   </RouterLink>
-                  <div class="text-xs text-slate-500">
+                  <div class="truncate text-xs text-slate-500">
                     {{ c.customer_name }} · Berakhir {{ c.end_date }}
                   </div>
                 </div>
                 <span
-                  class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
                   :class="
                     c.days_remaining <= 7
                       ? 'bg-rose-100 text-rose-800'

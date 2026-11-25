@@ -94,7 +94,7 @@ async function exportExcel(): Promise<void> {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl">
+  <div class="w-full">
     <BackLink to="/stok/buku-besar" label="Kembali ke Buku Besar Stok" />
 
     <header class="mt-3 flex flex-wrap items-center justify-between gap-3">

@@ -59,7 +59,7 @@ async function printLabel(): Promise<void> {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl">
+  <div class="w-full">
     <BackLink to="/stok/serial" label="Kembali ke daftar Serial Number" />
 
     <div v-if="loading" class="mt-6 py-12 text-center text-sm text-slate-600" role="status">

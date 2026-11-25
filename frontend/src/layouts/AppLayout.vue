@@ -86,7 +86,7 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
       <main
         id="main"
         tabindex="-1"
-        class="mx-auto w-full max-w-[1280px] flex-1 p-4 outline-none md:p-6"
+        class="w-full flex-1 bg-slate-50/50 p-4 outline-none md:px-6 md:py-5"
       >
         <slot />
       </main>

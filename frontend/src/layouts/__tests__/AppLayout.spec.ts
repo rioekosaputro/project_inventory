@@ -91,12 +91,13 @@ describe('sidebar dinamis per permission', () => {
 })
 
 describe('kerangka halaman', () => {
-  it('skip link, konten utama, dan lebar konten dibatasi (bukan shell)', async () => {
+  it('skip link, konten utama penuh rapi menempel sidebar (tanpa celah mx-auto)', async () => {
     const { wrapper: w } = await open(makeSession())
 
     expect(w.find('a.skip-link').attributes('href')).toBe('#main')
     const main = w.find('main#main')
-    expect(main.classes()).toContain('max-w-[1280px]')
+    expect(main.classes()).toContain('w-full')
+    expect(main.classes()).not.toContain('mx-auto')
     expect(w.find('aside').classes()).not.toContain('max-w-[1280px]')
   })
 

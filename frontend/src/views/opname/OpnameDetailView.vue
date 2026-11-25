@@ -197,7 +197,7 @@ async function cancelOpname(): Promise<void> {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
+  <div class="w-full">
     <BackLink to="/opname" label="Kembali ke daftar Stock Opname" />
 
     <div v-if="loading" class="mt-6 py-12 text-center text-sm text-slate-600" role="status">

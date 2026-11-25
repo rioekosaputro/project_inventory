@@ -24,9 +24,10 @@ type Options struct {
 
 // Result melaporkan jumlah baris BARU yang dibuat pada run ini.
 type Result struct {
-	AdminCreated       bool
-	SettingsInserted   int
-	CategoriesInserted int
+	AdminCreated        bool
+	SettingsInserted    int
+	CategoriesInserted  int
+	TaxSettingsInserted int
 }
 
 type category struct{ name, itemType string }
@@ -86,6 +87,24 @@ func Run(ctx context.Context, pool *pgxpool.Pool, opts Options) (Result, error) 
 				return fmt.Errorf("seed kategori %s: %w", c.name, err)
 			}
 			res.CategoriesInserted += int(tag.RowsAffected())
+		}
+
+		// Seed tax_settings (PMK 131/2024: PPN 12% x DPP Nilai Lain 11/12, efektif 11%).
+		// Diperiksa keberadaannya agar seed tetap aman pada DB yang baru di-migrate s/d Fase 1.
+		var hasTaxTable bool
+		if err := db.QueryRow(ctx, `SELECT to_regclass('tax_settings') IS NOT NULL`).Scan(&hasTaxTable); err != nil {
+			return fmt.Errorf("cek tabel tax_settings: %w", err)
+		}
+		if hasTaxTable {
+			tag, err := db.Exec(ctx, `
+				INSERT INTO tax_settings (tax_code, rate, dpp_numerator, dpp_denominator, faktur_code, effective_from, notes)
+				VALUES ('PPN', 12.00, 11, 12, '04', '2025-01-01',
+				        'PMK 131/2024: tarif PPN 12% dengan DPP Nilai Lain 11/12 (efektif 11%)')
+				ON CONFLICT (tax_code, effective_from) DO NOTHING`)
+			if err != nil {
+				return fmt.Errorf("seed tax_settings: %w", err)
+			}
+			res.TaxSettingsInserted = int(tag.RowsAffected())
 		}
 		return nil
 	})

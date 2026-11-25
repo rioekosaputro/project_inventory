@@ -61,6 +61,8 @@ func newInvFixture(t *testing.T, e *env) invFixture {
 	e.exec(`INSERT INTO stock_balances (product_id, rack_id, qty_on_hand) VALUES ($1,$2,1)`, f.p4, f.a1)
 	e.exec(`UPDATE products SET is_active = FALSE WHERE id = $1`, f.p4)
 
+	e.exec(`INSERT INTO customers (id, customer_code, company_name, pic_name, phone, billing_address, billing_postal_code)
+		VALUES (7, 'CUST-7', 'PT Pelanggan Uji', 'PIC', '0812', 'Jl. Uji 7', '50111')`)
 	customer := int64(7)
 	f.s1 = e.addSerial(f.p1, "AST-2611-00001", "SN-AAA", "AVAILABLE", &f.a1, nil)
 	f.s2 = e.addSerial(f.p1, "AST-2611-00002", "SN-BBB", "RESERVED", &f.a1, nil)

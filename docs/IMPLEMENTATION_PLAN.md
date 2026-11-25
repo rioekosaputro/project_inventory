@@ -2158,7 +2158,11 @@ volumes: { pgdata: {} }
 ### Fase 2 — Komersial (Sprint 5–7)
 
 **Sprint 5 — Pelanggan & kontrak**
-- [ ] **T2.1 Migrasi `000005`–`000007`** (+ down) + seed `tax_settings`.
+- [x] **T2.1 Migrasi `000005`–`000007`** (+ down) + seed `tax_settings`.
+  Catatan T2.1:
+  - Penomoran file migrasi bergeser +1 karena `000005_lpb_transfer_destination` sudah dipakai di T1.8 → `000006_init_customers_contracts` (`customers`, `customer_sites`, `rental_contracts`, `rental_contract_items`, `rental_placements` + FK ke `product_serials`/`lpb_documents`), `000007_init_sales_delivery` (`sales_orders`, `sales_order_items`, `delivery_orders`, `delivery_order_items`, `delivery_order_reservations` + FK ke `lpb_items`/`product_serials`), dan `000008_init_billing` (`tax_settings`, `invoices`, `invoice_items`, `payments`). Total 39 tabel; `up → down → up` bersih tanpa residu.
+  - `internal/seed/seed.go` menambahkan seed idempoten `tax_settings` PMK 131/2024 (`PPN`, `rate=12.00`, `dpp_numerator=11`, `dpp_denominator=12`, `faktur_code='04'`, `effective_from='2025-01-01'`).
+  - Verifikasi: `TestMigrations_UpDownUp_LeavesNoResidue` (39 tabel), `TestMigrations_Phase2CommercialConstraints` (`ON DELETE RESTRICT`, site utama unik, `chk_so_contract`, `uq_invoice_rental_period`, `chk_payment_positive`), `internal/seed`, dan `TestInventory_` lulus; migrasi & seed lokal selesai.
 - [ ] **T2.2 Pelanggan & site** — CRUD, picker koordinat (klik peta Leaflet / input manual), site utama unik.
 - [ ] **T2.3 Kontrak** — header + item tarif, activate/terminate/renew, validasi tanggal & durasi.
 

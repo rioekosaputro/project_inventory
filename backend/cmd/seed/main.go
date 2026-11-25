@@ -56,6 +56,7 @@ func run() error {
 	} else {
 		fmt.Printf("admin sudah ada: %s (tidak diubah)\n", cfg.SeedAdminEmail)
 	}
-	fmt.Printf("app_settings baru: %d, kategori baru: %d\n", res.SettingsInserted, res.CategoriesInserted)
+	fmt.Printf("app_settings baru: %d, kategori baru: %d, tax_settings baru: %d\n",
+		res.SettingsInserted, res.CategoriesInserted, res.TaxSettingsInserted)
 	return nil
 }

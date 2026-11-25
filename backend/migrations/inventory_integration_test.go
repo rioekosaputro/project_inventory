@@ -79,6 +79,10 @@ func TestMigrations_InventoryConstraints(t *testing.T) {
 	})
 
 	t.Run("lokasi SN dijaga chk_serial_location", func(t *testing.T) {
+		var custID int64
+		require.NoError(t, pool.QueryRow(ctx, `
+			INSERT INTO customers (customer_code, company_name, pic_name, phone, billing_address, billing_postal_code)
+			VALUES ('C-LOC', 'PT Uji Lokasi', 'PIC', '0812', 'Jl. A', '50111') RETURNING id`).Scan(&custID))
 		ins := func(tag, sn, status string, rack, customer any) error {
 			_, err := pool.Exec(ctx, `INSERT INTO product_serials
 				(product_id,asset_tag,serial_number,status,current_rack_id,current_customer_id)
@@ -87,12 +91,12 @@ func TestMigrations_InventoryConstraints(t *testing.T) {
 		}
 		assert.Error(t, ins("AST-1", "SN-1", "AVAILABLE", nil, nil), "AVAILABLE tanpa rak")
 		assert.Error(t, ins("AST-2", "SN-2", "RENTED", nil, nil), "RENTED tanpa pelanggan")
-		assert.Error(t, ins("AST-3", "SN-3", "RENTED", f.rackA, int64(1)), "RENTED tetapi masih punya rak")
-		assert.Error(t, ins("AST-4", "SN-4", "AVAILABLE", f.rackA, int64(1)), "AVAILABLE tetapi punya pelanggan")
+		assert.Error(t, ins("AST-3", "SN-3", "RENTED", f.rackA, custID), "RENTED tetapi masih punya rak")
+		assert.Error(t, ins("AST-4", "SN-4", "AVAILABLE", f.rackA, custID), "AVAILABLE tetapi punya pelanggan")
 		assert.Error(t, ins("AST-5", "SN-5", "IN_TRANSIT", f.rackA, nil), "IN_TRANSIT tidak boleh punya rak")
 		assert.Error(t, ins("AST-6", "SN-6", "HILANG", f.rackA, nil), "status tidak dikenal")
 		require.NoError(t, ins("AST-7", "SN-7", "AVAILABLE", f.rackA, nil))
-		require.NoError(t, ins("AST-8", "SN-8", "RENTED", nil, int64(1)))
+		require.NoError(t, ins("AST-8", "SN-8", "RENTED", nil, custID))
 		require.NoError(t, ins("AST-9", "SN-9", "LOST", nil, nil))
 	})
 	t.Run("asset_tag unik dan SN unik per produk", func(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 
 // fakeStock mencatat urutan penyentuhan saldo; tidak menyimpan apa pun.
 type fakeStock struct {
+	domain.StockRepository
 	calls []string
 	fail  bool
 }

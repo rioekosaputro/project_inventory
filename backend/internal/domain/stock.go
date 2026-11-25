@@ -66,23 +66,38 @@ type StockRepository interface {
 	// RemoveStock mengurangi qty_on_hand rak dan mengembalikan saldo sebelum/sesudah. Gagal dengan
 	// ErrInsufficientStock bila (on hand − reserved) < qty atau saldo belum ada. Wajib di dalam transaksi.
 	RemoveStock(ctx context.Context, productID, rackID int64, qty int) (before, after int, err error)
+	// ReserveStock menambah qty_reserved rak (menolak dengan ErrInsufficientStock bila tersedia < qty).
+	ReserveStock(ctx context.Context, productID, rackID int64, qty int) error
+	// ReleaseStock mengurangi qty_reserved rak (menolak dengan ErrReservationMismatch bila reserved < qty).
+	ReleaseStock(ctx context.Context, productID, rackID int64, qty int) error
+	// ConsumeReservedStock mengurangi qty_on_hand dan qty_reserved bersamaan dalam 1 UPDATE atomik (LPB dari DO).
+	ConsumeReservedStock(ctx context.Context, productID, rackID int64, qty int) (before, after int, err error)
 	// LockSerials mengunci unit (FOR UPDATE, urut id). Pemanggil wajib mengirim id yang sudah terurut.
 	LockSerials(ctx context.Context, ids []int64) ([]SerialLock, error)
 	// MoveSerial mengubah status dan lokasi unit (rak/gudang nil untuk IN_TRANSIT dan RETIRED).
 	MoveSerial(ctx context.Context, id int64, status SerialStatus, warehouseID, rackID *int64) error
+	// ReserveSerial mengubah unit AVAILABLE → RESERVED untuk doID.
+	ReserveSerial(ctx context.Context, id, doID int64) error
+	// ReleaseSerial mengembalikan unit RESERVED (milik doID) → AVAILABLE.
+	ReleaseSerial(ctx context.Context, id, doID int64) error
+	// DispatchReservedSerial mengubah unit RESERVED (milik doID) → IN_TRANSIT tujuan customer/site.
+	DispatchReservedSerial(ctx context.Context, id, doID int64, customerID, siteID *int64) error
+	// ReturnSerialToRack memindahkan unit IN_TRANSIT kembali ke gudang/rak (RENTAL_RETURN) dan mengosongkan customer/site/contract.
+	ReturnSerialToRack(ctx context.Context, id int64, status SerialStatus, condition SerialCondition, warehouseID, rackID int64) error
 	InsertSerialHistory(ctx context.Context, h SerialHistoryEntry) error
 	InsertLedger(ctx context.Context, e LedgerEntry) error
 }
 
 // SerialLock: unit terdaftar yang dikunci (FOR UPDATE) beserta posisinya saat ini.
 type SerialLock struct {
-	ID          int64
-	ProductID   int64
-	AssetTag    string
-	Number      string
-	Status      SerialStatus
-	RackID      *int64
-	WarehouseID *int64
+	ID              int64
+	ProductID       int64
+	AssetTag        string
+	Number          string
+	Status          SerialStatus
+	RackID          *int64
+	WarehouseID     *int64
+	ReservedForDOID *int64
 }
 
 // SettingsRepository membaca app_settings.

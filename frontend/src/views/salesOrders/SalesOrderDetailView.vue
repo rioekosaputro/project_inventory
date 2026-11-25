@@ -400,7 +400,9 @@ onMounted(() => {
           <tbody class="divide-y divide-slate-100">
             <tr v-for="d in so.delivery_orders" :key="d.id">
               <td class="px-4 py-3 font-mono text-xs font-medium text-slate-900">
-                {{ d.do_number }}
+                <RouterLink :to="`/delivery-orders/${d.id}`" :class="rowLink">
+                  {{ d.do_number }}
+                </RouterLink>
               </td>
               <td class="px-4 py-3">
                 <span

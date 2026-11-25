@@ -29,7 +29,8 @@ const lpbFrom = `lpb_documents l
 	LEFT JOIN lpb_documents cp ON cp.id = l.counterpart_lpb_id`
 
 const lpbColumns = `l.id, l.lpb_number, l.type, l.sub_type, l.status, l.warehouse_id, w.code, w.name, w.address, l.doc_date::text,
-	l.reference_type, l.reference_number, l.supplier_id, s.name, l.driver_id, l.notes, l.created_by, cu.name,
+	l.reference_type, l.reference_id, l.reference_number, l.supplier_id, s.name, l.customer_id, l.customer_site_id,
+	l.requires_delivery, l.delivery_status, l.driver_id, l.notes, l.created_by, cu.name,
 	l.submitted_by, l.submitted_at, l.approved_by, au.name, l.approved_at, l.rejected_by, l.rejected_at, l.rejection_reason,
 	l.verify_token, l.created_at, l.updated_at, cp.id, cp.lpb_number`
 
@@ -40,7 +41,8 @@ func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
 	)
 	dest := append([]any{
 		&l.ID, &l.Number, &typ, &sub, &status, &l.WarehouseID, &l.WarehouseCode, &l.WarehouseName, &l.WarehouseAddress, &l.DocDate,
-		&l.ReferenceType, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.DriverID, &l.Notes, &l.CreatedBy, &l.CreatedByName,
+		&l.ReferenceType, &l.ReferenceID, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.CustomerID, &l.CustomerSiteID,
+		&l.RequiresDelivery, &l.DeliveryStatus, &l.DriverID, &l.Notes, &l.CreatedBy, &l.CreatedByName,
 		&l.SubmittedBy, &l.SubmittedAt, &l.ApprovedBy, &l.ApprovedByName, &l.ApprovedAt, &l.RejectedBy, &l.RejectedAt, &l.RejectionReason,
 		&l.VerifyToken, &l.CreatedAt, &l.UpdatedAt, &l.CounterpartID, &l.CounterpartNumber,
 	}, extra...)
@@ -115,11 +117,13 @@ func (r *LPBRepo) Create(ctx context.Context, l *domain.LPB) (*domain.LPB, error
 	var id int64
 	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
 		INSERT INTO lpb_documents (lpb_number, type, sub_type, status, warehouse_id, doc_date, reference_type,
-		                           reference_number, supplier_id, notes, created_by, counterpart_lpb_id,
+		                           reference_id, reference_number, supplier_id, customer_id, customer_site_id,
+		                           requires_delivery, notes, created_by, counterpart_lpb_id,
 		                           submitted_by, submitted_at)
-		VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+		VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
 		l.Number, string(l.Type), string(l.SubType), status, l.WarehouseID, l.DocDate, l.ReferenceType,
-		l.ReferenceNumber, l.SupplierID, l.Notes, l.CreatedBy, l.CounterpartID, l.SubmittedBy, l.SubmittedAt).Scan(&id)
+		l.ReferenceID, l.ReferenceNumber, l.SupplierID, l.CustomerID, l.CustomerSiteID,
+		l.RequiresDelivery, l.Notes, l.CreatedBy, l.CounterpartID, l.SubmittedBy, l.SubmittedAt).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +434,9 @@ func (r *LPBRepo) LockSerialKey(ctx context.Context, productID int64, serialNumb
 
 func (r *LPBRepo) MarkApproved(ctx context.Context, id, userID int64, at time.Time, verifyToken string) error {
 	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
-		UPDATE lpb_documents SET status = 'APPROVED', approved_by = $2, approved_at = $3, verify_token = $4
+		UPDATE lpb_documents
+		SET status = 'APPROVED', approved_by = $2, approved_at = $3, verify_token = $4,
+		    delivery_status = CASE WHEN requires_delivery THEN 'READY' ELSE delivery_status END
 		WHERE id = $1`, id, userID, at, verifyToken))
 }
 

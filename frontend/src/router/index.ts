@@ -266,6 +266,19 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/salesOrders/SalesOrderFormView.vue'),
     meta: { layout: 'app', permission: 'so.write', title: 'Ubah Draft Sales Order' },
   },
+  // Delivery Order & Reservasi Gudang (plan Bagian 9.4, T2.6).
+  {
+    path: '/delivery-orders',
+    name: 'delivery-orders',
+    component: () => import('@/views/deliveryOrders/DeliveryOrderListView.vue'),
+    meta: { layout: 'app', permission: 'do.read', title: 'Delivery Order' },
+  },
+  {
+    path: '/delivery-orders/:id(\\d+)',
+    name: 'delivery-orders-detail',
+    component: () => import('@/views/deliveryOrders/DeliveryOrderDetailView.vue'),
+    meta: { layout: 'app', permission: 'do.read', title: 'Detail Delivery Order' },
+  },
   {
     path: '/403',
     name: 'forbidden',

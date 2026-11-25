@@ -48,10 +48,11 @@ type Deps struct {
 	// Dashboard (T1.14).
 	Dashboard *handler.DashboardHandler
 
-	// Komersial: Pelanggan & site (T2.2), Kontrak sewa (T2.3), Sales Order (T2.5).
-	Customers   *handler.CustomerHandler
-	Contracts   *handler.ContractHandler
-	SalesOrders *handler.SalesOrderHandler
+	// Komersial: Pelanggan & site (T2.2), Kontrak sewa (T2.3), Sales Order (T2.5), Delivery Order (T2.6).
+	Customers      *handler.CustomerHandler
+	Contracts      *handler.ContractHandler
+	SalesOrders    *handler.SalesOrderHandler
+	DeliveryOrders *handler.DeliveryOrderHandler
 
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
@@ -106,6 +107,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerCustomerRoutes(api, deps)
 	registerContractRoutes(api, deps)
 	registerSalesOrderRoutes(api, deps)
+	registerDeliveryOrderRoutes(api, deps)
 	if deps.Dashboard != nil {
 		dg := api.Group("/dashboard",
 			middleware.Authenticate(deps.Tokens, deps.Clock),
@@ -378,4 +380,23 @@ func registerSalesOrderRoutes(api *gin.RouterGroup, deps Deps) {
 	g.POST("/:id/confirm", approve, h.Confirm)
 	g.POST("/:id/cancel", approve, h.Cancel)
 	g.POST("/:id/delivery-orders", doCreate, h.IssueDeliveryOrders)
+}
+
+// registerDeliveryOrderRoutes — plan Bagian 8.4 (T2.6): do.read, do.reserve.
+func registerDeliveryOrderRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.DeliveryOrders
+	if h == nil {
+		return
+	}
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	read := middleware.RequirePermission(domain.PermDORead)
+	reserve := middleware.RequirePermission(domain.PermDOReserve)
+
+	g := api.Group("/delivery-orders", authn)
+	g.GET("", read, h.List)
+	g.GET("/:id", read, h.Get)
+	g.POST("/:id/reserve", reserve, h.Reserve)
+	g.POST("/:id/release", reserve, h.Release)
+	g.POST("/:id/cancel", reserve, h.Cancel)
+	g.POST("/:id/lpb", reserve, h.CreateLPB)
 }

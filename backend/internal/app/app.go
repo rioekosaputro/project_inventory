@@ -52,6 +52,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	customerRepo := postgres.NewCustomerRepo(pool)
 	contractRepo := postgres.NewContractRepo(pool)
 	soRepo := postgres.NewSalesOrderRepo(pool)
+	doRepo := postgres.NewDeliveryOrderRepo(pool)
 	taxRepo := postgres.NewTaxSettingRepo(pool)
 
 	userUC := usecase.NewUserUsecase(txManager, userRepo, refreshRepo, warehouseRepo, auditRepo, clk)
@@ -81,6 +82,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		SalesOrders: handler.NewSalesOrderHandler(usecase.NewSalesOrderUsecase(
 			txManager, soRepo, customerRepo, contractRepo, productRepo, warehouseRepo,
 			inventoryRepo, taxRepo, auditRepo, docGen, clk,
+		)),
+		DeliveryOrders: handler.NewDeliveryOrderHandler(usecase.NewDeliveryOrderUsecase(
+			txManager, doRepo, rackRepo, stockRepo, lpbRepo, auditRepo, docGen, clk,
 		)),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,

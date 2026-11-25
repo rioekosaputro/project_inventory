@@ -52,13 +52,60 @@ func (r *StockRepo) RemoveStock(ctx context.Context, productID, rackID int64, qt
 	return after + qty, after, nil
 }
 
+func (r *StockRepo) ReserveStock(ctx context.Context, productID, rackID int64, qty int) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE stock_balances SET qty_reserved = qty_reserved + $3, updated_at = NOW()
+		WHERE product_id = $1 AND rack_id = $2 AND qty_on_hand - qty_reserved >= $3`,
+		productID, rackID, qty)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrInsufficientStock
+	}
+	return nil
+}
+
+func (r *StockRepo) ReleaseStock(ctx context.Context, productID, rackID int64, qty int) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE stock_balances SET qty_reserved = qty_reserved - $3, updated_at = NOW()
+		WHERE product_id = $1 AND rack_id = $2 AND qty_reserved >= $3`,
+		productID, rackID, qty)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrReservationMismatch
+	}
+	return nil
+}
+
+func (r *StockRepo) ConsumeReservedStock(ctx context.Context, productID, rackID int64, qty int) (int, int, error) {
+	database.MustInTx(ctx)
+	var after int
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		UPDATE stock_balances
+		SET qty_on_hand = qty_on_hand - $3, qty_reserved = qty_reserved - $3, updated_at = NOW()
+		WHERE product_id = $1 AND rack_id = $2 AND qty_on_hand >= $3 AND qty_reserved >= $3
+		RETURNING qty_on_hand`, productID, rackID, qty).Scan(&after)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, 0, domain.ErrReservationMismatch
+		}
+		return 0, 0, err
+	}
+	return after + qty, after, nil
+}
+
 func (r *StockRepo) LockSerials(ctx context.Context, ids []int64) ([]domain.SerialLock, error) {
 	database.MustInTx(ctx)
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
-		SELECT id, product_id, asset_tag, serial_number, status, current_rack_id, current_warehouse_id
+		SELECT id, product_id, asset_tag, serial_number, status, current_rack_id, current_warehouse_id, reserved_for_do_id
 		FROM product_serials WHERE id = ANY($1) ORDER BY id FOR UPDATE`, ids)
 	if err != nil {
 		return nil, err
@@ -68,7 +115,7 @@ func (r *StockRepo) LockSerials(ctx context.Context, ids []int64) ([]domain.Seri
 	for rows.Next() {
 		var s domain.SerialLock
 		var status string
-		if err := rows.Scan(&s.ID, &s.ProductID, &s.AssetTag, &s.Number, &status, &s.RackID, &s.WarehouseID); err != nil {
+		if err := rows.Scan(&s.ID, &s.ProductID, &s.AssetTag, &s.Number, &status, &s.RackID, &s.WarehouseID, &s.ReservedForDOID); err != nil {
 			return nil, err
 		}
 		s.Status = domain.SerialStatus(status)
@@ -82,6 +129,67 @@ func (r *StockRepo) MoveSerial(ctx context.Context, id int64, status domain.Seri
 	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
 		UPDATE product_serials SET status = $2, current_warehouse_id = $3, current_rack_id = $4, updated_at = NOW()
 		WHERE id = $1`, id, string(status), warehouseID, rackID))
+}
+
+func (r *StockRepo) ReserveSerial(ctx context.Context, id, doID int64) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE product_serials SET status = 'RESERVED', reserved_for_do_id = $2, updated_at = NOW()
+		WHERE id = $1 AND status = 'AVAILABLE'`, id, doID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrSerialNotValid
+	}
+	return nil
+}
+
+func (r *StockRepo) ReleaseSerial(ctx context.Context, id, doID int64) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE product_serials SET status = 'AVAILABLE', reserved_for_do_id = NULL, updated_at = NOW()
+		WHERE id = $1 AND status = 'RESERVED' AND reserved_for_do_id = $2`, id, doID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrReservationMismatch
+	}
+	return nil
+}
+
+func (r *StockRepo) DispatchReservedSerial(ctx context.Context, id, doID int64, customerID, siteID *int64) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE product_serials
+		SET status = 'IN_TRANSIT', current_warehouse_id = NULL, current_rack_id = NULL,
+		    reserved_for_do_id = NULL, current_customer_id = $3, current_site_id = $4, updated_at = NOW()
+		WHERE id = $1 AND status = 'RESERVED' AND reserved_for_do_id = $2`, id, doID, customerID, siteID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrReservationMismatch
+	}
+	return nil
+}
+
+func (r *StockRepo) ReturnSerialToRack(ctx context.Context, id int64, status domain.SerialStatus, condition domain.SerialCondition, warehouseID, rackID int64) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE product_serials
+		SET status = $2, condition = $3, current_warehouse_id = $4, current_rack_id = $5,
+		    current_customer_id = NULL, current_site_id = NULL, current_contract_id = NULL,
+		    reserved_for_do_id = NULL, updated_at = NOW()
+		WHERE id = $1`, id, string(status), string(condition), warehouseID, rackID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrSerialNotValid
+	}
+	return nil
 }
 
 func (r *StockRepo) InsertSerial(ctx context.Context, s *domain.NewSerial) (int64, error) {

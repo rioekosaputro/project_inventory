@@ -122,9 +122,14 @@ type LPB struct {
 	WarehouseAddress *string
 	DocDate          string // YYYY-MM-DD (WIB)
 	ReferenceType    *string
+	ReferenceID      *int64
 	ReferenceNumber  *string
 	SupplierID       *int64
 	SupplierName     *string
+	CustomerID       *int64
+	CustomerSiteID   *int64
+	RequiresDelivery bool
+	DeliveryStatus   *string
 	DriverID         *int64
 	Notes            *string
 	// CounterpartID/Number: pasangan transfer (TRANSFER_OUT ↔ TRANSFER_IN); nil bila bukan transfer.

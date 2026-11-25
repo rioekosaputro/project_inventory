@@ -23,7 +23,8 @@ const (
 // suku cadang) menyusul pada fase masing-masing.
 func approvable(s domain.LPBSubType) bool {
 	switch s {
-	case domain.LPBPurchase, domain.LPBInitialStock, domain.LPBTransferIn, domain.LPBTransferOut, domain.LPBDisposal:
+	case domain.LPBPurchase, domain.LPBInitialStock, domain.LPBTransferIn, domain.LPBTransferOut, domain.LPBDisposal,
+		domain.LPBRentalDelivery, domain.LPBConsumableDelivery, domain.LPBRentalReturn:
 		return true
 	}
 	return false
@@ -109,6 +110,10 @@ func (u *LPBUsecase) Approve(ctx context.Context, actor domain.Principal, id int
 			summary, err = u.applyDisposal(ctx, actor, l, items)
 		case domain.LPBTransferOut:
 			summary, err = u.applyTransferOut(ctx, actor, l, items, now, extra)
+		case domain.LPBRentalDelivery, domain.LPBConsumableDelivery:
+			summary, err = u.applyDeliveryOut(ctx, actor, l, items)
+		case domain.LPBRentalReturn:
+			summary, err = u.applyRentalReturn(ctx, actor, l, items, racks)
 		}
 		if err != nil {
 			return err

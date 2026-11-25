@@ -17,11 +17,12 @@ import (
 
 // stockMove: satu perubahan saldo pada satu (produk, rak) untuk satu item dokumen.
 type stockMove struct {
-	lpb       *domain.LPB
-	item      domain.LPBItem
-	rackID    int64
-	direction string // "IN" | "OUT"
-	serialIDs []int64
+	lpb             *domain.LPB
+	item            domain.LPBItem
+	rackID          int64
+	direction       string // "IN" | "OUT"
+	consumeReserved bool   // true untuk LPB OUT dari DO (mengurangi qty_on_hand & qty_reserved bersamaan)
+	serialIDs       []int64
 }
 
 type moveResult struct {
@@ -49,9 +50,16 @@ func (u *LPBUsecase) applyMoves(ctx context.Context, actor domain.Principal, mov
 		var before, after int
 		var err error
 		if m.direction == "OUT" {
-			before, after, err = u.stock.RemoveStock(ctx, m.item.ProductID, m.rackID, m.item.Qty)
-			if errors.Is(err, domain.ErrInsufficientStock) {
-				return nil, fmt.Errorf("%w: %s di rak %s (diminta %d)", domain.ErrInsufficientStock, m.item.SKU, m.item.RackCode, m.item.Qty)
+			if m.consumeReserved {
+				before, after, err = u.stock.ConsumeReservedStock(ctx, m.item.ProductID, m.rackID, m.item.Qty)
+				if errors.Is(err, domain.ErrReservationMismatch) {
+					return nil, fmt.Errorf("%w: %s di rak %s (diminta %d)", domain.ErrReservationMismatch, m.item.SKU, m.item.RackCode, m.item.Qty)
+				}
+			} else {
+				before, after, err = u.stock.RemoveStock(ctx, m.item.ProductID, m.rackID, m.item.Qty)
+				if errors.Is(err, domain.ErrInsufficientStock) {
+					return nil, fmt.Errorf("%w: %s di rak %s (diminta %d)", domain.ErrInsufficientStock, m.item.SKU, m.item.RackCode, m.item.Qty)
+				}
 			}
 		} else {
 			before, after, err = u.stock.AddStock(ctx, m.item.ProductID, m.rackID, m.item.Qty)

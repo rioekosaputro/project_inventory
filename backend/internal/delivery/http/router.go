@@ -286,6 +286,8 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 	g.GET("", read, h.List)
 	g.POST("", create, h.Create)
 	g.GET("/approvals", approve, h.Approvals)
+	g.GET("/import-initial-stock/template", create, h.InitialStockTemplate)
+	g.POST("/import-initial-stock", create, h.ImportInitialStock)
 	g.GET("/:id", read, h.Get)
 	g.GET("/:id/pdf", printPerm, h.PDF)
 	g.PATCH("/:id", create, h.Update)

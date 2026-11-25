@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"io"
 	nethttp "net/http"
 	"strconv"
 
@@ -360,4 +361,65 @@ func (h *LPBHandler) VerifyPublic(c *gin.Context) {
 		return
 	}
 	response.OK(c, dto.NewLPBVerifyResponse(summary))
+}
+
+// InitialStockTemplate — GET /lpb/import-initial-stock/template (.xlsx)
+func (h *LPBHandler) InitialStockTemplate(c *gin.Context) {
+	data, err := h.uc.InitialStockTemplateXLSX()
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="template-stok-awal.xlsx"`)
+	c.Data(nethttp.StatusOK, xlsxMIME, data)
+}
+
+// ImportInitialStock — POST /lpb/import-initial-stock (multipart: warehouse_id, doc_date, notes, file)
+func (h *LPBHandler) ImportInitialStock(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	whID, err := strconv.ParseInt(c.PostForm("warehouse_id"), 10, 64)
+	if err != nil || whID < 1 {
+		httperr.Write(c, &domain.ValidationError{
+			Message: "Data impor tidak valid",
+			Errors:  []domain.FieldError{{Field: "warehouse_id", Message: "gudang wajib dipilih"}},
+		})
+		return
+	}
+	fh, err := c.FormFile("file")
+	if err != nil {
+		httperr.Write(c, &domain.ValidationError{
+			Message: "Data impor tidak valid",
+			Errors:  []domain.FieldError{{Field: "file", Message: "berkas Excel (.xlsx) atau CSV wajib diunggah"}},
+		})
+		return
+	}
+	f, err := fh.Open()
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, (5<<20)+1))
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	var docDate, notes *string
+	if v := c.PostForm("doc_date"); v != "" {
+		docDate = &v
+	}
+	if v := c.PostForm("notes"); v != "" {
+		notes = &v
+	}
+	d, err := h.uc.ImportInitialStock(c.Request.Context(), a, usecase.ImportInitialStockInput{
+		WarehouseID: whID, DocDate: docDate, Notes: notes, Filename: fh.Filename, FileBytes: data,
+	})
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.Created(c, dto.NewLPBDetailResponse(d))
 }

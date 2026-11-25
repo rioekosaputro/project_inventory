@@ -77,4 +77,28 @@ export const lpbService = {
     )
     return res.data
   },
+  /** Unduh template Excel (.xlsx) untuk impor stok awal. */
+  downloadInitialStockTemplate: async (): Promise<Blob> => {
+    const res = await http.get<Blob>(`${base}/import-initial-stock/template`, {
+      responseType: 'blob',
+      headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    })
+    return res.data
+  },
+  /** Unggah Excel/CSV stok awal → membuat draft LPB INITIAL_STOCK. */
+  importInitialStock: async (
+    warehouseId: number,
+    file: File,
+    opts?: { docDate?: string; notes?: string },
+  ): Promise<LPBDetail> => {
+    const form = new FormData()
+    form.append('warehouse_id', String(warehouseId))
+    form.append('file', file)
+    if (opts?.docDate) form.append('doc_date', opts.docDate)
+    if (opts?.notes) form.append('notes', opts.notes)
+    const res = await http.post<{ data: LPBDetail }>(`${base}/import-initial-stock`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data.data
+  },
 }

@@ -2148,8 +2148,12 @@ volumes: { pgdata: {} }
   - Backend (`domain/dashboard.go`, `postgres/dashboard_repo.go`, `usecase/dashboard.go`, `handler/dashboard.go`): `GET /api/v1/dashboard/summary` (permission `dashboard.read`, mendukung `?warehouse_id=` + warehouse scoping). Mengembalikan jumlah produk aktif/aman/menipis, total qty tersedia, unit SN tersedia/aktif, antrean LPB `PENDING_APPROVAL`, stock opname berjalan, `pending_do_reservations` (0 di Fase 1), top 5 produk menipis, 5 antrean LPB tertua, dan 5 mutasi ledger terbaru.
   - Frontend: `DashboardView.vue` di `/dashboard` (menu **Dashboard** di sidebar aktif otomatis) dengan 4 kartu KPI, filter gudang, daftar peringatan stok menipis, antrean LPB, dan mutasi terbaru. `homeFor` di `guards.ts` diperkuat agar memeriksa permission rute `default_home` sebelum redirect (fallback aman ke `/beranda`).
   - Verifikasi: `TestDashboard_WarehouseSummary`, `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
-- [ ] **T1.15 Import stok awal** — upload Excel/CSV (template disediakan) → draft LPB `INITIAL_STOCK` → approve.
-  **🎯 Milestone M1:** gudang bisa dipakai (boleh paralel dengan pencatatan manual 2–4 minggu untuk validasi).
+- [x] **T1.15 Import stok awal** — upload Excel/CSV (template disediakan) → draft LPB `INITIAL_STOCK` → approve.
+  Catatan T1.15:
+  - Backend (`usecase/lpb_import.go`, `handler/lpb.go`, `router.go`): `GET /api/v1/lpb/import-initial-stock/template` (`.xlsx` berisi sheet `Stok Awal` + contoh + sheet `Petunjuk`) dan `POST /api/v1/lpb/import-initial-stock` (`lpb.create`, multipart `.xlsx`/`.csv` maks 5 MB, dukung pemisah `,` dan `;`). Memvalidasi semua baris (SKU aktif, rak milik gudang & tidak dikunci opname, SN unik & belum terdaftar/diklaim LPB lain, `BROKEN` hanya di rak non-sellable, desimal biaya) — bila ada 1 baris salah, tolak 422 dengan rincian `row[N].<kolom>` tanpa menulis sebagian. Bila valid, buat 1 `DRAFT` LPB `INITIAL_STOCK` + seluruh item & SN scan dalam 1 transaksi (tetap wajib diajukan & disetujui Kepala Gudang).
+  - Frontend: tombol **"Import Stok Awal (Excel/CSV)"** + slide-over di `LpbListView.vue` (unduh template, pilih gudang/tanggal/file, tampilkan galat per baris bila 422, sukses langsung buka rincian draft LPB).
+  - Verifikasi: `TestLPB_ImportInitialStock_TemplateCSVXLSXAndValidation` (download template, import CSV non-SN + SN → submit → approve → `pgtest.AssertInvariants` = 0, validasi 422), `check:lint` (0 error), **289/289 Vitest**, `type-check`, dan `vite build` lulus.
+  **🎯 Milestone M1 (TERCAPAI):** seluruh Inti Gudang (Fase 1: `T1.1`–`T1.15`) selesai!
 
 ### Fase 2 — Komersial (Sprint 5–7)
 

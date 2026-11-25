@@ -9,6 +9,8 @@ const props = defineProps<{
    * layar ≥ sm, selalu ada tombol Keluar. Tanpa ini: panel bertumpuk untuk sidebar/laci.
    */
   compact?: boolean
+  /** Mode ciut (ikon saja) saat sidebar diciutkan. */
+  collapsed?: boolean
 }>()
 
 const auth = useAuthStore()
@@ -33,6 +35,32 @@ async function logout(): Promise<void> {
     >
       <i class="pi pi-sign-out" aria-hidden="true" />
       Keluar
+    </button>
+  </div>
+
+  <div v-else-if="auth.user && props.collapsed" class="flex flex-col items-center gap-1">
+    <div
+      class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-800"
+      :title="`${auth.user.name} (${roleLabel(auth.user.role)})`"
+    >
+      {{ auth.user.name.slice(0, 2).toUpperCase() }}
+    </div>
+    <RouterLink
+      :to="{ name: 'change-password' }"
+      class="flex min-h-11 w-full items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100"
+      aria-label="Ganti Password"
+      title="Ganti Password"
+    >
+      <i class="pi pi-key w-5 text-center" aria-hidden="true" />
+    </RouterLink>
+    <button
+      type="button"
+      class="flex min-h-11 w-full items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100"
+      aria-label="Keluar"
+      title="Keluar"
+      @click="logout"
+    >
+      <i class="pi pi-sign-out w-5 text-center" aria-hidden="true" />
     </button>
   </div>
 

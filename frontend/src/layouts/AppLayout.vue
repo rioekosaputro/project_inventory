@@ -5,11 +5,32 @@ import NavMenu from '@/components/NavMenu.vue'
 import UserPanel from '@/components/UserPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 
+const SIDEBAR_STORAGE_KEY = 'erp.sidebar.collapsed'
+
 const auth = useAuthStore()
 const route = useRoute()
 
 // Akun yang wajib ganti password hanya melihat alur itu: tanpa menu navigasi.
 const showNav = computed(() => !auth.mustChangePassword)
+
+function loadSidebarState(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const sidebarCollapsed = ref(loadSidebarState())
+
+function toggleSidebar(): void {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, sidebarCollapsed.value ? '1' : '0')
+  } catch {
+    // abaikan bila localStorage tidak tersedia
+  }
+}
 
 const drawer = ref<HTMLDialogElement | null>(null)
 const drawerOpen = ref(false)
@@ -46,19 +67,43 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
   <a href="#main" class="skip-link">Lewati ke konten utama</a>
 
   <div class="min-h-dvh md:flex">
-    <!-- Sidebar: hanya layar lebar. Di layar sempit tujuan yang sama ada di laci. -->
+    <!-- Sidebar: hanya layar lebar, dapat dibuka/tutup (konten utama dinamis flex-1). -->
     <aside
       v-if="showNav"
-      class="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-e border-slate-200 bg-white md:flex"
+      class="sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-slate-200 bg-white transition-[width] duration-200 ease-in-out md:flex"
+      :class="sidebarCollapsed ? 'w-[72px]' : 'w-60'"
     >
-      <p
-        class="flex h-14 items-center gap-2 border-b border-slate-200 px-4 text-base font-semibold"
+      <div
+        class="flex h-14 items-center border-b border-slate-200"
+        :class="sidebarCollapsed ? 'justify-center px-2' : 'justify-between ps-4 pe-2'"
       >
-        <i class="pi pi-box text-indigo-700" aria-hidden="true" />
-        Rental ERP
-      </p>
-      <div class="flex-1 overflow-y-auto p-3"><NavMenu /></div>
-      <div class="border-t border-slate-200 p-3"><UserPanel /></div>
+        <p
+          v-if="!sidebarCollapsed"
+          class="flex items-center gap-2 truncate text-base font-semibold text-slate-900"
+        >
+          <i class="pi pi-box text-indigo-700" aria-hidden="true" />
+          <span>Rental ERP</span>
+        </p>
+        <button
+          type="button"
+          class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          :aria-label="sidebarCollapsed ? 'Buka sidebar' : 'Ciutkan sidebar'"
+          :title="sidebarCollapsed ? 'Buka sidebar' : 'Ciutkan sidebar'"
+          :aria-expanded="!sidebarCollapsed"
+          @click="toggleSidebar"
+        >
+          <i
+            :class="sidebarCollapsed ? 'pi pi-angle-double-right' : 'pi pi-angle-double-left'"
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+      <div class="flex-1 overflow-x-hidden overflow-y-auto p-2.5">
+        <NavMenu :collapsed="sidebarCollapsed" />
+      </div>
+      <div class="border-t border-slate-200 p-2.5">
+        <UserPanel :collapsed="sidebarCollapsed" />
+      </div>
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">

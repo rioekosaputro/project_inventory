@@ -101,6 +101,23 @@ describe('kerangka halaman', () => {
     expect(w.find('aside').classes()).not.toContain('max-w-[1280px]')
   })
 
+  it('sidebar dapat diciutkan dan dibuka kembali secara dinamis', async () => {
+    window.localStorage.removeItem('erp.sidebar.collapsed')
+    const { wrapper: w } = await open(makeSession())
+    const aside = w.find('aside')
+    expect(aside.classes()).toContain('w-60')
+
+    const toggle = w.find('button[aria-label="Ciutkan sidebar"]')
+    expect(toggle.exists()).toBe(true)
+    await toggle.trigger('click')
+    expect(w.find('aside').classes()).toContain('w-[72px]')
+
+    const expand = w.find('button[aria-label="Buka sidebar"]')
+    expect(expand.exists()).toBe(true)
+    await expand.trigger('click')
+    expect(w.find('aside').classes()).toContain('w-60')
+  })
+
   it('panel pengguna: nama, peran, ganti password, keluar', async () => {
     const { wrapper: w } = await open(
       makeSession({ role: 'HEAD_WAREHOUSE', user: { name: 'Sari Kepala' } }),

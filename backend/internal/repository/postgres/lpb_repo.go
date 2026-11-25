@@ -24,13 +24,14 @@ var _ domain.LPBRepository = (*LPBRepo)(nil)
 const lpbFrom = `lpb_documents l
 	JOIN warehouses w ON w.id = l.warehouse_id
 	JOIN users cu ON cu.id = l.created_by
+	LEFT JOIN users au ON au.id = l.approved_by
 	LEFT JOIN suppliers s ON s.id = l.supplier_id
 	LEFT JOIN lpb_documents cp ON cp.id = l.counterpart_lpb_id`
 
-const lpbColumns = `l.id, l.lpb_number, l.type, l.sub_type, l.status, l.warehouse_id, w.code, l.doc_date::text,
-	l.reference_type, l.reference_number, l.supplier_id, s.name, l.notes, l.created_by, cu.name,
-	l.submitted_by, l.submitted_at, l.approved_by, l.approved_at, l.rejected_by, l.rejected_at, l.rejection_reason,
-	l.created_at, l.updated_at, cp.id, cp.lpb_number`
+const lpbColumns = `l.id, l.lpb_number, l.type, l.sub_type, l.status, l.warehouse_id, w.code, w.name, w.address, l.doc_date::text,
+	l.reference_type, l.reference_number, l.supplier_id, s.name, l.driver_id, l.notes, l.created_by, cu.name,
+	l.submitted_by, l.submitted_at, l.approved_by, au.name, l.approved_at, l.rejected_by, l.rejected_at, l.rejection_reason,
+	l.verify_token, l.created_at, l.updated_at, cp.id, cp.lpb_number`
 
 func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
 	var (
@@ -38,14 +39,44 @@ func scanLPBInto(row pgx.Row, extra ...any) (domain.LPB, error) {
 		typ, sub, status string
 	)
 	dest := append([]any{
-		&l.ID, &l.Number, &typ, &sub, &status, &l.WarehouseID, &l.WarehouseCode, &l.DocDate,
-		&l.ReferenceType, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.Notes, &l.CreatedBy, &l.CreatedByName,
-		&l.SubmittedBy, &l.SubmittedAt, &l.ApprovedBy, &l.ApprovedAt, &l.RejectedBy, &l.RejectedAt, &l.RejectionReason,
-		&l.CreatedAt, &l.UpdatedAt, &l.CounterpartID, &l.CounterpartNumber,
+		&l.ID, &l.Number, &typ, &sub, &status, &l.WarehouseID, &l.WarehouseCode, &l.WarehouseName, &l.WarehouseAddress, &l.DocDate,
+		&l.ReferenceType, &l.ReferenceNumber, &l.SupplierID, &l.SupplierName, &l.DriverID, &l.Notes, &l.CreatedBy, &l.CreatedByName,
+		&l.SubmittedBy, &l.SubmittedAt, &l.ApprovedBy, &l.ApprovedByName, &l.ApprovedAt, &l.RejectedBy, &l.RejectedAt, &l.RejectionReason,
+		&l.VerifyToken, &l.CreatedAt, &l.UpdatedAt, &l.CounterpartID, &l.CounterpartNumber,
 	}, extra...)
 	err := row.Scan(dest...)
 	l.Type, l.SubType, l.Status = domain.LPBType(typ), domain.LPBSubType(sub), domain.LPBStatus(status)
 	return l, err
+}
+
+func (r *LPBRepo) FindByVerifyToken(ctx context.Context, token string) (*domain.LPBVerifySummary, error) {
+	var (
+		out              domain.LPBVerifySummary
+		typ, sub, status string
+	)
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		SELECT l.lpb_number, l.type, l.sub_type, l.status, l.doc_date::text,
+		       w.code, w.name, s.name,
+		       (SELECT count(*) FROM lpb_items WHERE lpb_id = l.id)::int,
+		       (SELECT COALESCE(SUM(qty), 0) FROM lpb_items WHERE lpb_id = l.id)::int,
+		       au.name, l.approved_at
+		FROM lpb_documents l
+		JOIN warehouses w ON w.id = l.warehouse_id
+		LEFT JOIN users au ON au.id = l.approved_by
+		LEFT JOIN suppliers s ON s.id = l.supplier_id
+		WHERE l.verify_token = $1 AND l.status = 'APPROVED'`, token).Scan(
+		&out.Number, &typ, &sub, &status, &out.DocDate,
+		&out.WarehouseCode, &out.WarehouseName, &out.SupplierName,
+		&out.ItemCount, &out.TotalQty, &out.ApprovedByName, &out.ApprovedAt,
+	)
+	if err != nil {
+		if errors.Is(notFound(err), domain.ErrNotFound) {
+			return nil, domain.ErrLPBNotFound
+		}
+		return nil, err
+	}
+	out.Type, out.SubType, out.Status = domain.LPBType(typ), domain.LPBSubType(sub), domain.LPBStatus(status)
+	return &out, nil
 }
 
 func (r *LPBRepo) find(ctx context.Context, id int64, suffix string) (*domain.LPB, error) {

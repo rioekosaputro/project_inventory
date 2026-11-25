@@ -134,6 +134,13 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/lpb/LpbFormView.vue'),
     meta: { layout: 'app', permission: 'lpb.create', title: 'Ubah Draft LPB' },
   },
+  // Verifikasi QR publik Surat Jalan / LPB (plan Bagian 7.6 & 9.4).
+  {
+    path: '/verify/lpb/:token',
+    name: 'lpb-verify-public',
+    component: () => import('@/views/public/LPBVerifyView.vue'),
+    meta: { layout: 'public', public: true, title: 'Verifikasi Surat Jalan' },
+  },
   {
     path: '/403',
     name: 'forbidden',

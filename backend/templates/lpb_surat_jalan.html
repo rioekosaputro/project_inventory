@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>{{.Title}} — {{.LPBNumber}}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    color: #0f172a;
+    font-size: 11px;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+  .brand { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
+  .doc-title { font-size: 13px; font-weight: 700; color: #1e293b; margin-top: 4px; text-transform: uppercase; }
+  .doc-number { font-size: 12px; font-weight: 600; color: #334155; margin-top: 2px; font-family: monospace; }
+  .badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+  }
+  .qr-box { text-align: right; }
+  .qr-box img { width: 84px; height: 84px; border: 1px solid #cbd5e1; padding: 3px; background: #fff; }
+  .qr-caption { font-size: 8.5px; color: #475569; margin-top: 2px; }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 18px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  .meta-row { display: flex; gap: 8px; }
+  .meta-label { width: 105px; flex-shrink: 0; color: #475569; font-weight: 600; }
+  .meta-val { color: #0f172a; word-break: break-word; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  th {
+    background: #0f172a;
+    color: #fff;
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid #0f172a;
+  }
+  td {
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .num { text-align: right; white-space: nowrap; }
+  .center { text-align: center; }
+  .mono { font-family: monospace; font-size: 10px; }
+  .sub { color: #475569; font-size: 9.5px; }
+  .sn-list { margin: 2px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+  .sn-chip {
+    display: inline-block;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+    font-size: 9px;
+  }
+
+  .notes {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 18px;
+    background: #fff;
+  }
+  .notes-title { font-weight: 700; color: #334155; margin-bottom: 3px; font-size: 10px; }
+
+  .signatures {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 22px;
+    page-break-inside: avoid;
+  }
+  .sig-box {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .sig-role { font-size: 10px; font-weight: 600; color: #334155; }
+  .sig-space { height: 52px; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 9px; }
+  .sig-name { border-top: 1px solid #94a3b8; padding-top: 4px; font-weight: 600; font-size: 10px; }
+  .sig-time { font-size: 8.5px; color: #64748b; margin-top: 2px; }
+
+  .footer {
+    margin-top: 16px;
+    padding-top: 6px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.5px;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">RENTAL ERP-LITE</div>
+      <div class="doc-title">{{.Title}}</div>
+      <div class="doc-number">{{.LPBNumber}}</div>
+      <div class="badge">DISETUJUI (APPROVED)</div>
+    </div>
+    <div class="qr-box">
+      {{if .QRDataURI}}
+      <img src="{{.QRDataURI}}" alt="QR Verifikasi">
+      <div class="qr-caption">Pindai QR untuk verifikasi keaslian</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-row">
+      <div class="meta-label">Jenis Dokumen</div>
+      <div class="meta-val">{{.SubTypeLabel}} ({{.TypeLabel}})</div>
+    </div>
+    <div class="meta-row">
+      <div class="meta-label">Tanggal Dokumen</div>
+      <div class="meta-val">{{.DocDate}}</div>
+    </div>
+    <div class="meta-row">
+      <div class="meta-label">Gudang</div>
+      <div class="meta-val">{{.WarehouseCode}}{{if .WarehouseName}} — {{.WarehouseName}}{{end}}</div>
+    </div>
+    <div class="meta-row">
+      <div class="meta-label">Total Barang</div>
+      <div class="meta-val">{{.ItemCount}} baris ({{.TotalQty}} unit/pcs)</div>
+    </div>
+    {{if .WarehouseAddress}}
+    <div class="meta-row">
+      <div class="meta-label">Alamat Gudang</div>
+      <div class="meta-val">{{.WarehouseAddress}}</div>
+    </div>
+    {{end}}
+    {{if .SupplierName}}
+    <div class="meta-row">
+      <div class="meta-label">Supplier</div>
+      <div class="meta-val">{{.SupplierName}}</div>
+    </div>
+    {{end}}
+    {{if .ReferenceNumber}}
+    <div class="meta-row">
+      <div class="meta-label">No. Referensi</div>
+      <div class="meta-val mono">{{.ReferenceNumber}}</div>
+    </div>
+    {{end}}
+    {{if .CounterpartNumber}}
+    <div class="meta-row">
+      <div class="meta-label">Dokumen Pasangan</div>
+      <div class="meta-val mono">{{.CounterpartNumber}}</div>
+    </div>
+    {{end}}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width:28px;">No</th>
+        <th style="width:110px;">SKU</th>
+        <th>Nama Produk &amp; Serial / Asset Tag</th>
+        <th style="width:95px;">Rak</th>
+        <th class="num" style="width:68px;">Jumlah</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range $i, $it := .Items}}
+      <tr>
+        <td class="center">{{$it.No}}</td>
+        <td class="mono">{{$it.SKU}}</td>
+        <td>
+          <div><strong>{{$it.ProductName}}</strong></div>
+          {{if $it.Serials}}
+          <ul class="sn-list">
+            {{range $it.Serials}}
+            <li class="sn-chip">{{.}}</li>
+            {{end}}
+          </ul>
+          {{end}}
+          {{if $it.Notes}}<div class="sub">Catatan: {{$it.Notes}}</div>{{end}}
+        </td>
+        <td class="mono">
+          {{$it.RackCode}}
+          {{if $it.DestLabel}}<div class="sub">&rarr; {{$it.DestLabel}}</div>{{end}}
+        </td>
+        <td class="num"><strong>{{$it.Qty}}</strong> {{$it.Unit}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+
+  {{if .Notes}}
+  <div class="notes">
+    <div class="notes-title">Catatan Dokumen</div>
+    <div>{{.Notes}}</div>
+  </div>
+  {{end}}
+
+  <div class="signatures">
+    <div class="sig-box">
+      <div class="sig-role">Dibuat Oleh</div>
+      <div class="sig-space">Staf Gudang</div>
+      <div class="sig-name">{{.CreatedByName}}</div>
+      <div class="sig-time">{{.CreatedAt}}</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-role">Disetujui Oleh</div>
+      <div class="sig-space">Disetujui secara elektronik</div>
+      <div class="sig-name">{{.ApprovedByName}}</div>
+      <div class="sig-time">{{.ApprovedAt}}</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-role">Penerima / Pengirim</div>
+      <div class="sig-space"></div>
+      <div class="sig-name">( ...................................... )</div>
+      <div class="sig-time">Tanggal: ......................</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>Dokumen resmi sistem Rental ERP-Lite · {{.LPBNumber}}</div>
+    <div>Dicetak: {{.PrintedAt}}</div>
+  </div>
+</body>
+</html>

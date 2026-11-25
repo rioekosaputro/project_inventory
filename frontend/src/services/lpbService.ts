@@ -1,4 +1,4 @@
-import { api, idempotencyHeaders } from '@/lib/axios'
+import { api, http, idempotencyHeaders } from '@/lib/axios'
 import type { ListParams, Page } from '@/services/masterService'
 import type {
   AddSerialResult,
@@ -6,6 +6,7 @@ import type {
   LPBDetail,
   LPBListItem,
   LPBPatch,
+  LPBVerifySummary,
   SerialCondition,
 } from '@/types/lpb'
 
@@ -51,4 +52,16 @@ export const lpbService = {
     }),
   reject: (id: number, reason: string): Promise<LPBDetail> =>
     api.post<LPBDetail>(`${base}/${id}/reject`, { reason }),
+  /** Mengambil PDF Surat Jalan (hanya LPB APPROVED, memakai Bearer token di memori). */
+  fetchPdf: async (id: number, download = false): Promise<Blob> => {
+    const res = await http.get<Blob>(`${base}/${id}/pdf`, {
+      params: download ? { download: 1 } : undefined,
+      responseType: 'blob',
+      headers: { Accept: 'application/pdf' },
+    })
+    return res.data
+  },
+  /** Verifikasi QR publik (tanpa login). */
+  verifyPublic: (token: string): Promise<LPBVerifySummary> =>
+    api.get<LPBVerifySummary>(`/public/lpb/verify/${encodeURIComponent(token)}`),
 }

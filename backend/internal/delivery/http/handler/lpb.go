@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+	nethttp "net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -325,4 +327,37 @@ func (h *LPBHandler) Reject(c *gin.Context) {
 		return
 	}
 	response.OKMessage(c, "LPB ditolak", dto.NewLPBDetailResponse(d))
+}
+
+// PDF — GET /lpb/:id/pdf (hanya APPROVED; ?download=1 untuk attachment)
+func (h *LPBHandler) PDF(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	filename, pdfBytes, err := h.uc.RenderPDF(c.Request.Context(), a, id)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	disposition := "inline"
+	if c.Query("download") == "1" || c.Query("download") == "true" {
+		disposition = "attachment"
+	}
+	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, filename))
+	c.Data(nethttp.StatusOK, "application/pdf", pdfBytes)
+}
+
+// VerifyPublic — GET /public/lpb/verify/:token (publik, tanpa login; ringkas tanpa harga/SN)
+func (h *LPBHandler) VerifyPublic(c *gin.Context) {
+	summary, err := h.uc.VerifyByToken(c.Request.Context(), c.Param("token"))
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.OK(c, dto.NewLPBVerifyResponse(summary))
 }

@@ -65,6 +65,7 @@ const canRevise = computed(() => canModify.value && status.value === 'REJECTED')
 const canDecide = computed(() => can('lpb.approve') && status.value === 'PENDING_APPROVAL')
 /** Transfer masuk tidak dapat ditolak: barang sudah keluar dari gudang asal (aturan backend). */
 const canReject = computed(() => canDecide.value && lpb.value?.sub_type !== 'TRANSFER_IN')
+const canPrint = computed(() => can('lpb.print') && status.value === 'APPROVED')
 
 const approveMessage = computed(() => {
   switch (lpb.value?.sub_type) {
@@ -107,6 +108,33 @@ const columns = computed<Column[]>(() => {
 
 // ---- aksi
 const busy = ref(false)
+const printing = ref(false)
+
+async function printPdf(): Promise<void> {
+  if (printing.value || !lpb.value) return
+  printing.value = true
+  try {
+    const blob = await lpbService.fetchPdf(lpb.value.id)
+    const url = URL.createObjectURL(blob)
+    const opened = window.open(url, '_blank', 'noopener')
+    if (!opened) {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${lpb.value.lpb_number.replace(/\//g, '-')}.pdf`
+      a.click()
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (e) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal mencetak Surat Jalan',
+      detail: userMessage(toApiError(e)),
+      life: 9000,
+    })
+  } finally {
+    printing.value = false
+  }
+}
 
 async function run(action: () => Promise<LPBDetail>, success: string): Promise<boolean> {
   if (busy.value) return false
@@ -302,6 +330,16 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
             </button>
             <button type="button" :class="btnPrimary" @click="askApprove">Setujui LPB</button>
           </template>
+          <button
+            v-if="canPrint"
+            type="button"
+            :class="btnSecondary"
+            :aria-busy="printing"
+            @click="printPdf"
+          >
+            <i class="pi pi-print text-xs" aria-hidden="true" />
+            {{ printing ? 'Menyiapkan PDF…' : 'Cetak Surat Jalan' }}
+          </button>
         </div>
       </header>
 

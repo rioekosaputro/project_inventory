@@ -214,3 +214,28 @@ type AddSerialResponse struct {
 type RejectLPBRequest struct {
 	Reason string `json:"reason" binding:"required,min=3,max=500"`
 }
+
+// LPBVerifyResponse adalah respons publik GET /public/lpb/verify/:token (tanpa harga/SN/ID internal).
+type LPBVerifyResponse struct {
+	LPBNumber      string     `json:"lpb_number"`
+	Type           string     `json:"type"`
+	SubType        string     `json:"sub_type"`
+	Status         string     `json:"status"`
+	DocDate        string     `json:"doc_date"`
+	WarehouseCode  string     `json:"warehouse_code"`
+	WarehouseName  string     `json:"warehouse_name"`
+	SupplierName   *string    `json:"supplier_name"`
+	ItemCount      int        `json:"item_count"`
+	TotalQty       int        `json:"total_qty"`
+	ApprovedByName *string    `json:"approved_by_name"`
+	ApprovedAt     *time.Time `json:"approved_at"`
+}
+
+func NewLPBVerifyResponse(s *domain.LPBVerifySummary) LPBVerifyResponse {
+	return LPBVerifyResponse{
+		LPBNumber: s.Number, Type: string(s.Type), SubType: string(s.SubType), Status: string(s.Status),
+		DocDate: s.DocDate, WarehouseCode: s.WarehouseCode, WarehouseName: s.WarehouseName,
+		SupplierName: s.SupplierName, ItemCount: s.ItemCount, TotalQty: s.TotalQty,
+		ApprovedByName: s.ApprovedByName, ApprovedAt: s.ApprovedAt,
+	}
+}

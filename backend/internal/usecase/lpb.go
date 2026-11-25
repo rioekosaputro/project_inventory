@@ -11,6 +11,7 @@ import (
 
 	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/pkg/clock"
+	"rental-inventory-api/pkg/pdf"
 )
 
 const (
@@ -34,9 +35,11 @@ type LPBUsecase struct {
 	inventory  domain.InventoryRepository
 	stock      domain.StockRepository
 	settings   domain.SettingsRepository
-	audit      domain.AuditRepository
-	docs       domain.DocNumberGenerator
-	clock      clock.Clock
+	audit       domain.AuditRepository
+	docs        domain.DocNumberGenerator
+	clock       clock.Clock
+	pdfRenderer pdf.Renderer
+	appBaseURL  string
 }
 
 func NewLPBUsecase(

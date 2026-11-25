@@ -17,6 +17,7 @@ import (
 	"rental-inventory-api/pkg/database"
 	"rental-inventory-api/pkg/docnum"
 	"rental-inventory-api/pkg/jwt"
+	"rental-inventory-api/pkg/pdf"
 )
 
 // NewRouter merakit seluruh aplikasi. Gagal bila konfigurasi keamanan tidak layak
@@ -63,7 +64,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			txManager, postgres.NewLPBRepo(pool), warehouseRepo, rackRepo, productRepo, supplierRepo,
 			postgres.NewInventoryRepo(pool), postgres.NewStockRepo(pool), postgres.NewSettingsRepo(pool),
 			auditRepo, docnum.New(pool), clk,
-		)),
+		).WithPDF(pdf.NewGotenbergClient(cfg.GotenbergURL, cfg.GotenbergUsername, cfg.GotenbergPassword), cfg.AppBaseURL)),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

@@ -69,6 +69,8 @@ var mapping = []mapped{
 	{domain.ErrSerialCountMismatch, nethttp.StatusUnprocessableEntity, "SERIAL_COUNT_MISMATCH"},
 	{domain.ErrSerialNotValid, nethttp.StatusUnprocessableEntity, "SERIAL_NOT_VALID"},
 	{domain.ErrLPBEmptyItems, nethttp.StatusUnprocessableEntity, "LPB_EMPTY"},
+	{domain.ErrLPBNotApproved, nethttp.StatusUnprocessableEntity, "LPB_NOT_APPROVED"},
+	{domain.ErrPDFServiceUnavailable, nethttp.StatusServiceUnavailable, "PDF_SERVICE_UNAVAILABLE"},
 }
 
 // Write menerjemahkan err menjadi respons JSON dan menghentikan rantai handler.

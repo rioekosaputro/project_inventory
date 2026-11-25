@@ -2112,7 +2112,12 @@ volumes: { pgdata: {} }
   - `internal/delivery/http/lpb_concurrency_integration_test.go`: 6 skenario balapan paralel dengan barrier (`close(start)`): approve paralel banyak LPB OUT pada stok non-SN sama (tepat 1 menang, saldo tidak negatif), balapan `TRANSFER_OUT` vs `DISPOSAL` pada stok sama (tanpa pasangan `TRANSFER_IN` yatim), campuran `PURCHASE` + `DISPOSAL` paralel pada saldo sama (rantai ledger utuh), balapan `approve` vs `reject` pada LPB sama, approve paralel `TRANSFER_IN` antar gudang, dan approve paralel dua `PURCHASE` dengan SN sama (`SERIAL_EXISTS` + rollback penuh). Skenario reservasi SN DO paralel diuji di Fase 2 (`T2.6`).
   - Verifikasi: `go vet -tags=integration ./...` bersih; 12 tes konkurensi lulus **`-count=20`** (206s) + seluruh suite integrasi backend lulus terhadap PostgreSQL 16 lokal. Catatan: `-race` butuh CGO/`gcc` yang belum terpasang di Windows lokal; CI GitHub Actions (Linux) menjalankan `go test -race`.
   DoD: `go test -race` lulus 20x berulang.
-- [ ] **T1.10 PDF Surat Jalan** — Gotenberg client, template embed, QR token, `GET /lpb/:id/pdf`, `GET /public/lpb/verify/:token`, halaman `/verify/lpb/:token`.
+- [x] **T1.10 PDF Surat Jalan** — Gotenberg client, template embed, QR token, `GET /lpb/:id/pdf`, `GET /public/lpb/verify/:token`, halaman `/verify/lpb/:token`.
+  Catatan T1.10:
+  - Backend: `pkg/qrcode` (`DataURI` PNG base64 via `skip2/go-qrcode`), `pkg/pdf` (`GotenbergClient` POST `/forms/chromium/convert/html` timeout 30s + basic auth + `A4Options`, interface `Renderer`), `templates/lpb_surat_jalan.html` + `embed.go` (`//go:embed`, auto-escape `html/template`).
+  - Endpoint: `GET /api/v1/lpb/:id/pdf` (permission `lpb.print`; non-APPROVED → **422 `LPB_NOT_APPROVED`**; DRIVER hanya LPB yang ditugaskan kepadanya; `?download=1` → `attachment`; Gotenberg down → **503 `PDF_SERVICE_UNAVAILABLE`**) dan `GET /api/v1/public/lpb/verify/:token` (publik tanpa login; hanya ringkasan nomor, jenis, tanggal, gudang, supplier, jumlah item/qty, approver & waktu approve — tanpa harga/SN/ID internal).
+  - Frontend: tombol **"Cetak Surat Jalan"** pada `LpbDetailView.vue` (tampil saat `APPROVED` & punya `lpb.print`, ambil blob via Bearer token di memori) dan halaman publik `LPBVerifyView.vue` di `/verify/lpb/:token`.
+  - Verifikasi: unit test `pkg/qrcode`, `pkg/pdf`, `templates`; integrasi `TestLPB_PDF_And_PublicVerify` (fake Gotenberg + RBAC + 422 non-APPROVED + 503 + verifikasi publik); 288 tes Vitest, `check:lint`, `type-check`, `vite build` lulus.
   DoD: PDF A4 rapi, QR dari HP membuka halaman verifikasi; LPB non-APPROVED → 422.
 - [ ] **T1.11 Label** — PDF label asset tag (batch) & label kode rak.
 

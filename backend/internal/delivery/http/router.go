@@ -233,12 +233,14 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 	create := middleware.RequirePermission(domain.PermLPBCreate)
 	submit := middleware.RequirePermission(domain.PermLPBSubmit)
 	approve := middleware.RequirePermission(domain.PermLPBApprove)
+	printPerm := middleware.RequirePermission(domain.PermLPBPrint)
 
 	g := api.Group("/lpb", middleware.Authenticate(deps.Tokens, deps.Clock))
 	g.GET("", read, h.List)
 	g.POST("", create, h.Create)
 	g.GET("/approvals", approve, h.Approvals)
 	g.GET("/:id", read, h.Get)
+	g.GET("/:id/pdf", printPerm, h.PDF)
 	g.PATCH("/:id", create, h.Update)
 	g.POST("/:id/items/:itemId/serials", create, h.AddSerial)
 	g.DELETE("/:id/items/:itemId/serials/:serialId", create, h.RemoveSerial)
@@ -249,4 +251,7 @@ func registerLPBRoutes(api *gin.RouterGroup, deps Deps) {
 		g.POST("/:id/approve", approve, middleware.Idempotency(deps.Idempotency, idempotencyTTL), h.Approve)
 	}
 	g.POST("/:id/reject", approve, h.Reject)
+
+	// Verifikasi QR publik (plan Bagian 7.6 & 8.3): tanpa autentikasi.
+	api.GET("/public/lpb/verify/:token", h.VerifyPublic)
 }

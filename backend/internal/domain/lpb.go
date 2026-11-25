@@ -111,19 +111,22 @@ const (
 
 // LPB adalah header dokumen penerimaan/pengeluaran barang.
 type LPB struct {
-	ID              int64
-	Number          string
-	Type            LPBType
-	SubType         LPBSubType
-	Status          LPBStatus
-	WarehouseID     int64
-	WarehouseCode   string
-	DocDate         string // YYYY-MM-DD (WIB)
-	ReferenceType   *string
-	ReferenceNumber *string
-	SupplierID      *int64
-	SupplierName    *string
-	Notes           *string
+	ID               int64
+	Number           string
+	Type             LPBType
+	SubType          LPBSubType
+	Status           LPBStatus
+	WarehouseID      int64
+	WarehouseCode    string
+	WarehouseName    string
+	WarehouseAddress *string
+	DocDate          string // YYYY-MM-DD (WIB)
+	ReferenceType    *string
+	ReferenceNumber  *string
+	SupplierID       *int64
+	SupplierName     *string
+	DriverID         *int64
+	Notes            *string
 	// CounterpartID/Number: pasangan transfer (TRANSFER_OUT ↔ TRANSFER_IN); nil bila bukan transfer.
 	CounterpartID     *int64
 	CounterpartNumber *string
@@ -132,12 +135,31 @@ type LPB struct {
 	SubmittedBy       *int64
 	SubmittedAt       *time.Time
 	ApprovedBy        *int64
+	ApprovedByName    *string
 	ApprovedAt        *time.Time
 	RejectedBy        *int64
 	RejectedAt        *time.Time
 	RejectionReason   *string
+	VerifyToken       *string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+// LPBVerifySummary adalah data ringkas untuk halaman verifikasi QR publik (plan Bagian 7.6).
+// Sengaja tidak memuat harga, serial number lengkap, maupun ID internal.
+type LPBVerifySummary struct {
+	Number         string
+	Type           LPBType
+	SubType        LPBSubType
+	Status         LPBStatus
+	DocDate        string
+	WarehouseCode  string
+	WarehouseName  string
+	SupplierName   *string
+	ItemCount      int
+	TotalQty       int
+	ApprovedByName *string
+	ApprovedAt     *time.Time
 }
 
 // LPBListItem: baris daftar (header + agregat item).
@@ -219,6 +241,8 @@ type LPBFilter struct {
 type LPBRepository interface {
 	Create(ctx context.Context, l *LPB) (*LPB, error)
 	FindByID(ctx context.Context, id int64) (*LPB, error)
+	// FindByVerifyToken mengembalikan ringkasan publik untuk LPB APPROVED dengan verify_token cocok.
+	FindByVerifyToken(ctx context.Context, token string) (*LPBVerifySummary, error)
 	// FindByIDForUpdate wajib di dalam transaksi; kunci header sebelum menyentuh item/saldo/unit.
 	FindByIDForUpdate(ctx context.Context, id int64) (*LPB, error)
 	List(ctx context.Context, f LPBFilter, p PageParams) ([]LPBListItem, int64, error)

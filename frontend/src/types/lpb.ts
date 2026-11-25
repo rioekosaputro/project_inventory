@@ -139,3 +139,19 @@ export interface LPBCreate {
 
 /** PATCH: jenis dan gudang tidak dapat diubah; `items` menggantikan seluruh daftar. */
 export type LPBPatch = Partial<Omit<LPBCreate, 'sub_type' | 'warehouse_id'>>
+
+/** Ringkasan verifikasi QR publik GET /public/lpb/verify/:token (tanpa harga/SN/ID). */
+export interface LPBVerifySummary {
+  lpb_number: string
+  type: LPBType
+  sub_type: LPBSubType
+  status: LPBStatus
+  doc_date: string
+  warehouse_code: string
+  warehouse_name: string
+  supplier_name: string | null
+  item_count: number
+  total_qty: number
+  approved_by_name: string | null
+  approved_at: string | null
+}

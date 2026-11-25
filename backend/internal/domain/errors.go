@@ -30,6 +30,8 @@ var (
 	// LPB & stok (plan Bagian 6 / 7.4)
 	ErrLPBNotFound            = errors.New("LPB tidak ditemukan")
 	ErrLPBNotPending          = errors.New("LPB tidak dalam status menunggu persetujuan")
+	ErrLPBNotApproved         = errors.New("LPB belum disetujui; surat jalan hanya dapat dicetak untuk LPB yang sudah disetujui")
+	ErrPDFServiceUnavailable  = errors.New("Layanan cetak PDF sedang tidak tersedia")
 	ErrInsufficientStock      = errors.New("Stok di rak tidak mencukupi")
 	ErrSerialAlreadyExists    = errors.New("Serial number sudah terdaftar")
 	ErrRackLocked             = errors.New("Rak sedang dikunci oleh stock opname")

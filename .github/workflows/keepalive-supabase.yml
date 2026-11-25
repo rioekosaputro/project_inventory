@@ -1,0 +1,17 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Jalankan setiap 3 hari sekali (03:00 UTC = 10:00 WIB) agar Supabase Free tidak auto-pause (batas 7 hari).
+    - cron: '0 3 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API /readyz (memicu SELECT/Ping ke Supabase PostgreSQL)
+        run: |
+          BODY=$(curl -fsS --max-time 25 "https://rental-erp-api-ten.vercel.app/readyz")
+          echo "Response: $BODY"
+          echo "$BODY" | grep -q '"status":"ready"'

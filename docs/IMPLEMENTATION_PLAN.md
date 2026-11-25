@@ -2206,7 +2206,11 @@ volumes: { pgdata: {} }
   - Verifikasi: `go vet -tags=integration ./...` bersih, `TestLPB_ManualPODAndWithdrawalPickup_FullCommercialCycle` lulus dengan `pgtest.AssertInvariants` = 0 pelanggaran; frontend `check:lint`, `LpbDetail.spec.ts`, `vue-tsc --build`, dan `vite build` lulus.
 
 **Sprint 7 — Tagihan**
-- [ ] **T2.8 Billing job** — `GenerateMonthlyInvoices` (Bagian 6.5) + `POST /invoices/generate?preview=1`.
+- [x] **T2.8 Billing job** — `GenerateMonthlyInvoices` (Bagian 6.5) + `POST /invoices/generate?preview=1`.
+  Catatan T2.8:
+  - Backend (`domain/invoice.go`, `postgres/invoice_repo.go`, `usecase/billing.go`, `dto/invoice.go`, `handler/invoice.go`, `router.go`, `app.go`): `BillingUsecase.GenerateMonthlyInvoices` (dipakai job terjadwal & endpoint `POST /api/v1/invoices/generate`, permission `invoice.create`, mendukung `?preview=1` dry-run tanpa menulis ke DB, `run_date` WIB opsional, `contract_id` opsional).
+  - Algoritma Bagian 6.5: `PeriodForRunDate(runDate, billingDay)` menghitung periode arrears `[ps, pe]`; query SQL irisan `[start_date, end_date)` vs `[ps, pe+1)` pada `rental_placements`; mode `PRORATA` (`money.Prorata`) & `FULL_MONTH`; pajak PMK 131/2024 via `money.CalculateLinesTax` + `tax_settings` efektif per `period_end`; 1 transaksi per kontrak + idempoten (`HasActiveRentalInvoice` + `uq_invoice_rental_period`, mengabaikan `VOID`).
+  - Verifikasi: `go vet -tags=integration ./...` bersih, `TestPeriodForRunDate` (5 kasus termasuk tahun kabisat & tanggal 15) dan `TestBilling_ProrataFullMonthSwapPreviewAndIdempotency` (penuh 30/30, masuk tengah bulan 15/30, tarik tengah bulan 9/30, swap tengah bulan 14+16=30, `FULL_MONTH` non-PPN, dry-run `?preview=1`, jalan 2x idempoten tanpa invoice ganda, dan VOID + regenerate) lulus semua.
   DoD: semua kasus uji tagihan Bagian 11 lulus; jalan 2x → tidak ada invoice ganda.
 - [ ] **T2.9 Invoice** — list/detail, issue, void, pembayaran + PPh 23, status otomatis, PDF invoice, export Excel.
 - [ ] **T2.10 Penjadwalan** — `/internal/jobs/*` + Vercel Cron (staging) + `cmd/worker` (production), `job_runs`, alert kontrak berakhir.

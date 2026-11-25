@@ -48,11 +48,12 @@ type Deps struct {
 	// Dashboard (T1.14).
 	Dashboard *handler.DashboardHandler
 
-	// Komersial: Pelanggan & site (T2.2), Kontrak sewa (T2.3), Sales Order (T2.5), Delivery Order (T2.6).
+	// Komersial: Pelanggan & site (T2.2), Kontrak sewa (T2.3), Sales Order (T2.5), Delivery Order (T2.6), Tagihan (T2.8).
 	Customers      *handler.CustomerHandler
 	Contracts      *handler.ContractHandler
 	SalesOrders    *handler.SalesOrderHandler
 	DeliveryOrders *handler.DeliveryOrderHandler
+	Invoices       *handler.InvoiceHandler
 
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
@@ -108,6 +109,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerContractRoutes(api, deps)
 	registerSalesOrderRoutes(api, deps)
 	registerDeliveryOrderRoutes(api, deps)
+	registerInvoiceRoutes(api, deps)
 	if deps.Dashboard != nil {
 		dg := api.Group("/dashboard",
 			middleware.Authenticate(deps.Tokens, deps.Clock),
@@ -401,4 +403,17 @@ func registerDeliveryOrderRoutes(api *gin.RouterGroup, deps Deps) {
 	g.POST("/:id/release", reserve, h.Release)
 	g.POST("/:id/cancel", reserve, h.Cancel)
 	g.POST("/:id/lpb", reserve, h.CreateLPB)
+}
+
+// registerInvoiceRoutes — plan Bagian 8.4 (T2.8–T2.9).
+func registerInvoiceRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Invoices
+	if h == nil {
+		return
+	}
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	create := middleware.RequirePermission(domain.PermInvoiceCreate)
+
+	g := api.Group("/invoices", authn)
+	g.POST("/generate", create, h.Generate)
 }

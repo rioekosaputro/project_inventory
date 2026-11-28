@@ -1,14 +1,7 @@
 import type { LPBSubType } from '@/types/lpb'
 
 export type SerialStatus =
-  | 'AVAILABLE'
-  | 'RESERVED'
-  | 'IN_TRANSIT'
-  | 'RENTED'
-  | 'MAINTENANCE'
-  | 'BROKEN'
-  | 'LOST'
-  | 'RETIRED'
+  'AVAILABLE' | 'RESERVED' | 'IN_TRANSIT' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'RETIRED'
 
 export interface StockBalance {
   product_id: number

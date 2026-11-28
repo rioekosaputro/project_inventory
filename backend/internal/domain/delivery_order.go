@@ -39,18 +39,18 @@ type DeliveryOrder struct {
 }
 
 type DeliveryOrderItem struct {
-	ID               int64
-	DOID             int64
-	SOItemID         int64
-	ProductID        int64
-	ProductSKU       string
-	ProductName      string
-	HasSerialNumber  bool
-	Qty              int
-	ReservedQty      int
-	SOProductSerial  *int64  // opsional: serial yang diminta pada SO WITHDRAWAL/UNIT_SWAP IN
-	SOSerialNumber   *string // dari JOIN
-	Reservations     []DOReservation
+	ID              int64
+	DOID            int64
+	SOItemID        int64
+	ProductID       int64
+	ProductSKU      string
+	ProductName     string
+	HasSerialNumber bool
+	Qty             int
+	ReservedQty     int
+	SOProductSerial *int64  // opsional: serial yang diminta pada SO WITHDRAWAL/UNIT_SWAP IN
+	SOSerialNumber  *string // dari JOIN
+	Reservations    []DOReservation
 }
 
 type DOReservation struct {

@@ -133,7 +133,7 @@ func (g *GotenbergClient) RenderHTML(ctx context.Context, html string, opts Opti
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))

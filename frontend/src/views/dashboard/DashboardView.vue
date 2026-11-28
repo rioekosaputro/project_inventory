@@ -38,8 +38,9 @@ async function load(): Promise<void> {
 onMounted(async () => {
   if (!auth.user?.warehouse_id && can('master.read')) {
     try {
-      warehouses.value = (await warehouseService.list({ limit: 100, is_active: true, sort: 'code' }))
-        .items
+      warehouses.value = (
+        await warehouseService.list({ limit: 100, is_active: true, sort: 'code' })
+      ).items
     } catch {
       // opsional
     }
@@ -200,7 +201,11 @@ onMounted(async () => {
                 class="flex items-center justify-between gap-3 py-2.5 text-sm"
               >
                 <div class="min-w-0 flex-1">
-                  <RouterLink :to="`/invoices/${inv.invoice_id}`" :class="rowLink" class="block truncate">
+                  <RouterLink
+                    :to="`/invoices/${inv.invoice_id}`"
+                    :class="rowLink"
+                    class="block truncate"
+                  >
                     {{ inv.invoice_number }}
                   </RouterLink>
                   <div class="truncate text-xs text-slate-500">
@@ -243,7 +248,11 @@ onMounted(async () => {
                 class="flex items-center justify-between gap-3 py-2.5 text-sm"
               >
                 <div class="min-w-0 flex-1">
-                  <RouterLink :to="`/kontrak/${c.contract_id}`" :class="rowLink" class="block truncate">
+                  <RouterLink
+                    :to="`/kontrak/${c.contract_id}`"
+                    :class="rowLink"
+                    class="block truncate"
+                  >
                     {{ c.contract_number }}
                   </RouterLink>
                   <div class="truncate text-xs text-slate-500">
@@ -337,7 +346,10 @@ onMounted(async () => {
         <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-slate-900">Peringatan Stok Menipis</h2>
-            <RouterLink to="/stok?low_stock=true" class="text-xs font-medium text-indigo-700 hover:underline">
+            <RouterLink
+              to="/stok?low_stock=true"
+              class="text-xs font-medium text-indigo-700 hover:underline"
+            >
               Lihat semua
             </RouterLink>
           </div>

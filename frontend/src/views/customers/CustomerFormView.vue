@@ -188,7 +188,12 @@ const backTo = computed(() =>
     <div class="space-y-4">
       <TextAreaField name="billing_address" label="Alamat penagihan" required />
       <div class="grid gap-4 sm:grid-cols-2">
-        <TextField name="billing_postal_code" label="Kode pos penagihan" required autocomplete="off" />
+        <TextField
+          name="billing_postal_code"
+          label="Kode pos penagihan"
+          required
+          autocomplete="off"
+        />
         <TextField
           name="billing_email"
           label="Email tujuan invoice"

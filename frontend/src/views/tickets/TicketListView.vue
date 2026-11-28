@@ -42,7 +42,9 @@ const showCreate = ref(false)
 const createBusy = ref(false)
 const customers = ref<{ id: number; company_name: string }[]>([])
 const sites = ref<{ id: number; site_name: string }[]>([])
-const serials = ref<{ id: number; asset_tag: string; serial_number: string; product_name: string }[]>([])
+const serials = ref<
+  { id: number; asset_tag: string; serial_number: string; product_name: string }[]
+>([])
 
 const formCustomerId = ref<number | ''>('')
 const formSiteId = ref<number | ''>('')
@@ -242,7 +244,11 @@ onMounted(load)
     >
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold text-slate-900">Buat Tiket Maintenance Baru</h2>
-        <button type="button" class="text-xs text-slate-500 hover:text-slate-800" @click="showCreate = false">
+        <button
+          type="button"
+          class="text-xs text-slate-500 hover:text-slate-800"
+          @click="showCreate = false"
+        >
           Tutup
         </button>
       </div>
@@ -286,7 +292,9 @@ onMounted(load)
       </div>
       <div class="grid gap-3 sm:grid-cols-3">
         <div class="sm:col-span-2">
-          <label for="t-title" class="block text-xs font-medium text-slate-700">Judul Keluhan *</label>
+          <label for="t-title" class="block text-xs font-medium text-slate-700"
+            >Judul Keluhan *</label
+          >
           <input
             id="t-title"
             v-model="formTitle"
@@ -355,7 +363,11 @@ onMounted(load)
       </div>
     </section>
 
-    <p v-if="error" role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+    <p
+      v-if="error"
+      role="alert"
+      class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+    >
       {{ error }}
     </p>
 
@@ -385,7 +397,9 @@ onMounted(load)
             class="block rounded-lg border border-slate-200 bg-white p-3 shadow-2xs transition hover:border-indigo-300"
           >
             <div class="flex items-center justify-between gap-1">
-              <span class="font-mono text-[11px] font-semibold text-slate-600">{{ t.ticket_number }}</span>
+              <span class="font-mono text-[11px] font-semibold text-slate-600">{{
+                t.ticket_number
+              }}</span>
               <span
                 class="rounded px-1.5 py-0.5 text-[10px] font-bold"
                 :class="priorityClass(t.priority)"
@@ -400,7 +414,10 @@ onMounted(load)
               SLA terlewati
             </p>
           </RouterLink>
-          <p v-if="byStatus(col.status).length === 0" class="py-4 text-center text-xs text-slate-400">
+          <p
+            v-if="byStatus(col.status).length === 0"
+            class="py-4 text-center text-xs text-slate-400"
+          >
             Kosong
           </p>
         </div>
@@ -430,19 +447,29 @@ onMounted(load)
             </td>
             <td class="px-4 py-3">
               <p class="font-medium text-slate-900">{{ t.title }}</p>
-              <p class="font-mono text-xs text-slate-500">{{ t.asset_tag }} · {{ t.product_name }}</p>
+              <p class="font-mono text-xs text-slate-500">
+                {{ t.asset_tag }} · {{ t.product_name }}
+              </p>
             </td>
             <td class="px-4 py-3 text-xs text-slate-700">
               {{ t.customer_name }} — {{ t.site_name }}
             </td>
             <td class="px-4 py-3">
-              <span class="rounded px-2 py-0.5 text-xs font-semibold" :class="priorityClass(t.priority)">
+              <span
+                class="rounded px-2 py-0.5 text-xs font-semibold"
+                :class="priorityClass(t.priority)"
+              >
                 {{ t.priority }}
               </span>
             </td>
             <td class="px-4 py-3"><StatusBadge :value="t.status" /></td>
-            <td class="px-4 py-3 text-xs text-slate-700">{{ t.assigned_to_name ?? 'Belum ditugaskan' }}</td>
-            <td class="px-4 py-3 text-xs" :class="t.sla_breached ? 'font-semibold text-rose-700' : 'text-slate-600'">
+            <td class="px-4 py-3 text-xs text-slate-700">
+              {{ t.assigned_to_name ?? 'Belum ditugaskan' }}
+            </td>
+            <td
+              class="px-4 py-3 text-xs"
+              :class="t.sla_breached ? 'font-semibold text-rose-700' : 'text-slate-600'"
+            >
               {{ t.sla_due_at ? formatDateTime(t.sla_due_at) : '—' }}
             </td>
           </tr>

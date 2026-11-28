@@ -358,11 +358,15 @@ onMounted(() => {
                 <div class="font-mono text-xs text-slate-500">{{ it.product_sku }}</div>
               </td>
               <td class="px-4 py-3 font-mono text-xs text-slate-700">
-                <template v-if="it.serial_number">{{ it.serial_number }} ({{ it.asset_tag }})</template>
+                <template v-if="it.serial_number"
+                  >{{ it.serial_number }} ({{ it.asset_tag }})</template
+                >
                 <span v-else class="text-slate-400">—</span>
               </td>
               <td class="px-4 py-3 text-right">{{ it.qty }}</td>
-              <td class="px-4 py-3 text-right font-mono text-xs">{{ formatRupiah(it.unit_price) }}</td>
+              <td class="px-4 py-3 text-right font-mono text-xs">
+                {{ formatRupiah(it.unit_price) }}
+              </td>
               <td class="px-4 py-3 text-right font-medium text-slate-900">
                 {{ formatRupiah(it.line_total) }}
               </td>
@@ -416,7 +420,9 @@ onMounted(() => {
                   {{ d.direction }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-slate-700">{{ d.warehouse_code }} — {{ d.warehouse_name }}</td>
+              <td class="px-4 py-3 text-slate-700">
+                {{ d.warehouse_code }} — {{ d.warehouse_name }}
+              </td>
               <td class="px-4 py-3 text-slate-700">{{ d.scheduled_date ?? '—' }}</td>
               <td class="px-4 py-3 text-right">{{ d.total_qty }}</td>
               <td class="px-4 py-3"><StatusBadge :value="d.status" /></td>

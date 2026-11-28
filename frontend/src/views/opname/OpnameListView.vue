@@ -94,7 +94,12 @@ watch(warehouseId, async (wid) => {
   if (!wid) return
   loadingRacks.value = true
   try {
-    const page = await rackService.list({ limit: 100, warehouse_id: wid, is_active: true, sort: 'code' })
+    const page = await rackService.list({
+      limit: 100,
+      warehouse_id: wid,
+      is_active: true,
+      sort: 'code',
+    })
     racks.value = page.items
   } catch (e) {
     formError.value = userMessage(toApiError(e))

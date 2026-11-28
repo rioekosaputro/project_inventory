@@ -68,7 +68,8 @@ const sampleDetail: InvoiceDetail = {
   items: [
     {
       id: 1,
-      description: 'Sewa HP LaserJet Pro (SN: SN-001) — Kantor Pusat · 2026-11-01 s/d 2026-11-30 (30/30 hari)',
+      description:
+        'Sewa HP LaserJet Pro (SN: SN-001) — Kantor Pusat · 2026-11-01 s/d 2026-11-30 (30/30 hari)',
       product_id: 5,
       product_serial_id: 10,
       customer_site_id: 2,

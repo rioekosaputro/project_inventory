@@ -149,7 +149,9 @@ onBeforeUnmount(() => wide?.removeEventListener('change', onWideChange))
     @close="drawerOpen = false"
   >
     <div class="flex h-full min-h-0 flex-1 flex-col">
-      <div class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 ps-4 pe-2">
+      <div
+        class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 ps-4 pe-2"
+      >
         <p class="flex items-center gap-2 text-base font-semibold text-slate-900">
           <i class="pi pi-box text-indigo-700" aria-hidden="true" />
           <span>Rental ERP</span>

@@ -46,9 +46,9 @@ describe('pdf helper', () => {
     expect(await isPdfBlob(new Blob(['<!DOCTYPE html><html></html>'], { type: 'text/html' }))).toBe(
       false,
     )
-    expect(
-      await isPdfBlob(new Blob(['<html>fake pdf</html>'], { type: 'application/pdf' })),
-    ).toBe(false)
+    expect(await isPdfBlob(new Blob(['<html>fake pdf</html>'], { type: 'application/pdf' }))).toBe(
+      false,
+    )
   })
 
   it('langsung mengunduh Blob %PDF- asli tanpa membuka popup preview atau memuat konverter HTML', async () => {

@@ -86,9 +86,7 @@ const toggle = useActiveToggle<Customer>({
     <template #cell-is_pkp="{ row }">
       <span
         class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-        :class="
-          row.is_pkp ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'
-        "
+        :class="row.is_pkp ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'"
       >
         {{ row.is_pkp ? 'PKP' : 'Non-PKP' }}
       </span>

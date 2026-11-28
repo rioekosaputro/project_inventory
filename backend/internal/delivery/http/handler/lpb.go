@@ -405,7 +405,7 @@ func (h *LPBHandler) ImportInitialStock(c *gin.Context) {
 		httperr.Write(c, err)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, (5<<20)+1))
 	if err != nil {
 		httperr.Write(c, err)

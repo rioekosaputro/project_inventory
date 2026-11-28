@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	contractExpiryAlertDays  = 30
-	staleDOReservationHours  = 48
-	expiredIdempotencyHours  = 24
+	contractExpiryAlertDays = 30
+	staleDOReservationHours = 48
+	expiredIdempotencyHours = 24
 )
 
 // JobExecResult adalah ringkasan hasil eksekusi satu job terjadwal.

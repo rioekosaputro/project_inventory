@@ -21,7 +21,7 @@ func TestLabels_RackAndSerialBatchPDF(t *testing.T) {
 		require.NoError(t, r.ParseMultipartForm(4<<20))
 		f, _, err := r.FormFile("files")
 		require.NoError(t, err)
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		b, _ := io.ReadAll(f)
 		capturedHTML = string(b)
 		w.Header().Set("Content-Type", "application/pdf")

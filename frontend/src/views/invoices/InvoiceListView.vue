@@ -242,7 +242,9 @@ async function exportExcel(): Promise<void> {
               <span class="font-mono font-medium">{{ r.contract_number }}</span>
               <StatusBadge :value="r.status" />
             </div>
-            <div class="text-slate-600">{{ r.customer_name }} · {{ r.period_start }} s/d {{ r.period_end }}</div>
+            <div class="text-slate-600">
+              {{ r.customer_name }} · {{ r.period_start }} s/d {{ r.period_end }}
+            </div>
             <div v-if="r.grand_total !== '0.00'" class="mt-1 font-medium text-slate-900">
               Grand Total: {{ formatRupiah(r.grand_total) }} (PPN: {{ formatRupiah(r.tax_amount) }})
             </div>

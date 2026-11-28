@@ -22,7 +22,7 @@ func TestLPB_PDF_And_PublicVerify(t *testing.T) {
 		require.NoError(t, r.ParseMultipartForm(4<<20))
 		f, fh, err := r.FormFile("files")
 		require.NoError(t, err)
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		assert.Equal(t, "index.html", fh.Filename)
 		b, _ := io.ReadAll(f)
 		capturedHTML = string(b)

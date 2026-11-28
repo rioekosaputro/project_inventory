@@ -73,7 +73,9 @@ async function load(): Promise<void> {
   }
 }
 
-const sellableRacks = computed(() => racks.value.filter((r) => r.is_sellable && !r.locked_by_opname_id))
+const sellableRacks = computed(() =>
+  racks.value.filter((r) => r.is_sellable && !r.locked_by_opname_id),
+)
 
 async function openReserve(item: DOItem): Promise<void> {
   reserveTarget.value = item
@@ -119,7 +121,10 @@ function toggleSerial(id: number): void {
   const idx = reserveForm.serial_ids.indexOf(id)
   if (idx >= 0) {
     reserveForm.serial_ids.splice(idx, 1)
-  } else if (reserveTarget.value && reserveForm.serial_ids.length < reserveTarget.value.remaining_qty) {
+  } else if (
+    reserveTarget.value &&
+    reserveForm.serial_ids.length < reserveTarget.value.remaining_qty
+  ) {
     reserveForm.serial_ids.push(id)
   }
 }
@@ -426,7 +431,13 @@ onMounted(() => {
           <label class="block text-xs font-medium text-slate-700" for="res-rack">
             Rak Asal (Sellable) <span class="text-rose-600">*</span>
           </label>
-          <select id="res-rack" v-model="reserveForm.rack_id" required class="mt-1" :class="inputCls">
+          <select
+            id="res-rack"
+            v-model="reserveForm.rack_id"
+            required
+            class="mt-1"
+            :class="inputCls"
+          >
             <option value="">Pilih rak…</option>
             <option v-for="r in sellableRacks" :key="r.id" :value="r.id">
               {{ r.code }} {{ r.zone ? `(${r.zone})` : '' }}
@@ -446,7 +457,10 @@ onMounted(() => {
           >
             Tidak ada unit AVAILABLE pada rak ini.
           </div>
-          <div v-else class="max-h-60 space-y-1.5 overflow-y-auto rounded-lg border border-slate-200 p-2">
+          <div
+            v-else
+            class="max-h-60 space-y-1.5 overflow-y-auto rounded-lg border border-slate-200 p-2"
+          >
             <label
               v-for="s in availableSerials"
               :key="s.id"

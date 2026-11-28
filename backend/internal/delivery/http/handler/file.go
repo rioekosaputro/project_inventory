@@ -48,7 +48,7 @@ func (h *FileHandler) Serve(c *gin.Context) {
 		httperr.Write(c, err)
 		return
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cache-Control", "private, no-store")

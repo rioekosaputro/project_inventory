@@ -332,11 +332,11 @@ func (u *BillingUsecase) processOneContract(
 			EntityType: domain.EntityInvoice,
 			EntityID:   &created.ID,
 			After: map[string]any{
-				"invoice_number": created.InvoiceNumber,
-				"contract_id":    c.ID,
-				"period_start":   out.PeriodStart,
-				"period_end":     out.PeriodEnd,
-				"grand_total":    created.GrandTotal.StringFixed(2),
+				"invoice_number":   created.InvoiceNumber,
+				"contract_id":      c.ID,
+				"period_start":     out.PeriodStart,
+				"period_end":       out.PeriodEnd,
+				"grand_total":      created.GrandTotal.StringFixed(2),
 				"generated_by_job": byJob,
 			},
 		})

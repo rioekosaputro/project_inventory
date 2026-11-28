@@ -74,7 +74,8 @@ const registeredSerialIds = computed(() =>
     .filter((sid): sid is number => sid !== null),
 )
 const canPrintAssetLabels = computed(
-  () => can('inventory.read') && status.value === 'APPROVED' && registeredSerialIds.value.length > 0,
+  () =>
+    can('inventory.read') && status.value === 'APPROVED' && registeredSerialIds.value.length > 0,
 )
 const canDeliverPOD = computed(
   () =>
@@ -235,7 +236,10 @@ async function printAssetLabels(): Promise<void> {
   printingLabels.value = true
   try {
     const blob = await lpbService.fetchSerialLabelsPdf(registeredSerialIds.value)
-    await openPdfBlob(blob, `label-aset-${lpb.value?.lpb_number.replace(/\//g, '-') ?? 'batch'}.pdf`)
+    await openPdfBlob(
+      blob,
+      `label-aset-${lpb.value?.lpb_number.replace(/\//g, '-') ?? 'batch'}.pdf`,
+    )
   } catch (e) {
     toast.add({
       severity: 'error',
@@ -806,7 +810,11 @@ function reasonOf(data: Record<string, unknown> | null): string | null {
     </form>
   </SlideOver>
 
-  <SlideOver :open="podOpen" :title="`POD Pengiriman ${lpb?.lpb_number ?? ''}`" @close="podOpen = false">
+  <SlideOver
+    :open="podOpen"
+    :title="`POD Pengiriman ${lpb?.lpb_number ?? ''}`"
+    @close="podOpen = false"
+  >
     <form class="space-y-4" @submit.prevent="submitPod">
       <p class="text-sm text-slate-700">
         Menandai pengiriman selesai akan memindahkan unit sewa ke status <strong>RENTED</strong>,

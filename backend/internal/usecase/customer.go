@@ -365,7 +365,7 @@ func (u *CustomerUsecase) UpdateSite(ctx context.Context, siteID int64, in Updat
 			return nil
 		}
 
-		if next.IsActive && next.IsPrimary && !(cur.IsActive && cur.IsPrimary) {
+		if next.IsActive && next.IsPrimary && (!cur.IsActive || !cur.IsPrimary) {
 			if err := u.repo.ClearPrimarySite(ctx, cur.CustomerID, cur.ID); err != nil {
 				return err
 			}

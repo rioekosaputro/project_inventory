@@ -291,7 +291,9 @@ onMounted(() => {
             <div class="flex justify-between gap-4 py-2">
               <dt class="text-slate-500">Periode Sewa</dt>
               <dd class="font-medium text-slate-900">
-                {{ contract.start_date }} s/d {{ contract.end_date }} ({{ contract.duration_months }}
+                {{ contract.start_date }} s/d {{ contract.end_date }} ({{
+                  contract.duration_months
+                }}
                 bulan)
               </dd>
             </div>
@@ -326,7 +328,9 @@ onMounted(() => {
             </div>
             <div class="flex justify-between gap-4 py-2">
               <dt class="text-slate-500">PPN</dt>
-              <dd class="text-slate-900">{{ contract.is_ppn ? 'Ya (PPN 12% DPP 11/12)' : 'Non-PPN' }}</dd>
+              <dd class="text-slate-900">
+                {{ contract.is_ppn ? 'Ya (PPN 12% DPP 11/12)' : 'Non-PPN' }}
+              </dd>
             </div>
             <div class="flex justify-between gap-4 py-2">
               <dt class="text-slate-500">Termin Pembayaran</dt>
@@ -361,7 +365,9 @@ onMounted(() => {
                 <div class="font-medium text-slate-900">{{ it.product_name }}</div>
                 <div class="font-mono text-xs text-slate-500">{{ it.product_sku }}</div>
               </td>
-              <td class="px-4 py-3 text-slate-700">{{ it.site_name ?? 'Fleksibel / semua site' }}</td>
+              <td class="px-4 py-3 text-slate-700">
+                {{ it.site_name ?? 'Fleksibel / semua site' }}
+              </td>
               <td class="px-4 py-3 text-right">{{ it.qty }}</td>
               <td class="px-4 py-3 text-right font-mono text-xs">
                 {{ formatRupiah(it.monthly_rate) }}

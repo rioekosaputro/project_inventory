@@ -336,7 +336,9 @@ onMounted(() => {
       <!-- Baris Item -->
       <section class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <div class="border-b border-slate-200 px-5 py-3">
-          <h2 class="text-sm font-semibold text-slate-900">Rincian Item ({{ inv.items.length }})</h2>
+          <h2 class="text-sm font-semibold text-slate-900">
+            Rincian Item ({{ inv.items.length }})
+          </h2>
         </div>
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
@@ -353,7 +355,9 @@ onMounted(() => {
             <tr v-for="it in inv.items" :key="it.id">
               <td class="px-4 py-3 text-slate-800">{{ it.description }}</td>
               <td class="px-4 py-3 text-right">{{ it.qty }}</td>
-              <td class="px-4 py-3 text-right font-mono text-xs">{{ formatRupiah(it.unit_price) }}</td>
+              <td class="px-4 py-3 text-right font-mono text-xs">
+                {{ formatRupiah(it.unit_price) }}
+              </td>
               <td class="px-4 py-3 text-right font-medium text-slate-900">
                 {{ formatRupiah(it.line_total) }}
               </td>
@@ -479,8 +483,17 @@ onMounted(() => {
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <label for="pay-date" class="block text-xs font-medium text-slate-700">Tanggal Bayar</label>
-            <input id="pay-date" v-model="payForm.payment_date" type="date" required class="mt-1" :class="inputCls" />
+            <label for="pay-date" class="block text-xs font-medium text-slate-700"
+              >Tanggal Bayar</label
+            >
+            <input
+              id="pay-date"
+              v-model="payForm.payment_date"
+              type="date"
+              required
+              class="mt-1"
+              :class="inputCls"
+            />
           </div>
           <div>
             <label for="pay-method" class="block text-xs font-medium text-slate-700">Metode</label>
@@ -526,16 +539,39 @@ onMounted(() => {
             <label for="pay-slip" class="block text-xs font-medium text-slate-700">
               No. Bukti Potong PPh 23
             </label>
-            <input id="pay-slip" v-model="payForm.pph23_slip_number" type="text" maxlength="60" class="mt-1" :class="inputCls" />
+            <input
+              id="pay-slip"
+              v-model="payForm.pph23_slip_number"
+              type="text"
+              maxlength="60"
+              class="mt-1"
+              :class="inputCls"
+            />
           </div>
           <div>
-            <label for="pay-ref" class="block text-xs font-medium text-slate-700">No. Referensi</label>
-            <input id="pay-ref" v-model="payForm.reference_number" type="text" maxlength="80" class="mt-1" :class="inputCls" />
+            <label for="pay-ref" class="block text-xs font-medium text-slate-700"
+              >No. Referensi</label
+            >
+            <input
+              id="pay-ref"
+              v-model="payForm.reference_number"
+              type="text"
+              maxlength="80"
+              class="mt-1"
+              :class="inputCls"
+            />
           </div>
         </div>
         <div>
           <label for="pay-notes" class="block text-xs font-medium text-slate-700">Catatan</label>
-          <textarea id="pay-notes" v-model="payForm.notes" rows="2" maxlength="500" class="mt-1" :class="inputCls" />
+          <textarea
+            id="pay-notes"
+            v-model="payForm.notes"
+            rows="2"
+            maxlength="500"
+            class="mt-1"
+            :class="inputCls"
+          />
         </div>
         <div class="flex justify-end gap-2">
           <button type="button" :class="btnSecondary" @click="payOpen = false">Batal</button>

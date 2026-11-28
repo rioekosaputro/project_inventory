@@ -19,7 +19,7 @@ func TestGotenbergClient_RenderHTML_Success(t *testing.T) {
 		require.NoError(t, r.ParseMultipartForm(1<<20))
 		f, fh, err := r.FormFile("files")
 		require.NoError(t, err)
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		assert.Equal(t, "index.html", fh.Filename)
 		b, _ := io.ReadAll(f)
 		gotHTML = string(b)

@@ -77,7 +77,9 @@ const filterDefs: FilterDef[] = [
     </template>
     <template #cell-period="{ row }">
       <div class="text-xs text-slate-800">{{ row.start_date }} s/d {{ row.end_date }}</div>
-      <div class="text-xs text-slate-500">{{ row.duration_months }} bulan · {{ row.billing_mode }}</div>
+      <div class="text-xs text-slate-500">
+        {{ row.duration_months }} bulan · {{ row.billing_mode }}
+      </div>
     </template>
     <template #cell-total_qty="{ row }">{{ row.total_qty }}</template>
     <template #cell-estimated_monthly="{ row }">

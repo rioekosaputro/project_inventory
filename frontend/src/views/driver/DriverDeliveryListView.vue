@@ -13,7 +13,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true)
 
-const deliveryCount = computed(() => tasks.value.filter((t) => t.sub_type !== 'RENTAL_RETURN').length)
+const deliveryCount = computed(
+  () => tasks.value.filter((t) => t.sub_type !== 'RENTAL_RETURN').length,
+)
 const pickupCount = computed(() => tasks.value.filter((t) => t.sub_type === 'RENTAL_RETURN').length)
 
 function onOnline(): void {

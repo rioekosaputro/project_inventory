@@ -50,44 +50,44 @@ func (m PaymentMethod) Valid() bool {
 }
 
 type Invoice struct {
-	ID                 int64
-	InvoiceNumber      string
-	InvoiceType        InvoiceType
+	ID                     int64
+	InvoiceNumber          string
+	InvoiceType            InvoiceType
 	CustomerID             int64
 	CustomerCode           string  // dari JOIN
 	CustomerName           string  // dari JOIN
 	CustomerNPWP           *string // dari JOIN
 	CustomerBillingAddress string  // dari JOIN
 	ContractID             *int64
-	ContractNumber     *string // dari JOIN
-	SOID               *int64
-	SONumber           *string // dari JOIN
-	BillingPeriodStart *time.Time
-	BillingPeriodEnd   *time.Time
-	InvoiceDate        time.Time
-	DueDate            time.Time
-	Status             InvoiceStatus
-	IsPPN              bool
-	Subtotal           decimal.Decimal
-	DiscountAmount     decimal.Decimal
-	DPP                decimal.Decimal
-	DPPOtherValue      decimal.Decimal
-	TaxRate            decimal.Decimal
-	TaxAmount          decimal.Decimal
-	GrandTotal         decimal.Decimal
-	PaidAmount         decimal.Decimal
-	FakturPajakNumber  *string
-	PDFPath            *string
-	Notes              *string
-	GeneratedByJob     bool
-	CreatedBy          *int64
-	IssuedBy           *int64
-	IssuedAt           *time.Time
-	VoidedBy           *int64
-	VoidedAt           *time.Time
-	VoidReason         *string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ContractNumber         *string // dari JOIN
+	SOID                   *int64
+	SONumber               *string // dari JOIN
+	BillingPeriodStart     *time.Time
+	BillingPeriodEnd       *time.Time
+	InvoiceDate            time.Time
+	DueDate                time.Time
+	Status                 InvoiceStatus
+	IsPPN                  bool
+	Subtotal               decimal.Decimal
+	DiscountAmount         decimal.Decimal
+	DPP                    decimal.Decimal
+	DPPOtherValue          decimal.Decimal
+	TaxRate                decimal.Decimal
+	TaxAmount              decimal.Decimal
+	GrandTotal             decimal.Decimal
+	PaidAmount             decimal.Decimal
+	FakturPajakNumber      *string
+	PDFPath                *string
+	Notes                  *string
+	GeneratedByJob         bool
+	CreatedBy              *int64
+	IssuedBy               *int64
+	IssuedAt               *time.Time
+	VoidedBy               *int64
+	VoidedAt               *time.Time
+	VoidReason             *string
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type InvoiceItem struct {

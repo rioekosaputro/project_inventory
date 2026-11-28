@@ -60,7 +60,14 @@ const form = reactive({
 })
 
 const items = ref<ItemRow[]>([
-  { product_id: '', direction: 'OUT', qty: 1, unit_price: '0.00', product_serial_id: '', notes: '' },
+  {
+    product_id: '',
+    direction: 'OUT',
+    qty: 1,
+    unit_price: '0.00',
+    product_serial_id: '',
+    notes: '',
+  },
 ])
 
 const eligibleProducts = computed(() =>
@@ -396,7 +403,9 @@ onMounted(() => {
               :class="inputCls"
             >
               <option value="">
-                {{ form.order_type === 'CONSUMABLE' ? 'Tanpa kontrak (opsional)' : 'Pilih kontrak…' }}
+                {{
+                  form.order_type === 'CONSUMABLE' ? 'Tanpa kontrak (opsional)' : 'Pilih kontrak…'
+                }}
               </option>
               <option v-for="ct in contracts" :key="ct.id" :value="ct.id">
                 {{ ct.contract_number }} ({{ ct.status }})
@@ -508,7 +517,9 @@ onMounted(() => {
               </select>
             </div>
             <div v-if="row.direction === 'IN'" class="md:col-span-3">
-              <label class="block text-xs font-medium text-slate-700">Unit Terpasang (opsional)</label>
+              <label class="block text-xs font-medium text-slate-700"
+                >Unit Terpasang (opsional)</label
+              >
               <select v-model="row.product_serial_id" class="mt-1" :class="inputCls">
                 <option value="">Pilih SN spesifik…</option>
                 <option

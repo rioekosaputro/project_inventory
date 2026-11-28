@@ -124,7 +124,9 @@ async function printLabel(): Promise<void> {
     <template v-else>
       <header class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 class="flex flex-wrap items-center gap-3 font-mono text-xl font-semibold text-slate-900">
+          <h1
+            class="flex flex-wrap items-center gap-3 font-mono text-xl font-semibold text-slate-900"
+          >
             {{ unit.asset_tag }} <StatusBadge :value="unit.status" />
           </h1>
           <p class="mt-1 text-sm text-slate-600">
@@ -191,9 +193,7 @@ async function printLabel(): Promise<void> {
         </div>
       </section>
 
-      <dl
-        class="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-3"
-      >
+      <dl class="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-3">
         <div>
           <dt class="text-xs font-medium text-slate-500">Lokasi Saat Ini</dt>
           <dd class="mt-1 font-mono text-sm font-semibold text-slate-900">
@@ -211,7 +211,9 @@ async function printLabel(): Promise<void> {
       </dl>
 
       <section class="mt-6">
-        <h2 class="text-base font-semibold text-slate-900">Riwayat Perubahan Status &amp; Lokasi</h2>
+        <h2 class="text-base font-semibold text-slate-900">
+          Riwayat Perubahan Status &amp; Lokasi
+        </h2>
         <div
           v-if="unit.history.length === 0"
           class="mt-3 rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-600"

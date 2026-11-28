@@ -49,7 +49,7 @@ func (r *LocalChromeRenderer) RenderHTML(ctx context.Context, html string, _ Opt
 	if err != nil {
 		return nil, fmt.Errorf("pdf local: mkdir temp: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	inFile := filepath.Join(tmpDir, "index.html")
 	outFile := filepath.Join(tmpDir, "out.pdf")

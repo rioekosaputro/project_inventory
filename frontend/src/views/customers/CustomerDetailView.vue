@@ -421,7 +421,9 @@ onMounted(() => {
               </span>
             </p>
 
-            <div class="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs">
+            <div
+              class="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs"
+            >
               <div class="text-slate-600">
                 <template v-if="site.latitude !== null && site.longitude !== null">
                   <a

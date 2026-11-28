@@ -43,9 +43,7 @@ const confirmCancel = ref(false)
 
 const isInProgress = computed(() => opname.value?.status === 'IN_PROGRESS')
 const canCount = computed(() => isInProgress.value && can('opname.create'))
-const canFinalize = computed(
-  () => opname.value?.status === 'SUBMITTED' && can('opname.finalize'),
-)
+const canFinalize = computed(() => opname.value?.status === 'SUBMITTED' && can('opname.finalize'))
 const canCancel = computed(
   () =>
     (opname.value?.status === 'IN_PROGRESS' || opname.value?.status === 'SUBMITTED') &&
@@ -371,12 +369,7 @@ async function cancelOpname(): Promise<void> {
           </div>
 
           <div v-if="canCount" class="flex justify-end pt-2">
-            <button
-              type="button"
-              :class="btnPrimary"
-              :aria-busy="savingCounts"
-              @click="saveCounts"
-            >
+            <button type="button" :class="btnPrimary" :aria-busy="savingCounts" @click="saveCounts">
               {{ savingCounts ? 'Menyimpan…' : 'Simpan Hitungan' }}
             </button>
           </div>

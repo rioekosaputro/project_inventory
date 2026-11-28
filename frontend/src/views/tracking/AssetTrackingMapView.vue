@@ -8,11 +8,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { toApiError, userMessage } from '@/lib/apiError'
 import { formatDateTime } from '@/lib/format'
 import { btnPrimary, btnSecondary } from '@/lib/ui'
-import {
-  trackingService,
-  type MapSitePin,
-  type TrackingRoute,
-} from '@/services/trackingService'
+import { trackingService, type MapSitePin, type TrackingRoute } from '@/services/trackingService'
 
 const DEFAULT_CENTER: [number, number] = [-6.9932, 110.4203] // Semarang
 const TILE_URL =
@@ -69,8 +65,7 @@ function makeAssetDivIcon(count: number, selected: boolean): L.DivIcon {
 }
 
 function makeCheckpointDivIcon(index: number, status: string): L.DivIcon {
-  const bg =
-    status === 'DELIVERED' ? '#059669' : status === 'FAILED' ? '#dc2626' : '#4338ca'
+  const bg = status === 'DELIVERED' ? '#059669' : status === 'FAILED' ? '#dc2626' : '#4338ca'
   return L.divIcon({
     className: 'erp-route-pin',
     html: `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9999px;background:${bg};color:#fff;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,0.35);">${index + 1}</div>`,
@@ -133,8 +128,7 @@ async function loadAssets(): Promise<void> {
       searchQuery.value.trim() ? { q: searchQuery.value.trim() } : undefined,
     )
     if (selectedPin.value) {
-      selectedPin.value =
-        pins.value.find((p) => p.site_id === selectedPin.value?.site_id) ?? null
+      selectedPin.value = pins.value.find((p) => p.site_id === selectedPin.value?.site_id) ?? null
     }
     if (!selectedPin.value && pins.value.length > 0) {
       selectedPin.value = pins.value[0] ?? null
@@ -229,9 +223,7 @@ onBeforeUnmount(() => {
           type="button"
           class="rounded-md px-3 py-1.5 text-sm font-medium transition"
           :class="
-            activeTab === 'route'
-              ? 'bg-indigo-600 text-white'
-              : 'text-slate-700 hover:bg-slate-100'
+            activeTab === 'route' ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-slate-100'
           "
           @click="activeTab = 'route'"
         >
@@ -258,8 +250,12 @@ onBeforeUnmount(() => {
         </button>
       </form>
       <div class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-        <span><strong>{{ pins.length }}</strong> lokasi</span>
-        <span><strong>{{ totalUnits }}</strong> unit tersewa</span>
+        <span
+          ><strong>{{ pins.length }}</strong> lokasi</span
+        >
+        <span
+          ><strong>{{ totalUnits }}</strong> unit tersewa</span
+        >
         <span v-if="unmappedCount > 0" class="text-amber-700">
           {{ unmappedCount }} lokasi belum punya koordinat GPS
         </span>
@@ -300,7 +296,11 @@ onBeforeUnmount(() => {
       >
         <div class="border-b border-slate-200 px-4 py-3">
           <h2 class="text-sm font-semibold text-slate-900">
-            {{ selectedPin ? `${selectedPin.customer_name} — ${selectedPin.site_name}` : 'Daftar Lokasi' }}
+            {{
+              selectedPin
+                ? `${selectedPin.customer_name} — ${selectedPin.site_name}`
+                : 'Daftar Lokasi'
+            }}
           </h2>
           <p v-if="selectedPin" class="mt-0.5 text-xs text-slate-500">
             {{ selectedPin.address_line }}, {{ selectedPin.city }}
@@ -315,9 +315,16 @@ onBeforeUnmount(() => {
           </p>
 
           <template v-else>
-            <div v-if="selectedPin" class="space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+            <div
+              v-if="selectedPin"
+              class="space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3"
+            >
               <div class="flex items-center justify-between gap-2 text-xs text-slate-600">
-                <span>PIC: <strong>{{ selectedPin.pic_name }}</strong> ({{ selectedPin.pic_phone }})</span>
+                <span
+                  >PIC: <strong>{{ selectedPin.pic_name }}</strong> ({{
+                    selectedPin.pic_phone
+                  }})</span
+                >
                 <span class="rounded bg-indigo-100 px-2 py-0.5 font-semibold text-indigo-800">
                   {{ selectedPin.unit_count }} unit
                 </span>
@@ -362,7 +369,9 @@ onBeforeUnmount(() => {
                   <p class="truncate font-semibold">{{ p.customer_name }}</p>
                   <p class="truncate text-slate-500">{{ p.site_name }} · {{ p.city }}</p>
                 </div>
-                <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">
+                <span
+                  class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700"
+                >
                   {{ p.unit_count }}
                 </span>
               </button>
@@ -372,19 +381,13 @@ onBeforeUnmount(() => {
       </aside>
 
       <!-- Panel Samping: Rute & Foto POD -->
-      <aside
-        v-else
-        class="flex max-h-[460px] flex-col rounded-xl border border-slate-200 bg-white"
-      >
+      <aside v-else class="flex max-h-[460px] flex-col rounded-xl border border-slate-200 bg-white">
         <div class="border-b border-slate-200 px-4 py-3">
           <div class="flex items-center justify-between gap-2">
             <h2 class="text-sm font-semibold text-slate-900">
               {{ routeData ? routeData.lpb_number : 'Detail Rute & POD' }}
             </h2>
-            <StatusBadge
-              v-if="routeData"
-              :value="routeData.delivery_status ?? 'PENDING'"
-            />
+            <StatusBadge v-if="routeData" :value="routeData.delivery_status ?? 'PENDING'" />
           </div>
         </div>
 
@@ -394,8 +397,13 @@ onBeforeUnmount(() => {
             Masukkan ID LPB pengiriman di atas untuk melihat polyline checkpoint GPS dan foto POD.
           </p>
           <template v-else>
-            <div v-if="routeData.receiver_name" class="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-900">
-              <p>Penerima: <strong>{{ routeData.receiver_name }}</strong></p>
+            <div
+              v-if="routeData.receiver_name"
+              class="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-900"
+            >
+              <p>
+                Penerima: <strong>{{ routeData.receiver_name }}</strong>
+              </p>
               <p v-if="routeData.delivered_at">
                 Waktu POD: {{ formatDateTime(routeData.delivered_at) }}
               </p>

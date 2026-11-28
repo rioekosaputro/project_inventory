@@ -292,6 +292,19 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/invoices/InvoiceDetailView.vue'),
     meta: { layout: 'app', permission: 'invoice.read', title: 'Detail Invoice' },
   },
+  // Lapangan: Driver Mobile PWA (plan Bagian 9.4, T3.4).
+  {
+    path: '/driver/deliveries',
+    name: 'driver-deliveries',
+    component: () => import('@/views/driver/DriverDeliveryListView.vue'),
+    meta: { layout: 'mobile', permission: 'driver', title: 'Tugas Pengiriman' },
+  },
+  {
+    path: '/driver/deliveries/:id(\\d+)',
+    name: 'driver-delivery-detail',
+    component: () => import('@/views/driver/DriverDeliveryActionView.vue'),
+    meta: { layout: 'mobile', permission: 'driver', title: 'Detail Tugas Driver' },
+  },
   {
     path: '/403',
     name: 'forbidden',

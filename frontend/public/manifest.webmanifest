@@ -1,0 +1,20 @@
+{
+  "name": "Rental ERP Driver",
+  "short_name": "Rental ERP",
+  "description": "Aplikasi lapangan driver untuk pengiriman, checkpoint GPS, dan bukti serah terima (POD).",
+  "start_url": "/driver/deliveries",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#4338ca",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

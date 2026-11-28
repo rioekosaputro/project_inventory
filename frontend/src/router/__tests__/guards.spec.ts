@@ -156,6 +156,7 @@ describe('homeFor', () => {
   it('memakai default_home bila ada, selain itu /beranda', () => {
     const router = setup(null)
     expect(homeFor(router, '/akun/password')).toBe('/akun/password')
-    expect(homeFor(router, '/driver/deliveries')).toBe('/beranda')
+    expect(homeFor(router, '/driver/deliveries')).toBe('/driver/deliveries')
+    expect(homeFor(router, '/halaman-belum-ada')).toBe('/beranda')
   })
 })

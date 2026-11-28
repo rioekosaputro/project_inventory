@@ -72,7 +72,39 @@ type SiteCoords struct {
 	Longitude *float64
 }
 
-// TrackingRepository mengelola shipment_tracking_logs dan query tugas driver (T3.3).
+// MapRentedUnit adalah ringkasan unit RENTED pada satu titik cabang di peta aset (T3.7).
+type MapRentedUnit struct {
+	SerialID     int64
+	AssetTag     string
+	SerialNumber string
+	SKU          string
+	ProductName  string
+	ContractID   *int64
+}
+
+// MapSitePin adalah satu pin lokasi cabang pelanggan beserta daftar unit RENTED aktif (T3.7).
+type MapSitePin struct {
+	SiteID       int64
+	SiteName     string
+	CustomerID   int64
+	CustomerName string
+	AddressLine  string
+	City         string
+	Province     string
+	PICName      string
+	PICPhone     string
+	Latitude     *float64
+	Longitude    *float64
+	Units        []MapRentedUnit
+}
+
+// MapAssetsFilter menyaring pin peta sebaran aset.
+type MapAssetsFilter struct {
+	Query      string
+	CustomerID *int64
+}
+
+// TrackingRepository mengelola shipment_tracking_logs, peta aset, dan query tugas driver (T3.3 & T3.7).
 type TrackingRepository interface {
 	ListMyDeliveries(ctx context.Context, driverID int64) ([]DriverDeliveryTask, error)
 	FindByClientEventID(ctx context.Context, clientEventID string) (*ShipmentTrackingLog, error)
@@ -80,4 +112,5 @@ type TrackingRepository interface {
 	Insert(ctx context.Context, log *ShipmentTrackingLog) error
 	UpdateLPBDeliveryStatus(ctx context.Context, lpbID int64, status TrackingStatus) error
 	SiteCoordinates(ctx context.Context, siteID int64) (*SiteCoords, error)
+	ListMapAssets(ctx context.Context, f MapAssetsFilter) ([]MapSitePin, error)
 }

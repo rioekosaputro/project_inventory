@@ -2260,7 +2260,9 @@ volumes: { pgdata: {} }
 - [x] **T3.6 Gagal kirim** — FAILED → draft `FAILED_DELIVERY_RETURN` → approve.
   - `usecase/tracking.go` (`Fail` + `WithDocGen`): saat driver melaporkan gagal kirim, dalam transaksi yang sama sistem otomatis membuat draft LPB INBOUND `FAILED_DELIVERY_RETURN` (menyalin seluruh item, rak asal, dan daftar SN) serta mengembalikan `return_lpb_id` & `return_lpb_number`.
   - `usecase/lpb_approve.go`: `FAILED_DELIVERY_RETURN` ditambahkan ke `approvable` & `applyRentalReturn` untuk mengembalikan saldo rak dan status SN `IN_TRANSIT → AVAILABLE/MAINTENANCE/BROKEN`.
-- [ ] **T3.7 Peta** — `AssetTrackingMap` (pin per site, cluster), rute checkpoint + foto POD.
+- [x] **T3.7 Peta** — `AssetTrackingMap` (pin per site, cluster), rute checkpoint + foto POD.
+  - Backend: `GET /api/v1/tracking/map/assets` (`PermMapRead`, filter `?q=&customer_id=`, daftar pin lokasi cabang beserta daftar unit `RENTED`) di `domain/tracking.go`, `postgres/tracking_repo.go`, `usecase/tracking.go`, `handler/tracking.go`, `router.go`.
+  - Frontend: `views/tracking/AssetTrackingMapView.vue` (`/tracking/map`, Leaflet `L.divIcon` pin ber-badge jumlah unit + detail unit clickable + mode Rute Checkpoint GPS polyline & pratinjau signed URL foto POD via `?lpb_id=`), `services/trackingService.ts`, `router/index.ts`, & `views/__tests__/AssetTrackingMapView.spec.ts`.
 
 **Sprint 10 — Tiket maintenance**
 - [ ] **T3.8 Tiket** — CRUD, assign, status, aktivitas (komentar, foto, check-in GPS), papan kanban.

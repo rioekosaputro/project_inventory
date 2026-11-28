@@ -67,6 +67,9 @@ func (f *fakeTrackingRepo) UpdateLPBDeliveryStatus(_ context.Context, lpbID int6
 func (f *fakeTrackingRepo) SiteCoordinates(_ context.Context, _ int64) (*domain.SiteCoords, error) {
 	return f.coords, nil
 }
+func (f *fakeTrackingRepo) ListMapAssets(_ context.Context, _ domain.MapAssetsFilter) ([]domain.MapSitePin, error) {
+	return nil, nil
+}
 
 type fakeTrackingLPBRepo struct {
 	domain.LPBRepository

@@ -177,6 +177,76 @@ func (r *TrackingRepo) SiteCoordinates(ctx context.Context, siteID int64) (*doma
 	return &c, nil
 }
 
+func (r *TrackingRepo) ListMapAssets(ctx context.Context, f domain.MapAssetsFilter) ([]domain.MapSitePin, error) {
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
+		SELECT
+			cs.id, cs.site_name, c.id, c.company_name,
+			cs.address_line, cs.city, cs.province, cs.pic_name, cs.pic_phone,
+			cs.latitude::float8, cs.longitude::float8,
+			ps.id, ps.asset_tag, ps.serial_number, p.sku, p.name, ps.current_contract_id
+		FROM product_serials ps
+		JOIN products p ON p.id = ps.product_id
+		JOIN customer_sites cs ON cs.id = ps.current_site_id
+		JOIN customers c ON c.id = cs.customer_id
+		WHERE ps.status = 'RENTED'
+		  AND ($1::bigint IS NULL OR c.id = $1)
+		  AND (
+			$2 = '' OR
+			c.company_name ILIKE '%' || $2 || '%' OR
+			cs.site_name ILIKE '%' || $2 || '%' OR
+			cs.city ILIKE '%' || $2 || '%' OR
+			ps.asset_tag ILIKE '%' || $2 || '%' OR
+			ps.serial_number ILIKE '%' || $2 || '%' OR
+			p.name ILIKE '%' || $2 || '%'
+		  )
+		ORDER BY c.company_name ASC, cs.site_name ASC, ps.asset_tag ASC`,
+		f.CustomerID, f.Query,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pinIndex := make(map[int64]int)
+	var out []domain.MapSitePin
+	for rows.Next() {
+		var (
+			siteID, custID                                       int64
+			siteName, custName, addr, city, prov, picN, picPhone string
+			lat, lng                                             *float64
+			u                                                    domain.MapRentedUnit
+		)
+		if err := rows.Scan(
+			&siteID, &siteName, &custID, &custName,
+			&addr, &city, &prov, &picN, &picPhone,
+			&lat, &lng,
+			&u.SerialID, &u.AssetTag, &u.SerialNumber, &u.SKU, &u.ProductName, &u.ContractID,
+		); err != nil {
+			return nil, err
+		}
+		idx, ok := pinIndex[siteID]
+		if !ok {
+			idx = len(out)
+			pinIndex[siteID] = idx
+			out = append(out, domain.MapSitePin{
+				SiteID:       siteID,
+				SiteName:     siteName,
+				CustomerID:   custID,
+				CustomerName: custName,
+				AddressLine:  addr,
+				City:         city,
+				Province:     prov,
+				PICName:      picN,
+				PICPhone:     picPhone,
+				Latitude:     lat,
+				Longitude:    lng,
+			})
+		}
+		out[idx].Units = append(out[idx].Units, u)
+	}
+	return out, rows.Err()
+}
+
 func derefStr(s *string) string {
 	if s == nil {
 		return ""

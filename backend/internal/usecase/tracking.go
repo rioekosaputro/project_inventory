@@ -713,6 +713,12 @@ func (u *TrackingUsecase) Route(ctx context.Context, actor domain.Principal, lpb
 	}, nil
 }
 
+// MapAssets mengembalikan daftar pin lokasi cabang pelanggan beserta unit RENTED aktif (T3.7).
+func (u *TrackingUsecase) MapAssets(ctx context.Context, f domain.MapAssetsFilter) ([]domain.MapSitePin, error) {
+	f.Query = strings.TrimSpace(f.Query)
+	return u.tracking.ListMapAssets(ctx, f)
+}
+
 func ensureDriverAssigned(actor domain.Principal, l *domain.LPB) error {
 	if actor.Role == domain.RoleAdmin {
 		return nil

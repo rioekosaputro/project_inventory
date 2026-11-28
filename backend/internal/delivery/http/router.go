@@ -466,6 +466,7 @@ func registerTrackingRoutes(api *gin.RouterGroup, deps Deps) {
 	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
 	driver := middleware.RequirePermission(domain.PermDriver)
 	read := middleware.RequirePermission(domain.PermTrackingRead)
+	mapRead := middleware.RequirePermission(domain.PermMapRead)
 
 	g := api.Group("/tracking", authn)
 	g.GET("/my-deliveries", driver, h.MyDeliveries)
@@ -474,4 +475,5 @@ func registerTrackingRoutes(api *gin.RouterGroup, deps Deps) {
 	g.POST("/lpb/:id/fail", driver, h.Fail)
 	g.POST("/lpb/:id/pickup", driver, h.Pickup)
 	g.GET("/lpb/:id/route", read, h.Route)
+	g.GET("/map/assets", mapRead, h.MapAssets)
 }

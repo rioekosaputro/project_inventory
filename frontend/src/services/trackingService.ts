@@ -97,6 +97,31 @@ export interface TrackingRoute {
   logs: ShipmentTrackingLog[]
 }
 
+export interface MapRentedUnit {
+  serial_id: number
+  asset_tag: string
+  serial_number: string
+  sku: string
+  product_name: string
+  contract_id: number | null
+}
+
+export interface MapSitePin {
+  site_id: number
+  site_name: string
+  customer_id: number
+  customer_name: string
+  address_line: string
+  city: string
+  province: string
+  pic_name: string
+  pic_phone: string
+  latitude: number | null
+  longitude: number | null
+  unit_count: number
+  units: MapRentedUnit[]
+}
+
 export const trackingService = {
   myDeliveries(): Promise<DriverDeliveryTask[]> {
     return api.get<DriverDeliveryTask[]>('/tracking/my-deliveries')
@@ -122,5 +147,9 @@ export const trackingService = {
 
   route(lpbId: number): Promise<TrackingRoute> {
     return api.get<TrackingRoute>(`/tracking/lpb/${lpbId}/route`)
+  },
+
+  mapAssets(params?: { q?: string; customer_id?: number }): Promise<MapSitePin[]> {
+    return api.get<MapSitePin[]>('/tracking/map/assets', { params })
   },
 }

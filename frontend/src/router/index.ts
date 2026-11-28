@@ -305,6 +305,13 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/driver/DriverDeliveryActionView.vue'),
     meta: { layout: 'mobile', permission: 'driver', title: 'Detail Tugas Driver' },
   },
+  // Peta Sebaran Aset & Rute Pengiriman (plan Bagian 9.4, T3.7).
+  {
+    path: '/tracking/map',
+    name: 'tracking-map',
+    component: () => import('@/views/tracking/AssetTrackingMapView.vue'),
+    meta: { layout: 'app', permission: 'map.read', title: 'Peta Aset' },
+  },
   {
     path: '/403',
     name: 'forbidden',

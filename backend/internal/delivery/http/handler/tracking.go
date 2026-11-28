@@ -428,6 +428,60 @@ func (h *TrackingHandler) Route(c *gin.Context) {
 	})
 }
 
+// MapAssets — GET /api/v1/tracking/map/assets (pin per site + daftar unit RENTED, T3.7).
+func (h *TrackingHandler) MapAssets(c *gin.Context) {
+	f := domain.MapAssetsFilter{
+		Query: strings.TrimSpace(c.Query("q")),
+	}
+	if cidStr := strings.TrimSpace(c.Query("customer_id")); cidStr != "" {
+		cid, err := strconv.ParseInt(cidStr, 10, 64)
+		if err != nil || cid <= 0 {
+			httperr.Write(c, &domain.ValidationError{
+				Message: "Filter customer_id tidak valid",
+				Errors:  []domain.FieldError{{Field: "customer_id", Message: "harus berupa bilangan bulat positif"}},
+			})
+			return
+		}
+		f.CustomerID = &cid
+	}
+
+	pins, err := h.uc.MapAssets(c.Request.Context(), f)
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	out := make([]gin.H, 0, len(pins))
+	for _, p := range pins {
+		units := make([]gin.H, 0, len(p.Units))
+		for _, u := range p.Units {
+			units = append(units, gin.H{
+				"serial_id":     u.SerialID,
+				"asset_tag":     u.AssetTag,
+				"serial_number": u.SerialNumber,
+				"sku":           u.SKU,
+				"product_name":  u.ProductName,
+				"contract_id":   u.ContractID,
+			})
+		}
+		out = append(out, gin.H{
+			"site_id":       p.SiteID,
+			"site_name":     p.SiteName,
+			"customer_id":   p.CustomerID,
+			"customer_name": p.CustomerName,
+			"address_line":  p.AddressLine,
+			"city":          p.City,
+			"province":      p.Province,
+			"pic_name":      p.PICName,
+			"pic_phone":     p.PICPhone,
+			"latitude":      p.Latitude,
+			"longitude":     p.Longitude,
+			"unit_count":    len(p.Units),
+			"units":         units,
+		})
+	}
+	response.OK(c, out)
+}
+
 func trackingLogDTO(l *domain.ShipmentTrackingLog) gin.H {
 	return gin.H{
 		"id":              l.ID,

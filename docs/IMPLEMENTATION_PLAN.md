@@ -2246,7 +2246,8 @@ volumes: { pgdata: {} }
   - 4 tabel baru (`shipment_tracking_logs`, `maintenance_tickets`, `ticket_spareparts`, `ticket_activities`), FK `sales_orders.related_ticket_id → maintenance_tickets(id)` (`fk_so_ticket`), trigger `trg_tickets_updated`. Total 43 tabel; `up → down → up` bersih tanpa residu.
 - [x] **T3.2 Storage** — interface + S3 (Supabase Storage/MinIO) + local; signed URL.
   - `backend/pkg/storage/{uploader.go,local.go,s3.go,storage_test.go}`: validasi ukuran ≤ 5 MB, MIME sniff (`http.DetectContentType`: JPEG/PNG/WebP/PDF), UUID v4 server-generated key, anti path-traversal, `LocalStorage` (HMAC-SHA256 signed URL + endpoint `GET /api/v1/files`), `S3Storage` (AWS SDK v2 `PutObject`/`DeleteObject`/`PresignGetObject`/`PresignPutObject` untuk Supabase Storage/MinIO/S3), serta wiring ke `app.go`, `router.go`, dan `handler/lpb_pod.go` (cleanup file bila transaksi DB gagal).
-- [ ] **T3.3 API driver** — my-deliveries, checkpoint (idempoten `client_event_id`), deliver (multipart), fail, pickup.
+- [x] **T3.3 API driver** — my-deliveries, checkpoint (idempoten `client_event_id`), deliver (multipart), fail, pickup.
+  - `domain/tracking.go`, `postgres/tracking_repo.go`, `usecase/tracking.go` (+ `tracking_test.go`), `handler/tracking.go`, `router.go`, `app.go`: `GET /tracking/my-deliveries`, `POST /tracking/lpb/:id/{checkpoint,deliver,fail,pickup}` (`PermDriver`, cek kepemilikan `driver_id` anti-IDOR, idempotensi `client_event_id` UUID, upload foto POD via `storage.Uploader` sebelum tx + cleanup bila gagal/replay, peringatan jarak GPS > 500 m non-blocking), serta `GET /tracking/lpb/:id/route` (`PermTrackingRead`, signed URL foto POD).
 - [ ] **T3.4 UI driver mobile + PWA** — daftar tugas, detail, navigasi, checkpoint GPS, kamera + kompresi, POD.
   DoD: diuji di HP Android & iPhone via URL staging HTTPS.
 

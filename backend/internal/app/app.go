@@ -87,6 +87,11 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		fileHandler = handler.NewFileHandler(localStorage)
 	}
 
+	deliveryPODRepo := postgres.NewDeliveryPODRepo(pool)
+	trackingUC := usecase.NewTrackingUsecase(
+		txManager, postgres.NewTrackingRepo(pool), lpbRepo, stockRepo, deliveryPODRepo, auditRepo, clk,
+	).WithStorage(uploader)
+
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
 		Warehouses: handler.NewWarehouseHandler(usecase.NewWarehouseUsecase(txManager, warehouseRepo, auditRepo)),
@@ -115,13 +120,14 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			billingUC,
 			usecase.NewInvoiceUsecase(txManager, invoiceRepo, auditRepo, clk).WithPDF(pdfClient),
 		),
-		Jobs:  handler.NewJobHandler(jobUC),
-		Files: fileHandler,
+		Jobs:     handler.NewJobHandler(jobUC),
+		Files:    fileHandler,
+		Tracking: handler.NewTrackingHandler(trackingUC, uploader),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),
 			auditRepo, docGen, clk,
-		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(postgres.NewDeliveryPODRepo(pool))).WithStorage(uploader),
+		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(deliveryPODRepo)).WithStorage(uploader),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

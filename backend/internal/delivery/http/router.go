@@ -61,6 +61,9 @@ type Deps struct {
 	// Berkas privat lokal via signed URL (T3.2; hanya aktif bila STORAGE_DRIVER=local).
 	Files *handler.FileHandler
 
+	// Lapangan: driver mobile & rute pengiriman (T3.3).
+	Tracking *handler.TrackingHandler
+
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
 
@@ -116,6 +119,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerSalesOrderRoutes(api, deps)
 	registerDeliveryOrderRoutes(api, deps)
 	registerInvoiceRoutes(api, deps)
+	registerTrackingRoutes(api, deps)
 	if deps.Jobs != nil {
 		internalJobs := api.Group("/internal/jobs", middleware.RequireCronSecret(cfg.CronSecret))
 		internalJobs.GET("/billing", deps.Jobs.RunBilling)
@@ -444,4 +448,23 @@ func registerInvoiceRoutes(api *gin.RouterGroup, deps Deps) {
 	} else {
 		g.POST("/:id/payments", pay, h.RecordPayment)
 	}
+}
+
+// registerTrackingRoutes — plan Bagian 8.5 (T3.3: driver mobile & rute pengiriman).
+func registerTrackingRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Tracking
+	if h == nil {
+		return
+	}
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	driver := middleware.RequirePermission(domain.PermDriver)
+	read := middleware.RequirePermission(domain.PermTrackingRead)
+
+	g := api.Group("/tracking", authn)
+	g.GET("/my-deliveries", driver, h.MyDeliveries)
+	g.POST("/lpb/:id/checkpoint", driver, h.Checkpoint)
+	g.POST("/lpb/:id/deliver", driver, h.Deliver)
+	g.POST("/lpb/:id/fail", driver, h.Fail)
+	g.POST("/lpb/:id/pickup", driver, h.Pickup)
+	g.GET("/lpb/:id/route", read, h.Route)
 }

@@ -45,3 +45,13 @@ func (h *JobHandler) RunDaily(c *gin.Context) {
 	}
 	response.OK(c, res)
 }
+
+// Reconcile menangani GET /api/v1/admin/reconcile (pemeriksaan invarian stok I1–I6 oleh Admin, T4.2).
+func (h *JobHandler) Reconcile(c *gin.Context) {
+	rep, err := h.uc.CheckReconcile(c.Request.Context())
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.OK(c, rep)
+}

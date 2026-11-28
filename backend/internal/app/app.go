@@ -76,7 +76,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	docGen := docnum.New(pool)
 
 	billingUC := usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk)
-	jobUC := usecase.NewJobUsecase(postgres.NewJobRepo(pool), billingUC, auditRepo, clk, logger)
+	jobUC := usecase.NewJobUsecase(postgres.NewJobRepo(pool), billingUC, auditRepo, clk, logger).
+		WithReconcile(postgres.NewReconcileRepo(pool))
 
 	uploader, localStorage, err := buildStorage(cfg, logger)
 	if err != nil {

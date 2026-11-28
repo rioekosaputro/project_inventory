@@ -2285,7 +2285,9 @@ volumes: { pgdata: {} }
   - Audit checklist Bagian 10 (bcrypt 12, login rate limit + `LOGIN_FAILED`, JWT 15m + refresh SHA-256 + family reuse detection, RBAC + warehouse/driver scoping, parameterized SQL, upload ≤ 5 MB + `http.DetectContentType` + UUID key + signed URL, security headers API).
   - Menambahkan security headers & CSP dasar di `frontend/vercel.json` (`X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Content-Security-Policy`).
   - Menambahkan `backend/internal/delivery/http/security_integration_test.go` (`TestSecurity_IDOR_MaliciousUploads_And_Headers`): menguji IDOR Driver A vs Driver B (403 pada checkpoint/fail/PDF & isolasi `my-deliveries`), upload HTML/XSS + PHP shell + file > 5 MB (422), sanitasi filename path traversal, signed URL palsu (403), dan header keamanan.
-- [ ] **T4.2 Rekonsiliasi** — job harian + halaman admin.
+- [x] **T4.2 Rekonsiliasi** — job harian + halaman admin.
+  - Backend: `domain/reconcile.go`, `postgres/reconcile_repo.go` (9 pemeriksaan invarian stok I1–I6), sub-job harian `STOCK_RECONCILE` pada `JobUsecase.RunDaily` (`job_runs`), serta endpoint on-demand `GET /api/v1/admin/reconcile` (`PermReconcileRead`).
+  - Frontend: `services/adminService.ts`, `views/admin/ReconcileView.vue` (`/admin/rekonsiliasi`), & `router/index.ts`.
 - [ ] **T4.3 Audit log viewer & halaman jobs.**
 - [ ] **T4.4 Laporan** — utilisasi aset, omzet per pelanggan/bulan, aging piutang, SLA tiket, mutasi stok.
 - [ ] **T4.5 E2E Playwright** — 2 alur utama.

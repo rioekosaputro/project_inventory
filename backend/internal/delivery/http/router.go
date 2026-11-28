@@ -126,6 +126,13 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 		internalJobs := api.Group("/internal/jobs", middleware.RequireCronSecret(cfg.CronSecret))
 		internalJobs.GET("/billing", deps.Jobs.RunBilling)
 		internalJobs.GET("/daily", deps.Jobs.RunDaily)
+
+		// Rekonsiliasi stok on-demand oleh Admin (T4.2).
+		reconcileGroup := api.Group("/admin",
+			middleware.Authenticate(deps.Tokens, deps.Clock),
+			middleware.RequirePermission(domain.PermReconcileRead),
+		)
+		reconcileGroup.GET("/reconcile", deps.Jobs.Reconcile)
 	}
 	if deps.Dashboard != nil {
 		dg := api.Group("/dashboard",

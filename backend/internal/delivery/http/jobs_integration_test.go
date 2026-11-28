@@ -86,7 +86,7 @@ func TestInternalJobs_BillingAndDailyMaintenance_IdempotencyAndAlerts(t *testing
 	d1 := e.call("GET", "/api/v1/internal/jobs/daily?date=2026-12-01", nil, withBearer(secret))
 	require.Equal(t, 200, d1.status(), d1.rec.Body.String())
 	jobs := d1.data()["jobs"].([]any)
-	require.Len(t, jobs, 4)
+	require.Len(t, jobs, 5)
 
 	byName := map[string]map[string]any{}
 	for _, raw := range jobs {
@@ -117,6 +117,18 @@ func TestInternalJobs_BillingAndDailyMaintenance_IdempotencyAndAlerts(t *testing
 	assert.Equal(t, domain.JobStatusSuccess, ls["status"])
 	assert.GreaterOrEqual(t, ls["summary"].(map[string]any)["low_stock_count"].(float64), float64(1))
 
+	// STOCK_RECONCILE: semua 9 invarian stok konsisten.
+	sr := byName[domain.JobStockReconcile]
+	assert.Equal(t, domain.JobStatusSuccess, sr["status"])
+	assert.Equal(t, true, sr["summary"].(map[string]any)["healthy"])
+
+	// Endpoint admin /admin/reconcile hanya boleh diakses ADMIN (403 untuk role lain).
+	adminTok := e.tokenFor(domain.RoleAdmin, nil)
+	assert.Equal(t, 403, e.get(biz, "/api/v1/admin/reconcile").status())
+	recAdmin := e.get(adminTok, "/api/v1/admin/reconcile")
+	require.Equal(t, 200, recAdmin.status())
+	assert.Equal(t, true, recAdmin.data()["healthy"])
+
 	// STALE_DO_RESERVATION: 1 idempotency key kedaluwarsa terhapus.
 	sd := byName[domain.JobStaleDOReservation]
 	assert.Equal(t, domain.JobStatusSuccess, sd["status"])
@@ -144,8 +156,8 @@ func TestInternalJobs_BillingAndDailyMaintenance_IdempotencyAndAlerts(t *testing
 		}
 	}
 
-	// Pastikan ListRecent mengembalikan semua 5 job_runs.
+	// Pastikan ListRecent mengembalikan semua 6 job_runs (1 billing + 5 daily termasuk STOCK_RECONCILE).
 	recent, err := postgres.NewJobRepo(e.pool).ListRecent(context.Background(), 10)
 	require.NoError(t, err)
-	assert.Len(t, recent, 5)
+	assert.Len(t, recent, 6)
 }

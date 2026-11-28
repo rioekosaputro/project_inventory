@@ -325,6 +325,13 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/tickets/TicketDetailView.vue'),
     meta: { layout: 'app', permission: 'ticket.read', title: 'Detail Tiket Maintenance' },
   },
+  // Administrasi: Rekonsiliasi Stok (T4.2).
+  {
+    path: '/admin/rekonsiliasi',
+    name: 'admin-reconcile',
+    component: () => import('@/views/admin/ReconcileView.vue'),
+    meta: { layout: 'app', permission: 'reconcile.read', title: 'Rekonsiliasi Stok' },
+  },
   {
     path: '/403',
     name: 'forbidden',

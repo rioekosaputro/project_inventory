@@ -36,11 +36,26 @@ type DailyJobsResult struct {
 // JobUsecase mengorkestrasi eksekusi job terjadwal dengan pelacakan idempoten di tabel job_runs.
 // Dipakai bersama oleh endpoint HTTP /internal/jobs/* (Vercel Cron) dan binary cmd/worker (production).
 type JobUsecase struct {
-	jobs    domain.JobRepository
-	billing *BillingUsecase
-	audit   domain.AuditRepository
-	clk     clock.Clock
-	logger  *slog.Logger
+	jobs      domain.JobRepository
+	billing   *BillingUsecase
+	audit     domain.AuditRepository
+	reconcile domain.ReconcileRepository
+	clk       clock.Clock
+	logger    *slog.Logger
+}
+
+// WithReconcile memasang repository pemeriksaan invarian stok untuk job harian & halaman admin (T4.2).
+func (u *JobUsecase) WithReconcile(repo domain.ReconcileRepository) *JobUsecase {
+	u.reconcile = repo
+	return u
+}
+
+// CheckReconcile menjalankan pemeriksaan invarian stok (I1–I6) secara on-demand untuk Admin (T4.2).
+func (u *JobUsecase) CheckReconcile(ctx context.Context) (*domain.ReconcileReport, error) {
+	if u.reconcile == nil {
+		return nil, domain.ErrInvalidStateTransition
+	}
+	return u.reconcile.CheckStockInvariants(ctx, u.clk.Now())
 }
 
 func NewJobUsecase(
@@ -239,6 +254,21 @@ func (u *JobUsecase) RunDaily(ctx context.Context, dateStr *string) (*DailyJobsR
 			"idempotency_keys_pruned": cleanedKeys,
 		}, nil
 	}))
+
+	if u.reconcile != nil {
+		out.Jobs = append(out.Jobs, u.runTracked(ctx, domain.JobStockReconcile, runKey, func(ctx context.Context) (map[string]any, error) {
+			rep, err := u.reconcile.CheckStockInvariants(ctx, u.clk.Now())
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{
+				"healthy":         rep.Healthy,
+				"total_checks":    rep.TotalChecks,
+				"violation_count": rep.ViolationCount,
+				"violations":      rep.Violations,
+			}, nil
+		}))
+	}
 
 	return out, nil
 }

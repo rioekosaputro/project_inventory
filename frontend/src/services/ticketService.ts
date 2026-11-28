@@ -161,4 +161,11 @@ export const ticketService = {
       payload,
     )
   },
+
+  escalateSwap(
+    ticketId: number,
+    payload: { replacement_product_id?: number; notes?: string } = {},
+  ): Promise<TicketDetail> {
+    return api.post<TicketDetail>(`/tickets/${ticketId}/escalate-swap`, payload)
+  },
 }

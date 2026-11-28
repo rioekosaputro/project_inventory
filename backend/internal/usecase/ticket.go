@@ -14,15 +14,17 @@ import (
 
 // TicketUsecase mengelola siklus hidup tiket maintenance teknisi (T3.8).
 type TicketUsecase struct {
-	tx         domain.TxManager
-	repo       domain.TicketRepository
-	audit      domain.AuditRepository
-	docs       domain.DocNumberGenerator
-	clock      clock.Clock
-	storage    storage.Uploader
-	lpb        domain.LPBRepository
-	warehouses domain.WarehouseRepository
-	racks      domain.RackRepository
+	tx          domain.TxManager
+	repo        domain.TicketRepository
+	audit       domain.AuditRepository
+	docs        domain.DocNumberGenerator
+	clock       clock.Clock
+	storage     storage.Uploader
+	lpb         domain.LPBRepository
+	warehouses  domain.WarehouseRepository
+	racks       domain.RackRepository
+	salesOrders domain.SalesOrderRepository
+	inventory   domain.InventoryRepository
 }
 
 func NewTicketUsecase(
@@ -45,6 +47,13 @@ func (u *TicketUsecase) WithLPB(lpb domain.LPBRepository, wh domain.WarehouseRep
 	u.lpb = lpb
 	u.warehouses = wh
 	u.racks = racks
+	return u
+}
+
+// WithSwap memasang repo SalesOrder & Inventory untuk eskalasi tiket menjadi SO UNIT_SWAP (T3.10).
+func (u *TicketUsecase) WithSwap(so domain.SalesOrderRepository, inv domain.InventoryRepository) *TicketUsecase {
+	u.salesOrders = so
+	u.inventory = inv
 	return u
 }
 

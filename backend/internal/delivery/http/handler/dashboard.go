@@ -57,6 +57,19 @@ type commercialDashboardResp struct {
 	OverdueInvoices        []domain.OverdueInvoiceAlert   `json:"overdue_invoices"`
 }
 
+type fieldDashboardResp struct {
+	OpenTickets               int                           `json:"open_tickets"`
+	WaitingPartTickets        int                           `json:"waiting_part_tickets"`
+	SLABreachedTickets        int                           `json:"sla_breached_tickets"`
+	ResolvedThisMonth         int                           `json:"resolved_this_month"`
+	SLACompliancePct          string                        `json:"sla_compliance_pct"`
+	ActiveDeliveries          int                           `json:"active_deliveries"`
+	DeliveredToday            int                           `json:"delivered_today"`
+	FailedDeliveriesThisMonth int                           `json:"failed_deliveries_this_month"`
+	PendingSparepartRequests  int                           `json:"pending_sparepart_requests"`
+	SLABreachAlerts           []domain.SLABreachTicketAlert `json:"sla_breach_alerts"`
+}
+
 type dashboardSummaryResp struct {
 	TotalActiveProducts   int                      `json:"total_active_products"`
 	SafeStockProducts     int                      `json:"safe_stock_products"`
@@ -71,6 +84,7 @@ type dashboardSummaryResp struct {
 	RecentPendingLPBs     []pendingLPBResp         `json:"recent_pending_lpbs"`
 	RecentMovements       []dto.LedgerRowResponse  `json:"recent_movements"`
 	Commercial            *commercialDashboardResp `json:"commercial,omitempty"`
+	Field                 *fieldDashboardResp      `json:"field,omitempty"`
 }
 
 // Summary — GET /dashboard/summary (plan Bagian 8.5 & 9.5)
@@ -129,6 +143,23 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		}
 	}
 
+	var field *fieldDashboardResp
+	if s.Field != nil {
+		f := s.Field
+		field = &fieldDashboardResp{
+			OpenTickets:               f.OpenTickets,
+			WaitingPartTickets:        f.WaitingPartTickets,
+			SLABreachedTickets:        f.SLABreachedTickets,
+			ResolvedThisMonth:         f.ResolvedThisMonth,
+			SLACompliancePct:          f.SLACompliancePct.StringFixed(2),
+			ActiveDeliveries:          f.ActiveDeliveries,
+			DeliveredToday:            f.DeliveredToday,
+			FailedDeliveriesThisMonth: f.FailedDeliveriesThisMonth,
+			PendingSparepartRequests:  f.PendingSparepartRequests,
+			SLABreachAlerts:           f.SLABreachAlerts,
+		}
+	}
+
 	response.OK(c, dashboardSummaryResp{
 		TotalActiveProducts:   s.TotalActiveProducts,
 		SafeStockProducts:     s.SafeStockProducts,
@@ -143,5 +174,6 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		RecentPendingLPBs:     pend,
 		RecentMovements:       moves,
 		Commercial:            comm,
+		Field:                 field,
 	})
 }

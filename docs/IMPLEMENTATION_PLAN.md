@@ -2271,9 +2271,13 @@ volumes: { pgdata: {} }
 - [x] **T3.9 Sparepart** — permintaan → LPB `SPARE_PART_ISSUE` → ISSUED; flag `is_billable` → invoice SERVICE.
   - Backend: `POST /tickets/:id/spareparts` (`PermTicketWork`, otomatis ubah status tiket ke `WAITING_PART`), `POST /ticket-spareparts/:id/lpb` (`PermLPBCreate`, membuat draft LPB `SPARE_PART_ISSUE`), serta `LPBUsecase.Approve` (`applySparePartIssue`, menandai `ticket_spareparts → ISSUED`, dan membuat draft invoice `SERVICE` + PMK 131/2024 otomatis bila `is_billable = true`).
   - Frontend: `ticketService.ts` (`requestSparepart`, `createSparepartLpb`) & panel **"Permintaan Sparepart"** di `TicketDetailView.vue`.
-- [ ] **T3.10 Eskalasi swap** — tiket → SO `UNIT_SWAP`.
-- [ ] **T3.11 SLA & dashboard lapangan.**
-  **🎯 Milestone M3:** semua fitur blueprint selesai di staging.
+- [x] **T3.10 Eskalasi swap** — tiket → SO `UNIT_SWAP`.
+  - Backend: `POST /api/v1/tickets/:id/escalate-swap` (`PermTicketWork`, `usecase/ticket_swap.go` + `ticket_test.go`, `domain/ticket.go`, `postgres/ticket_repo.go`, `handler/ticket.go`, `router.go`, `app.go`) membuat draft SO `UNIT_SWAP` (`IN` unit rusak + `OUT` unit pengganti), menautkan `sales_orders.related_ticket_id` & `maintenance_tickets.swap_so_id`, serta mencatat aktivitas & audit log.
+  - Frontend: tombol **"Eskalasi Tukar Unit"** & tautan langsung ke `/sales-orders/:id` di `TicketDetailView.vue` & `ticketService.ts`.
+- [x] **T3.11 SLA & dashboard lapangan.**
+  - Backend (`domain/dashboard.go`, `postgres/dashboard_repo.go`, `usecase/dashboard.go`, `handler/dashboard.go`): menambahkan `FieldDashboardSummary` pada `GET /api/v1/dashboard/summary` (tiket aktif, tunggu part, SLA terlewati, kepatuhan SLA bulan ini, pengiriman aktif/POD hari ini/gagal bulan ini, antrean sparepart, dan Top 5 alert tiket breach SLA) untuk role berizin `ticket.read`/`tracking.read`/`map.read`.
+  - Frontend (`dashboardService.ts`, `DashboardView.vue`): bagian **"Lapangan & SLA Maintenance"** + tabel peringatan SLA tiket.
+  **🎯 Milestone M3 (TERCAPAI di lokal):** seluruh Fase 3 Lapangan (`T3.1`–`T3.11`) — Migrasi `000009`, Storage S3/Local + Signed URL, API & PWA Driver Mobile, Penarikan/Swap + QC, Gagal Kirim auto-draft LPB, Peta Sebaran Aset & Rute POD, Tiket Maintenance Kanban + Sparepart (`SPARE_PART_ISSUE` + invoice `SERVICE`) + Eskalasi `UNIT_SWAP` + Dashboard SLA Lapangan — selesai dan terverifikasi!
 
 ### Fase 4 — Hardening & Production (Sprint 11–12)
 

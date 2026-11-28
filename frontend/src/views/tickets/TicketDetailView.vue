@@ -44,6 +44,7 @@ const lpbModalSpId = ref<number | null>(null)
 const spWhId = ref('')
 const spRackId = ref('')
 const spLpbBusy = ref(false)
+const swapBusy = ref(false)
 
 const canWrite = computed(() => auth.can('ticket.write'))
 const canWork = computed(() => auth.can('ticket.work'))
@@ -287,6 +288,29 @@ async function submitSparepartLPB(): Promise<void> {
   }
 }
 
+async function triggerEscalateSwap(): Promise<void> {
+  if (!ticket.value || swapBusy.value) return
+  swapBusy.value = true
+  try {
+    ticket.value = await ticketService.escalateSwap(ticket.value.id)
+    toast.add({
+      severity: 'success',
+      summary: 'Dieskalasi ke SO Tukar Unit',
+      detail: ticket.value.swap_so_number ?? 'Draft SO UNIT_SWAP berhasil dibuat.',
+      life: 4000,
+    })
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal eskalasi swap',
+      detail: userMessage(toApiError(err)),
+      life: 5000,
+    })
+  } finally {
+    swapBusy.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -315,11 +339,29 @@ onMounted(load)
               {{ ticket.customer_name }} — {{ ticket.site_name }} ({{ ticket.site_city }})
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <StatusBadge :value="ticket.status" />
             <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-800">
               {{ ticket.priority }}
             </span>
+            <RouterLink
+              v-if="ticket.swap_so_id"
+              :to="`/sales-orders/${ticket.swap_so_id}`"
+              class="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200"
+            >
+              <i class="pi pi-sync text-[11px]" aria-hidden="true" />
+              {{ ticket.swap_so_number ?? `SO Swap #${ticket.swap_so_id}` }}
+            </RouterLink>
+            <button
+              v-else-if="canWork && !isClosedOrCancelled"
+              type="button"
+              :class="btnSecondary"
+              :disabled="swapBusy"
+              @click="triggerEscalateSwap"
+            >
+              <i class="pi pi-sync text-xs" aria-hidden="true" />
+              {{ swapBusy ? 'Membuat SO…' : 'Eskalasi Tukar Unit' }}
+            </button>
           </div>
         </div>
 

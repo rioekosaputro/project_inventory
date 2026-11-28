@@ -286,3 +286,88 @@ func (r *DashboardRepo) CommercialSummary(ctx context.Context, today time.Time) 
 	iRows.Close()
 	return out, iRows.Err()
 }
+
+func (r *DashboardRepo) FieldSummary(ctx context.Context, now time.Time) (*domain.FieldDashboardSummary, error) {
+	db := database.GetExecutor(ctx, r.pool)
+	out := &domain.FieldDashboardSummary{
+		SLACompliancePct: decimal.NewFromInt(100),
+		SLABreachAlerts:  make([]domain.SLABreachTicketAlert, 0),
+	}
+
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// 1. Metrik tiket & kepatuhan SLA bulan ini.
+	var resolvedOnTime int
+	if err := db.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE status IN ('OPEN','ASSIGNED','IN_PROGRESS','WAITING_PART'))::int,
+			COUNT(*) FILTER (WHERE status = 'WAITING_PART')::int,
+			COUNT(*) FILTER (WHERE status IN ('OPEN','ASSIGNED','IN_PROGRESS','WAITING_PART')
+			                  AND sla_due_at IS NOT NULL AND sla_due_at < $1)::int,
+			COUNT(*) FILTER (WHERE resolved_at >= $2)::int,
+			COUNT(*) FILTER (WHERE resolved_at >= $2 AND (sla_due_at IS NULL OR resolved_at <= sla_due_at))::int
+		FROM maintenance_tickets`, now, monthStart).Scan(
+		&out.OpenTickets, &out.WaitingPartTickets, &out.SLABreachedTickets,
+		&out.ResolvedThisMonth, &resolvedOnTime,
+	); err != nil {
+		return nil, err
+	}
+	if out.ResolvedThisMonth > 0 {
+		out.SLACompliancePct = decimal.NewFromInt(int64(resolvedOnTime*100)).
+			DivRound(decimal.NewFromInt(int64(out.ResolvedThisMonth)), 2)
+	}
+
+	// 2. Metrik pengiriman lapangan.
+	if err := db.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (
+				WHERE sub_type IN ('RENTAL_DELIVERY','CONSUMABLE_DELIVERY')
+				  AND status = 'APPROVED' AND requires_delivery = TRUE
+				  AND COALESCE(delivery_status, '') NOT IN ('DELIVERED','FAILED','RETURNED')
+			)::int,
+			COUNT(*) FILTER (WHERE delivery_status = 'DELIVERED' AND delivered_at >= $1)::int,
+			COUNT(*) FILTER (WHERE delivery_status = 'FAILED' AND updated_at >= $2)::int
+		FROM lpb_documents`, dayStart, monthStart).Scan(
+		&out.ActiveDeliveries, &out.DeliveredToday, &out.FailedDeliveriesThisMonth,
+	); err != nil {
+		return nil, err
+	}
+
+	// 3. Permintaan sparepart yang masih menunggu dibuatkan LPB.
+	if err := db.QueryRow(ctx, `
+		SELECT COUNT(*)::int FROM ticket_spareparts WHERE status = 'REQUESTED'`).
+		Scan(&out.PendingSparepartRequests); err != nil {
+		return nil, err
+	}
+
+	// 4. Top 5 tiket aktif yang melewati SLA (terlama dulu).
+	tRows, err := db.Query(ctx, `
+		SELECT t.id, t.ticket_number, t.title, c.company_name, ps.asset_tag,
+		       t.priority, t.status, t.sla_due_at,
+		       GREATEST(0, FLOOR(EXTRACT(EPOCH FROM ($1 - t.sla_due_at)) / 3600))::int AS hours_overdue
+		FROM maintenance_tickets t
+		JOIN customers c ON c.id = t.customer_id
+		JOIN product_serials ps ON ps.id = t.product_serial_id
+		WHERE t.status IN ('OPEN','ASSIGNED','IN_PROGRESS','WAITING_PART')
+		  AND t.sla_due_at IS NOT NULL
+		  AND t.sla_due_at < $1
+		ORDER BY t.sla_due_at ASC, t.id ASC
+		LIMIT 5`, now)
+	if err != nil {
+		return nil, err
+	}
+	for tRows.Next() {
+		var a domain.SLABreachTicketAlert
+		if err := tRows.Scan(
+			&a.TicketID, &a.TicketNumber, &a.Title, &a.CustomerName, &a.AssetTag,
+			&a.Priority, &a.Status, &a.SLADueAt, &a.HoursOverdue,
+		); err != nil {
+			tRows.Close()
+			return nil, err
+		}
+		out.SLABreachAlerts = append(out.SLABreachAlerts, a)
+	}
+	tRows.Close()
+	return out, tRows.Err()
+}

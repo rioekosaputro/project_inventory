@@ -45,7 +45,34 @@ type CommercialDashboardSummary struct {
 	OverdueInvoices        []OverdueInvoiceAlert
 }
 
-// WarehouseDashboardSummary merangkum metrik gudang & (opsional) komersial (plan Bagian 9.5).
+// SLABreachTicketAlert adalah satu tiket aktif yang SLA-nya sudah terlewati atau kritis (T3.11).
+type SLABreachTicketAlert struct {
+	TicketID     int64      `json:"ticket_id"`
+	TicketNumber string     `json:"ticket_number"`
+	Title        string     `json:"title"`
+	CustomerName string     `json:"customer_name"`
+	AssetTag     string     `json:"asset_tag"`
+	Priority     string     `json:"priority"`
+	Status       string     `json:"status"`
+	SLADueAt     *time.Time `json:"sla_due_at"`
+	HoursOverdue int        `json:"hours_overdue"`
+}
+
+// FieldDashboardSummary merangkum metrik lapangan & kepatuhan SLA maintenance (T3.11).
+type FieldDashboardSummary struct {
+	OpenTickets               int
+	WaitingPartTickets        int
+	SLABreachedTickets        int
+	ResolvedThisMonth         int
+	SLACompliancePct          decimal.Decimal
+	ActiveDeliveries          int
+	DeliveredToday            int
+	FailedDeliveriesThisMonth int
+	PendingSparepartRequests  int
+	SLABreachAlerts           []SLABreachTicketAlert
+}
+
+// WarehouseDashboardSummary merangkum metrik gudang, komersial, & lapangan (plan Bagian 9.5).
 type WarehouseDashboardSummary struct {
 	TotalActiveProducts   int
 	SafeStockProducts     int
@@ -60,9 +87,11 @@ type WarehouseDashboardSummary struct {
 	RecentPendingLPBs     []PendingLPBSummary
 	RecentMovements       []LedgerRow
 	Commercial            *CommercialDashboardSummary
+	Field                 *FieldDashboardSummary
 }
 
 type DashboardRepository interface {
 	WarehouseSummary(ctx context.Context, warehouseID *int64) (*WarehouseDashboardSummary, error)
 	CommercialSummary(ctx context.Context, today time.Time) (*CommercialDashboardSummary, error)
+	FieldSummary(ctx context.Context, now time.Time) (*FieldDashboardSummary, error)
 }

@@ -463,6 +463,119 @@ onMounted(async () => {
           </table>
         </div>
       </section>
+
+      <!-- Ringkasan Lapangan & SLA Maintenance (T3.11) -->
+      <template v-if="summary.field">
+        <div class="mt-6 flex items-center justify-between">
+          <h2 class="text-sm font-semibold tracking-wide text-slate-700 uppercase">
+            Lapangan &amp; SLA Maintenance
+          </h2>
+          <RouterLink to="/tickets" class="text-xs font-medium text-indigo-700 hover:underline">
+            Buka Papan Tiket →
+          </RouterLink>
+        </div>
+
+        <section class="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <RouterLink
+            to="/tickets"
+            class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+          >
+            <div class="text-xs font-medium text-slate-500">Tiket Aktif</div>
+            <div class="mt-2 font-mono text-2xl font-bold text-slate-900">
+              {{ summary.field.open_tickets }}
+            </div>
+            <div
+              class="mt-1 text-xs"
+              :class="
+                summary.field.sla_breached_tickets > 0
+                  ? 'font-semibold text-rose-700'
+                  : 'text-slate-600'
+              "
+            >
+              {{ summary.field.sla_breached_tickets }} melewati SLA ·
+              {{ summary.field.waiting_part_tickets }} tunggu part
+            </div>
+          </RouterLink>
+
+          <RouterLink
+            to="/tickets"
+            class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+          >
+            <div class="text-xs font-medium text-slate-500">Kepatuhan SLA Bulan Ini</div>
+            <div class="mt-2 font-mono text-2xl font-bold text-emerald-700">
+              {{ summary.field.sla_compliance_pct }}%
+            </div>
+            <div class="mt-1 text-xs text-slate-600">
+              {{ summary.field.resolved_this_month }} tiket selesai bulan ini
+            </div>
+          </RouterLink>
+
+          <RouterLink
+            to="/tracking/map"
+            class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+          >
+            <div class="text-xs font-medium text-slate-500">Pengiriman Lapangan</div>
+            <div class="mt-2 font-mono text-2xl font-bold text-indigo-700">
+              {{ summary.field.active_deliveries }}
+            </div>
+            <div class="mt-1 text-xs text-slate-600">
+              {{ summary.field.delivered_today }} POD hari ini ·
+              {{ summary.field.failed_deliveries_this_month }} gagal bulan ini
+            </div>
+          </RouterLink>
+
+          <RouterLink
+            to="/tickets"
+            class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+          >
+            <div class="text-xs font-medium text-slate-500">Permintaan Sparepart</div>
+            <div class="mt-2 font-mono text-2xl font-bold text-amber-700">
+              {{ summary.field.pending_sparepart_requests }}
+            </div>
+            <div class="mt-1 text-xs text-slate-600">Menunggu dibuatkan LPB gudang</div>
+          </RouterLink>
+        </section>
+
+        <section
+          v-if="summary.field.sla_breach_alerts.length > 0"
+          class="mt-4 rounded-xl border border-rose-200 bg-white p-5 shadow-sm"
+        >
+          <h3 class="text-sm font-semibold text-rose-800">
+            Peringatan Tiket Melewati Batas SLA ({{ summary.field.sla_breach_alerts.length }})
+          </h3>
+          <div class="mt-3 overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+              <thead>
+                <tr class="text-left text-slate-500">
+                  <th class="py-2 pr-3">Nomor</th>
+                  <th class="py-2 pr-3">Judul &amp; Pelanggan</th>
+                  <th class="py-2 pr-3">Unit</th>
+                  <th class="py-2 pr-3">Status</th>
+                  <th class="py-2 text-right">Terlambat</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr v-for="t in summary.field.sla_breach_alerts" :key="t.ticket_id">
+                  <td class="py-2 pr-3 font-mono font-semibold">
+                    <RouterLink :to="`/tickets/${t.ticket_id}`" :class="rowLink">
+                      {{ t.ticket_number }}
+                    </RouterLink>
+                  </td>
+                  <td class="py-2 pr-3 text-slate-900">
+                    <p class="font-medium">{{ t.title }}</p>
+                    <p class="text-slate-500">{{ t.customer_name }}</p>
+                  </td>
+                  <td class="py-2 pr-3 font-mono text-slate-700">{{ t.asset_tag }}</td>
+                  <td class="py-2 pr-3"><StatusBadge :value="t.status" /></td>
+                  <td class="py-2 text-right font-mono font-semibold text-rose-700">
+                    +{{ t.hours_overdue }} jam
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </template>
     </template>
   </div>
 </template>

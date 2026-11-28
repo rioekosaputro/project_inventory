@@ -104,6 +104,30 @@ func (f *fakeTicketRepo) MarkSparepartLPBCreated(_ context.Context, _, _ int64) 
 func (f *fakeTicketRepo) MarkSparepartIssuedByLPB(_ context.Context, _ int64) ([]domain.TicketSparepart, error) {
 	return nil, nil
 }
+func (f *fakeTicketRepo) SetSwapSO(_ context.Context, ticketID, soID int64) error {
+	t := f.tickets[ticketID]
+	t.SwapSOID = &soID
+	num := "SO/GLOBAL/202611/0001"
+	t.SwapSONumber = &num
+	return nil
+}
+
+type fakeSwapSORepo struct {
+	domain.SalesOrderRepository
+	created *domain.SalesOrder
+	items   []domain.SalesOrderItem
+}
+
+func (f *fakeSwapSORepo) Create(_ context.Context, so *domain.SalesOrder) (*domain.SalesOrder, error) {
+	cp := *so
+	cp.ID = 777
+	f.created = &cp
+	return &cp, nil
+}
+func (f *fakeSwapSORepo) ReplaceItems(_ context.Context, _ int64, items []domain.SalesOrderItem) ([]domain.SalesOrderItem, error) {
+	f.items = items
+	return items, nil
+}
 
 func TestTicketUsecase_LifecycleAndActivities(t *testing.T) {
 	ctx := context.Background()
@@ -155,4 +179,39 @@ func TestTicketUsecase_LifecycleAndActivities(t *testing.T) {
 	// 5. Transisi dari CLOSED ditolak.
 	_, err = uc.ChangeStatus(ctx, actor, det.ID, "IN_PROGRESS", nil, nil)
 	assert.ErrorIs(t, err, domain.ErrInvalidStateTransition)
+}
+
+func TestTicketUsecase_EscalateSwap(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeTicketRepo()
+	audit := &fakeTrackingAuditRepo{}
+	now := time.Date(2026, 11, 28, 11, 0, 0, 0, time.UTC)
+	contractID := int64(88)
+	soRepo := &fakeSwapSORepo{}
+	invRepo := &fakeQCInventoryRepo{
+		unit: &domain.Serial{ID: 4, ProductID: 12, AssetTag: "AST-0004", ContractID: &contractID},
+	}
+	uc := usecase.NewTicketUsecase(stubTxManager{}, repo, audit, fakeDocGen{}, clock.NewFake(now)).
+		WithSwap(soRepo, invRepo)
+
+	tech := domain.Principal{UserID: 7, Role: domain.RoleTechnician}
+	det, err := uc.Create(ctx, tech, usecase.CreateTicketInput{
+		CustomerID: 2, CustomerSiteID: 3, ProductSerialID: 4,
+		Category: "HARDWARE", Priority: "CRITICAL", Title: "Mainboard mati total",
+	})
+	require.NoError(t, err)
+
+	det, err = uc.EscalateSwap(ctx, tech, det.ID, usecase.EscalateSwapInput{})
+	require.NoError(t, err)
+	require.NotNil(t, det.SwapSOID)
+	assert.Equal(t, int64(777), *det.SwapSOID)
+	require.NotNil(t, soRepo.created)
+	assert.Equal(t, domain.OrderTypeUnitSwap, soRepo.created.OrderType)
+	require.Len(t, soRepo.items, 2)
+	assert.Equal(t, domain.DirectionIn, soRepo.items[0].Direction)
+	assert.Equal(t, domain.DirectionOut, soRepo.items[1].Direction)
+
+	// Eskalasi ulang tiket yang sama ditolak 409 Conflict.
+	_, err = uc.EscalateSwap(ctx, tech, det.ID, usecase.EscalateSwapInput{})
+	assert.ErrorIs(t, err, domain.ErrConflict)
 }

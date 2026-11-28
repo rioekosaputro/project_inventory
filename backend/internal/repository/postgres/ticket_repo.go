@@ -350,3 +350,10 @@ func (r *TicketRepo) MarkSparepartIssuedByLPB(ctx context.Context, lpbID int64) 
 	}
 	return out, rows.Err()
 }
+
+func (r *TicketRepo) SetSwapSO(ctx context.Context, ticketID, soID int64) error {
+	database.MustInTx(ctx)
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE maintenance_tickets SET swap_so_id = $2 WHERE id = $1 AND swap_so_id IS NULL`,
+		ticketID, soID))
+}

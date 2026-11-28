@@ -94,7 +94,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	).WithStorage(uploader).WithDocGen(docGen)
 	ticketUC := usecase.NewTicketUsecase(
 		txManager, ticketRepo, auditRepo, docGen, clk,
-	).WithStorage(uploader).WithLPB(lpbRepo, warehouseRepo, rackRepo)
+	).WithStorage(uploader).WithLPB(lpbRepo, warehouseRepo, rackRepo).WithSwap(soRepo, inventoryRepo)
 
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),

@@ -38,5 +38,14 @@ func (u *DashboardUsecase) Summary(ctx context.Context, actor domain.Principal, 
 		}
 		summary.Commercial = comm
 	}
+
+	// Metrik lapangan & SLA (T3.11) untuk role dengan izin tiket/tracking/peta.
+	if domain.Can(actor.Role, domain.PermTicketRead) || domain.Can(actor.Role, domain.PermTrackingRead) || domain.Can(actor.Role, domain.PermMapRead) {
+		field, err := u.repo.FieldSummary(ctx, u.clk.Now().In(clock.WIB))
+		if err != nil {
+			return nil, err
+		}
+		summary.Field = field
+	}
 	return summary, nil
 }

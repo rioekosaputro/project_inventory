@@ -56,6 +56,31 @@ export interface CommercialDashboardSummary {
   overdue_invoices: OverdueInvoiceAlert[]
 }
 
+export interface SLABreachTicketAlert {
+  ticket_id: number
+  ticket_number: string
+  title: string
+  customer_name: string
+  asset_tag: string
+  priority: string
+  status: string
+  sla_due_at: string | null
+  hours_overdue: number
+}
+
+export interface FieldDashboardSummary {
+  open_tickets: number
+  waiting_part_tickets: number
+  sla_breached_tickets: number
+  resolved_this_month: number
+  sla_compliance_pct: string
+  active_deliveries: number
+  delivered_today: number
+  failed_deliveries_this_month: number
+  pending_sparepart_requests: number
+  sla_breach_alerts: SLABreachTicketAlert[]
+}
+
 export interface WarehouseDashboardSummary {
   total_active_products: number
   safe_stock_products: number
@@ -70,6 +95,7 @@ export interface WarehouseDashboardSummary {
   recent_pending_lpbs: PendingLPBSummary[]
   recent_movements: LedgerRow[]
   commercial?: CommercialDashboardSummary
+  field?: FieldDashboardSummary
 }
 
 export const dashboardService = {

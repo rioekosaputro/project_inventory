@@ -416,6 +416,39 @@ func (h *TicketHandler) CreateSparepartLPB(c *gin.Context) {
 	})
 }
 
+type escalateSwapRequest struct {
+	ReplacementProductID *int64  `json:"replacement_product_id"`
+	Notes                *string `json:"notes" binding:"omitempty,max=500"`
+}
+
+// EscalateSwap — POST /api/v1/tickets/:id/escalate-swap (T3.10: tiket → draft SO UNIT_SWAP).
+func (h *TicketHandler) EscalateSwap(c *gin.Context) {
+	actor, ok := middleware.PrincipalFrom(c)
+	if !ok {
+		httperr.Write(c, domain.ErrUnauthorized)
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req escalateSwapRequest
+	if c.Request.ContentLength > 0 {
+		if !httperr.BindJSON(c, &req) {
+			return
+		}
+	}
+	det, err := h.uc.EscalateSwap(c.Request.Context(), actor, id, usecase.EscalateSwapInput{
+		ReplacementProductID: req.ReplacementProductID,
+		Notes:                req.Notes,
+	})
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.Created(c, ticketDetailDTO(det))
+}
+
 func ticketDTO(t *domain.MaintenanceTicket) gin.H {
 	slaBreached := t.SLADueAt != nil &&
 		t.Status != domain.TicketResolved &&

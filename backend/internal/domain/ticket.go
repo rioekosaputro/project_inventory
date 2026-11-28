@@ -197,4 +197,5 @@ type TicketRepository interface {
 	FindSparepartByIDForUpdate(ctx context.Context, id int64) (*TicketSparepart, error)
 	MarkSparepartLPBCreated(ctx context.Context, sparepartID, lpbID int64) error
 	MarkSparepartIssuedByLPB(ctx context.Context, lpbID int64) ([]TicketSparepart, error)
+	SetSwapSO(ctx context.Context, ticketID, soID int64) error
 }

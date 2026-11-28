@@ -2281,7 +2281,10 @@ volumes: { pgdata: {} }
 
 ### Fase 4 — Hardening & Production (Sprint 11–12)
 
-- [ ] **T4.1 Security review** — checklist Bagian 10, uji upload berbahaya, uji IDOR (driver A buka LPB driver B → 403).
+- [x] **T4.1 Security review** — checklist Bagian 10, uji upload berbahaya, uji IDOR (driver A buka LPB driver B → 403).
+  - Audit checklist Bagian 10 (bcrypt 12, login rate limit + `LOGIN_FAILED`, JWT 15m + refresh SHA-256 + family reuse detection, RBAC + warehouse/driver scoping, parameterized SQL, upload ≤ 5 MB + `http.DetectContentType` + UUID key + signed URL, security headers API).
+  - Menambahkan security headers & CSP dasar di `frontend/vercel.json` (`X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Content-Security-Policy`).
+  - Menambahkan `backend/internal/delivery/http/security_integration_test.go` (`TestSecurity_IDOR_MaliciousUploads_And_Headers`): menguji IDOR Driver A vs Driver B (403 pada checkpoint/fail/PDF & isolasi `my-deliveries`), upload HTML/XSS + PHP shell + file > 5 MB (422), sanitasi filename path traversal, signed URL palsu (403), dan header keamanan.
 - [ ] **T4.2 Rekonsiliasi** — job harian + halaman admin.
 - [ ] **T4.3 Audit log viewer & halaman jobs.**
 - [ ] **T4.4 Laporan** — utilisasi aset, omzet per pelanggan/bulan, aging piutang, SLA tiket, mutasi stok.

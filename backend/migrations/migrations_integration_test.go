@@ -38,7 +38,7 @@ func TestMigrations_UpDownUp_LeavesNoResidue(t *testing.T) {
 
 	pgtest.Apply(t, pool, dir, "up")
 	tables, functions := countObjects(t, pool)
-	assert.Equal(t, 39, tables, "25 Fase 1 + 5 customer/contract + 5 SO/DO + 4 billing")
+	assert.Equal(t, 43, tables, "25 Fase 1 + 14 Fase 2 + 4 Fase 3 (tracking & tickets)")
 	assert.Equal(t, 2, functions)
 
 	pgtest.Apply(t, pool, dir, "down")
@@ -48,7 +48,7 @@ func TestMigrations_UpDownUp_LeavesNoResidue(t *testing.T) {
 
 	pgtest.Apply(t, pool, dir, "up") // up lagi harus bersih
 	tables, _ = countObjects(t, pool)
-	assert.Equal(t, 39, tables)
+	assert.Equal(t, 43, tables)
 }
 
 func TestMigrations_Constraints(t *testing.T) {
@@ -161,5 +161,94 @@ func TestMigrations_Phase2CommercialConstraints(t *testing.T) {
 			INSERT INTO payments (invoice_id, payment_date, amount_received, pph23_amount, method, recorded_by)
 			VALUES ($1, '2026-12-05', 0, 0, 'TRANSFER', $2)`, invID, userID)
 		assert.Error(t, err)
+	})
+}
+
+func TestMigrations_Phase3TrackingTicketsConstraints(t *testing.T) {
+	pool := pgtest.NewPool(t)
+	pgtest.Apply(t, pool, dir, "up")
+	ctx := context.Background()
+
+	var userID, whID, catID, prodID, serialID, custID, siteID, lpbID, ticketID int64
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO users (name,email,password_hash,role) VALUES ('drv','drv@p3.id','h','DRIVER') RETURNING id`).Scan(&userID))
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO warehouses (code,name) VALUES ('WH-P3','Gudang P3') RETURNING id`).Scan(&whID))
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO categories (name,item_type) VALUES ('Printer','ASSET') RETURNING id`).Scan(&catID))
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO products (sku,name,category_id,has_serial_number) VALUES ('PRT-01','Printer A',$1,TRUE) RETURNING id`, catID).Scan(&prodID))
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO customers (customer_code, company_name, pic_name, phone, billing_address, billing_postal_code, created_by)
+		VALUES ('CUST-P3', 'PT P3', 'Cici', '0811', 'Jl. C', '50113', $1) RETURNING id`, userID).Scan(&custID))
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO customer_sites (customer_id, site_name, pic_name, pic_phone, address_line, city, province, postal_code, is_primary)
+		VALUES ($1, 'Cabang P3', 'Cici', '0811', 'Jl. C', 'Semarang', 'Jawa Tengah', '50113', TRUE) RETURNING id`, custID).Scan(&siteID))
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO product_serials (product_id, serial_number, asset_tag, status, current_customer_id)
+		VALUES ($1, 'SN-P3-1', 'AST-P3-1', 'RENTED', $2) RETURNING id`, prodID, custID).Scan(&serialID))
+	require.NoError(t, pool.QueryRow(ctx, `
+		INSERT INTO lpb_documents (lpb_number, type, sub_type, warehouse_id, created_by)
+		VALUES ('LPB/P3/01', 'OUTBOUND', 'RENTAL_DELIVERY', $1, $2) RETURNING id`, whID, userID).Scan(&lpbID))
+
+	t.Run("shipment_tracking_logs: status tidak valid ditolak dan client_event_id unik", func(t *testing.T) {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO shipment_tracking_logs (lpb_id, driver_id, status, latitude, longitude)
+			VALUES ($1, $2, 'UNKNOWN', -6.9932, 110.4203)`, lpbID, userID)
+		assert.Error(t, err)
+
+		const evID = "11111111-1111-4111-8111-111111111111"
+		_, err = pool.Exec(ctx, `
+			INSERT INTO shipment_tracking_logs (lpb_id, driver_id, status, latitude, longitude, client_event_id)
+			VALUES ($1, $2, 'IN_TRANSIT', -6.9932, 110.4203, $3)`, lpbID, userID, evID)
+		require.NoError(t, err)
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO shipment_tracking_logs (lpb_id, driver_id, status, latitude, longitude, client_event_id)
+			VALUES ($1, $2, 'IN_TRANSIT', -6.9932, 110.4203, $3)`, lpbID, userID, evID)
+		assert.Error(t, err, "client_event_id duplikat harus ditolak")
+	})
+
+	t.Run("maintenance_tickets: insert valid, trigger updated_at, dan FK sales_orders.related_ticket_id", func(t *testing.T) {
+		require.NoError(t, pool.QueryRow(ctx, `
+			INSERT INTO maintenance_tickets (ticket_number, customer_id, customer_site_id, product_serial_id, title, created_by)
+			VALUES ('TKT/2026/0001', $1, $2, $3, 'Paper jam berat', $4) RETURNING id`,
+			custID, siteID, serialID, userID).Scan(&ticketID))
+
+		var changed bool
+		require.NoError(t, pool.QueryRow(ctx, `
+			WITH old AS (SELECT updated_at AS t FROM maintenance_tickets WHERE id = $1),
+			     upd AS (UPDATE maintenance_tickets SET status = 'ASSIGNED', updated_at = NOW() - INTERVAL '1 day'
+			             WHERE id = $1 RETURNING updated_at)
+			SELECT (SELECT updated_at FROM upd) >= (SELECT t FROM old)`, ticketID).Scan(&changed))
+		assert.True(t, changed, "trg_tickets_updated harus menimpa updated_at ke NOW()")
+
+		_, err := pool.Exec(ctx, `
+			INSERT INTO sales_orders (so_number, order_type, customer_id, customer_site_id, related_ticket_id, created_by)
+			VALUES ('SO/P3/BAD', 'CONSUMABLE', $1, $2, 999999, $3)`, custID, siteID, userID)
+		assert.Error(t, err, "fk_so_ticket harus menolak ticket_id yang tidak ada")
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO sales_orders (so_number, order_type, customer_id, customer_site_id, related_ticket_id, created_by)
+			VALUES ('SO/P3/OK', 'CONSUMABLE', $1, $2, $3, $4)`, custID, siteID, ticketID, userID)
+		require.NoError(t, err)
+	})
+
+	t.Run("ticket_spareparts & ticket_activities: constraint qty dan activity_type", func(t *testing.T) {
+		_, err := pool.Exec(ctx, `
+			INSERT INTO ticket_spareparts (ticket_id, product_id, qty, requested_by)
+			VALUES ($1, $2, 0, $3)`, ticketID, prodID, userID)
+		assert.Error(t, err, "qty <= 0 harus ditolak")
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO ticket_spareparts (ticket_id, product_id, qty, is_billable, requested_by)
+			VALUES ($1, $2, 2, TRUE, $3)`, ticketID, prodID, userID)
+		require.NoError(t, err)
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO ticket_activities (ticket_id, user_id, activity_type, message)
+			VALUES ($1, $2, 'INVALID_TYPE', 'test')`, ticketID, userID)
+		assert.Error(t, err)
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO ticket_activities (ticket_id, user_id, activity_type, message, latitude, longitude)
+			VALUES ($1, $2, 'VISIT_CHECKIN', 'Tiba di lokasi', -6.9932, 110.4203)`, ticketID, userID)
+		require.NoError(t, err)
 	})
 }

@@ -58,6 +58,9 @@ type Deps struct {
 	// Penjadwalan internal jobs (T2.10).
 	Jobs *handler.JobHandler
 
+	// Berkas privat lokal via signed URL (T3.2; hanya aktif bila STORAGE_DRIVER=local).
+	Files *handler.FileHandler
+
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
 
@@ -124,6 +127,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 			middleware.RequirePermission(domain.PermDashboardRead),
 		)
 		dg.GET("/summary", deps.Dashboard.Summary)
+	}
+	if deps.Files != nil {
+		api.GET("/files", deps.Files.Serve)
 	}
 
 	return r

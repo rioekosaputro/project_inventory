@@ -13,6 +13,7 @@ import (
 	"rental-inventory-api/internal/usecase"
 	"rental-inventory-api/pkg/pagination"
 	"rental-inventory-api/pkg/response"
+	"rental-inventory-api/pkg/storage"
 )
 
 var lpbSort = pagination.SortSpec{
@@ -24,9 +25,18 @@ var lpbSort = pagination.SortSpec{
 }
 
 // LPBHandler: /lpb (permission per route di router: lpb.read / lpb.create / lpb.submit).
-type LPBHandler struct{ uc *usecase.LPBUsecase }
+type LPBHandler struct {
+	uc      *usecase.LPBUsecase
+	storage storage.Uploader
+}
 
 func NewLPBHandler(uc *usecase.LPBUsecase) *LPBHandler { return &LPBHandler{uc: uc} }
+
+// WithStorage memasang storage.Uploader untuk menyimpan foto POD secara privat (T3.2).
+func (h *LPBHandler) WithStorage(u storage.Uploader) *LPBHandler {
+	h.storage = u
+	return h
+}
 
 // List — GET /lpb
 func (h *LPBHandler) List(c *gin.Context) {

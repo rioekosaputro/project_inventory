@@ -4,6 +4,8 @@ package app
 
 import (
 	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,6 +20,7 @@ import (
 	"rental-inventory-api/pkg/docnum"
 	"rental-inventory-api/pkg/jwt"
 	"rental-inventory-api/pkg/pdf"
+	"rental-inventory-api/pkg/storage"
 )
 
 // NewRouter merakit seluruh aplikasi. Gagal bila konfigurasi keamanan tidak layak
@@ -75,6 +78,15 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	billingUC := usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk)
 	jobUC := usecase.NewJobUsecase(postgres.NewJobRepo(pool), billingUC, auditRepo, clk, logger)
 
+	uploader, localStorage, err := buildStorage(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
+	var fileHandler *handler.FileHandler
+	if localStorage != nil {
+		fileHandler = handler.NewFileHandler(localStorage)
+	}
+
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
 		Warehouses: handler.NewWarehouseHandler(usecase.NewWarehouseUsecase(txManager, warehouseRepo, auditRepo)),
@@ -103,12 +115,13 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			billingUC,
 			usecase.NewInvoiceUsecase(txManager, invoiceRepo, auditRepo, clk).WithPDF(pdfClient),
 		),
-		Jobs: handler.NewJobHandler(jobUC),
+		Jobs:  handler.NewJobHandler(jobUC),
+		Files: fileHandler,
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),
 			auditRepo, docGen, clk,
-		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(postgres.NewDeliveryPODRepo(pool))),
+		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(postgres.NewDeliveryPODRepo(pool))).WithStorage(uploader),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,
@@ -134,4 +147,40 @@ func NewJobUsecase(pool *pgxpool.Pool, clk clock.Clock, logger *slog.Logger) *us
 	docGen := docnum.New(pool)
 	billingUC := usecase.NewBillingUsecase(txManager, invoiceRepo, taxRepo, auditRepo, docGen, clk)
 	return usecase.NewJobUsecase(postgres.NewJobRepo(pool), billingUC, auditRepo, clk, logger)
+}
+
+func buildStorage(cfg *config.Config, logger *slog.Logger) (storage.Uploader, *storage.LocalStorage, error) {
+	if cfg.StorageDriver == "s3" {
+		s3st, err := storage.NewS3(storage.S3Config{
+			Endpoint:       cfg.S3Endpoint,
+			Region:         cfg.S3Region,
+			Bucket:         cfg.S3Bucket,
+			AccessKey:      cfg.S3AccessKey,
+			SecretKey:      cfg.S3SecretKey,
+			ForcePathStyle: cfg.S3ForcePathStyle,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		return s3st, nil, nil
+	}
+
+	localCfg := storage.LocalConfig{
+		BaseDir:       cfg.StorageLocalDir,
+		BaseURL:       "", // relatif terhadap origin API (/api/v1/files) agar aman di balik proxy
+		SigningSecret: cfg.JWTAccessSecret,
+	}
+	loc, err := storage.NewLocal(localCfg)
+	if err != nil {
+		// Di lingkungan serverless read-only (mis. Vercel sebelum S3 dikonfigurasi), fallback ke /tmp.
+		fallbackDir := filepath.Join(os.TempDir(), "erp-storage")
+		logger.Warn("STORAGE_LOCAL_DIR tidak dapat ditulis, fallback ke temp dir",
+			"dir", cfg.StorageLocalDir, "fallback", fallbackDir, "error", err)
+		localCfg.BaseDir = fallbackDir
+		loc, err = storage.NewLocal(localCfg)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return loc, loc, nil
 }

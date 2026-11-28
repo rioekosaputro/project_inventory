@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"rental-inventory-api/internal/domain"
 	"rental-inventory-api/internal/usecase"
 	"rental-inventory-api/pkg/response"
+	"rental-inventory-api/pkg/storage"
 )
 
 type deliverLPBRequest struct {
@@ -42,6 +44,7 @@ func (h *LPBHandler) Deliver(c *gin.Context) {
 	}
 
 	var in usecase.DeliverLPBInput
+	var uploadedKey string
 	ct := c.GetHeader("Content-Type")
 	if strings.HasPrefix(ct, "multipart/form-data") {
 		in.ReceiverName = c.PostForm("receiver_name")
@@ -52,21 +55,46 @@ func (h *LPBHandler) Deliver(c *gin.Context) {
 			in.Notes = &v
 		}
 		if fh, err := c.FormFile("photo"); err == nil && fh != nil {
-			ext := strings.ToLower(filepath.Ext(fh.Filename))
-			if ext == "" {
-				ext = ".jpg"
+			if h.storage != nil {
+				f, openErr := fh.Open()
+				if openErr != nil {
+					httperr.Write(c, openErr)
+					return
+				}
+				res, upErr := h.storage.Upload(c.Request.Context(), "pod", f)
+				_ = f.Close()
+				if upErr != nil {
+					if errors.Is(upErr, storage.ErrFileTooLarge) ||
+						errors.Is(upErr, storage.ErrInvalidMimeType) ||
+						errors.Is(upErr, storage.ErrEmptyFile) {
+						httperr.Write(c, &domain.ValidationError{
+							Message: upErr.Error(),
+							Errors:  []domain.FieldError{{Field: "photo", Message: upErr.Error()}},
+						})
+						return
+					}
+					httperr.Write(c, upErr)
+					return
+				}
+				uploadedKey = res.Key
+				in.PODPhotoPath = &res.Key
+			} else {
+				ext := strings.ToLower(filepath.Ext(fh.Filename))
+				if ext == "" {
+					ext = ".jpg"
+				}
+				buf := make([]byte, 8)
+				_, _ = rand.Read(buf)
+				relDir := filepath.Join("uploads", "pod")
+				_ = os.MkdirAll(relDir, 0o755)
+				relPath := filepath.Join(relDir, hex.EncodeToString(buf)+ext)
+				if saveErr := c.SaveUploadedFile(fh, relPath); saveErr != nil {
+					httperr.Write(c, saveErr)
+					return
+				}
+				norm := filepath.ToSlash(relPath)
+				in.PODPhotoPath = &norm
 			}
-			buf := make([]byte, 8)
-			_, _ = rand.Read(buf)
-			relDir := filepath.Join("uploads", "pod")
-			_ = os.MkdirAll(relDir, 0o755)
-			relPath := filepath.Join(relDir, hex.EncodeToString(buf)+ext)
-			if saveErr := c.SaveUploadedFile(fh, relPath); saveErr != nil {
-				httperr.Write(c, saveErr)
-				return
-			}
-			norm := filepath.ToSlash(relPath)
-			in.PODPhotoPath = &norm
 		}
 	} else {
 		var req deliverLPBRequest
@@ -83,6 +111,10 @@ func (h *LPBHandler) Deliver(c *gin.Context) {
 
 	det, err := h.uc.Deliver(c.Request.Context(), actor, id, in)
 	if err != nil {
+		// Hapus file yang sudah terunggah agar tidak menjadi orphan jika transaksi DB gagal.
+		if uploadedKey != "" && h.storage != nil {
+			_ = h.storage.Delete(c.Request.Context(), uploadedKey)
+		}
 		httperr.Write(c, err)
 		return
 	}

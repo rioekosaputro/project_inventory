@@ -193,4 +193,8 @@ type TicketRepository interface {
 	ListActivities(ctx context.Context, ticketID int64) ([]TicketActivity, error)
 	InsertActivity(ctx context.Context, a *TicketActivity) (*TicketActivity, error)
 	ListSpareparts(ctx context.Context, ticketID int64) ([]TicketSparepart, error)
+	InsertSparepart(ctx context.Context, sp *TicketSparepart) (*TicketSparepart, error)
+	FindSparepartByIDForUpdate(ctx context.Context, id int64) (*TicketSparepart, error)
+	MarkSparepartLPBCreated(ctx context.Context, sparepartID, lpbID int64) error
+	MarkSparepartIssuedByLPB(ctx context.Context, lpbID int64) ([]TicketSparepart, error)
 }

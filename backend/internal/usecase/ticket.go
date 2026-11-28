@@ -14,12 +14,15 @@ import (
 
 // TicketUsecase mengelola siklus hidup tiket maintenance teknisi (T3.8).
 type TicketUsecase struct {
-	tx      domain.TxManager
-	repo    domain.TicketRepository
-	audit   domain.AuditRepository
-	docs    domain.DocNumberGenerator
-	clock   clock.Clock
-	storage storage.Uploader
+	tx         domain.TxManager
+	repo       domain.TicketRepository
+	audit      domain.AuditRepository
+	docs       domain.DocNumberGenerator
+	clock      clock.Clock
+	storage    storage.Uploader
+	lpb        domain.LPBRepository
+	warehouses domain.WarehouseRepository
+	racks      domain.RackRepository
 }
 
 func NewTicketUsecase(
@@ -34,6 +37,14 @@ func NewTicketUsecase(
 
 func (u *TicketUsecase) WithStorage(st storage.Uploader) *TicketUsecase {
 	u.storage = st
+	return u
+}
+
+// WithLPB memasang dependensi gudang/LPB untuk pembuatan LPB SPARE_PART_ISSUE dari permintaan sparepart (T3.9).
+func (u *TicketUsecase) WithLPB(lpb domain.LPBRepository, wh domain.WarehouseRepository, racks domain.RackRepository) *TicketUsecase {
+	u.lpb = lpb
+	u.warehouses = wh
+	u.racks = racks
 	return u
 }
 

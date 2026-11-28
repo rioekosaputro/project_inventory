@@ -26,21 +26,37 @@ const (
 // DRAFT → PENDING_APPROVAL / CANCELLED (dan REJECTED → DRAFT). Tidak ada satu pun method di sini
 // yang mengubah stok atau status unit: itu hanya terjadi saat approve (CLAUDE.md invarian #1).
 type LPBUsecase struct {
-	tx         domain.TxManager
-	repo       domain.LPBRepository
-	warehouses domain.WarehouseRepository
-	racks      domain.RackRepository
-	products   domain.ProductRepository
-	suppliers  domain.SupplierRepository
-	inventory  domain.InventoryRepository
-	stock      domain.StockRepository
-	settings   domain.SettingsRepository
+	tx          domain.TxManager
+	repo        domain.LPBRepository
+	warehouses  domain.WarehouseRepository
+	racks       domain.RackRepository
+	products    domain.ProductRepository
+	suppliers   domain.SupplierRepository
+	inventory   domain.InventoryRepository
+	stock       domain.StockRepository
+	settings    domain.SettingsRepository
 	audit       domain.AuditRepository
 	docs        domain.DocNumberGenerator
 	clock       clock.Clock
 	pdfRenderer pdf.Renderer
 	appBaseURL  string
 	pod         domain.DeliveryPODRepository
+	tickets     domain.TicketRepository
+	invoices    domain.InvoiceRepository
+	taxes       domain.TaxSettingRepository
+}
+
+// WithServiceBilling memasang repo tiket/invoice/pajak agar approve LPB SPARE_PART_ISSUE
+// menandai sparepart ISSUED dan otomatis membuat draft invoice SERVICE bila is_billable=true (T3.9).
+func (u *LPBUsecase) WithServiceBilling(
+	tickets domain.TicketRepository,
+	invoices domain.InvoiceRepository,
+	taxes domain.TaxSettingRepository,
+) *LPBUsecase {
+	u.tickets = tickets
+	u.invoices = invoices
+	u.taxes = taxes
+	return u
 }
 
 func NewLPBUsecase(

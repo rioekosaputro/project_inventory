@@ -2,24 +2,12 @@ import { api } from '@/lib/axios'
 import type { ListParams, Page } from '@/services/masterService'
 
 export type TicketStatus =
-  | 'OPEN'
-  | 'ASSIGNED'
-  | 'IN_PROGRESS'
-  | 'WAITING_PART'
-  | 'RESOLVED'
-  | 'CLOSED'
-  | 'CANCELLED'
+  'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'WAITING_PART' | 'RESOLVED' | 'CLOSED' | 'CANCELLED'
 
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
 export type TicketCategory =
-  | 'PAPER_JAM'
-  | 'PRINT_QUALITY'
-  | 'HARDWARE'
-  | 'SOFTWARE'
-  | 'NETWORK'
-  | 'PREVENTIVE'
-  | 'OTHER'
+  'PAPER_JAM' | 'PRINT_QUALITY' | 'HARDWARE' | 'SOFTWARE' | 'NETWORK' | 'PREVENTIVE' | 'OTHER'
 
 export interface MaintenanceTicket {
   id: number
@@ -61,7 +49,8 @@ export interface TicketActivity {
   ticket_id: number
   user_id: number
   user_name: string
-  activity_type: 'COMMENT' | 'STATUS_CHANGE' | 'ASSIGN' | 'VISIT_CHECKIN' | 'VISIT_CHECKOUT' | 'PHOTO'
+  activity_type:
+    'COMMENT' | 'STATUS_CHANGE' | 'ASSIGN' | 'VISIT_CHECKIN' | 'VISIT_CHECKOUT' | 'PHOTO'
   message: string | null
   from_status: string | null
   to_status: string | null
@@ -154,5 +143,22 @@ export const ticketService = {
       })
     }
     return api.post<TicketActivity>(`/tickets/${id}/activities`, payload)
+  },
+
+  requestSparepart(
+    ticketId: number,
+    payload: { product_id: number; qty: number; is_billable: boolean; notes?: string },
+  ): Promise<TicketDetail> {
+    return api.post<TicketDetail>(`/tickets/${ticketId}/spareparts`, payload)
+  },
+
+  createSparepartLpb(
+    sparepartId: number,
+    payload: { warehouse_id: number; rack_id: number; notes?: string },
+  ): Promise<{ lpb_id: number; lpb_number: string; status: string }> {
+    return api.post<{ lpb_id: number; lpb_number: string; status: string }>(
+      `/ticket-spareparts/${sparepartId}/lpb`,
+      payload,
+    )
   },
 }

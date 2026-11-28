@@ -87,13 +87,14 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		fileHandler = handler.NewFileHandler(localStorage)
 	}
 
+	ticketRepo := postgres.NewTicketRepo(pool)
 	deliveryPODRepo := postgres.NewDeliveryPODRepo(pool)
 	trackingUC := usecase.NewTrackingUsecase(
 		txManager, postgres.NewTrackingRepo(pool), lpbRepo, stockRepo, deliveryPODRepo, auditRepo, clk,
 	).WithStorage(uploader).WithDocGen(docGen)
 	ticketUC := usecase.NewTicketUsecase(
-		txManager, postgres.NewTicketRepo(pool), auditRepo, docGen, clk,
-	).WithStorage(uploader)
+		txManager, ticketRepo, auditRepo, docGen, clk,
+	).WithStorage(uploader).WithLPB(lpbRepo, warehouseRepo, rackRepo)
 
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
@@ -131,7 +132,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),
 			auditRepo, docGen, clk,
-		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(deliveryPODRepo)).WithStorage(uploader),
+		).WithPDF(pdfClient, cfg.AppBaseURL).WithPOD(deliveryPODRepo).WithServiceBilling(ticketRepo, invoiceRepo, taxRepo)).WithStorage(uploader),
 		Auth: handler.NewAuthHandler(authUC, handler.AuthSettings{
 			RefreshMode:  cfg.AuthRefreshMode,
 			CookieSecure: cfg.CookieSecure,

@@ -2268,7 +2268,9 @@ volumes: { pgdata: {} }
 - [x] **T3.8 Tiket** — CRUD, assign, status, aktivitas (komentar, foto, check-in GPS), papan kanban.
   - Backend: `domain/ticket.go`, `postgres/ticket_repo.go`, `usecase/ticket.go` (+ `ticket_test.go`), `handler/ticket.go`, `router.go`, `app.go` (`GET/POST /tickets`, `GET/PATCH /tickets/:id`, `POST /tickets/:id/{assign,status,activities}` dengan upload foto privat via `storage.Uploader` + signed URL dan auto-SLA per prioritas).
   - Frontend: `services/ticketService.ts`, `views/tickets/{TicketListView,TicketDetailView}.vue` (`/tickets` mode Kanban & Tabel + buat tiket, `/tickets/:id` assign, ubah status, check-in/out GPS, unggah foto kompresi `< 300 KB`), `router/index.ts`, & `views/__tests__/TicketViews.spec.ts`.
-- [ ] **T3.9 Sparepart** — permintaan → LPB `SPARE_PART_ISSUE` → ISSUED; flag `is_billable` → invoice SERVICE.
+- [x] **T3.9 Sparepart** — permintaan → LPB `SPARE_PART_ISSUE` → ISSUED; flag `is_billable` → invoice SERVICE.
+  - Backend: `POST /tickets/:id/spareparts` (`PermTicketWork`, otomatis ubah status tiket ke `WAITING_PART`), `POST /ticket-spareparts/:id/lpb` (`PermLPBCreate`, membuat draft LPB `SPARE_PART_ISSUE`), serta `LPBUsecase.Approve` (`applySparePartIssue`, menandai `ticket_spareparts → ISSUED`, dan membuat draft invoice `SERVICE` + PMK 131/2024 otomatis bila `is_billable = true`).
+  - Frontend: `ticketService.ts` (`requestSparepart`, `createSparepartLpb`) & panel **"Permintaan Sparepart"** di `TicketDetailView.vue`.
 - [ ] **T3.10 Eskalasi swap** — tiket → SO `UNIT_SWAP`.
 - [ ] **T3.11 SLA & dashboard lapangan.**
   **🎯 Milestone M3:** semua fitur blueprint selesai di staging.

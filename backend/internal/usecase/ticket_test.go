@@ -91,6 +91,19 @@ func (f *fakeTicketRepo) InsertActivity(_ context.Context, a *domain.TicketActiv
 func (f *fakeTicketRepo) ListSpareparts(_ context.Context, _ int64) ([]domain.TicketSparepart, error) {
 	return nil, nil
 }
+func (f *fakeTicketRepo) InsertSparepart(_ context.Context, sp *domain.TicketSparepart) (*domain.TicketSparepart, error) {
+	cp := *sp
+	cp.ID = 1
+	cp.Status = "REQUESTED"
+	return &cp, nil
+}
+func (f *fakeTicketRepo) FindSparepartByIDForUpdate(_ context.Context, _ int64) (*domain.TicketSparepart, error) {
+	return &domain.TicketSparepart{ID: 1, TicketID: 1, ProductID: 5, Qty: 2, Status: "REQUESTED", IsBillable: true}, nil
+}
+func (f *fakeTicketRepo) MarkSparepartLPBCreated(_ context.Context, _, _ int64) error { return nil }
+func (f *fakeTicketRepo) MarkSparepartIssuedByLPB(_ context.Context, _ int64) ([]domain.TicketSparepart, error) {
+	return nil, nil
+}
 
 func TestTicketUsecase_LifecycleAndActivities(t *testing.T) {
 	ctx := context.Background()

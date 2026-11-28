@@ -277,3 +277,76 @@ func (r *TicketRepo) ListSpareparts(ctx context.Context, ticketID int64) ([]doma
 	}
 	return out, rows.Err()
 }
+
+func (r *TicketRepo) InsertSparepart(ctx context.Context, sp *domain.TicketSparepart) (*domain.TicketSparepart, error) {
+	database.MustInTx(ctx)
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		INSERT INTO ticket_spareparts (ticket_id, product_id, qty, status, is_billable, requested_by, notes)
+		VALUES ($1, $2, $3, 'REQUESTED', $4, $5, $6)
+		RETURNING id, status, requested_at`,
+		sp.TicketID, sp.ProductID, sp.Qty, sp.IsBillable, sp.RequestedBy, sp.Notes,
+	).Scan(&sp.ID, &sp.Status, &sp.RequestedAt)
+	if err != nil {
+		return nil, err
+	}
+	return sp, nil
+}
+
+func (r *TicketRepo) FindSparepartByIDForUpdate(ctx context.Context, id int64) (*domain.TicketSparepart, error) {
+	database.MustInTx(ctx)
+	var sp domain.TicketSparepart
+	err := database.GetExecutor(ctx, r.pool).QueryRow(ctx, `
+		SELECT ts.id, ts.ticket_id, ts.product_id, p.sku, p.name, ts.qty, ts.status,
+		       ts.lpb_id, l.lpb_number, ts.is_billable,
+		       ts.requested_by, u.name, ts.requested_at, ts.notes
+		FROM ticket_spareparts ts
+		JOIN products p ON p.id = ts.product_id
+		JOIN users u ON u.id = ts.requested_by
+		LEFT JOIN lpb_documents l ON l.id = ts.lpb_id
+		WHERE ts.id = $1
+		FOR UPDATE OF ts`, id).Scan(
+		&sp.ID, &sp.TicketID, &sp.ProductID, &sp.SKU, &sp.ProductName, &sp.Qty, &sp.Status,
+		&sp.LPBID, &sp.LPBNumber, &sp.IsBillable,
+		&sp.RequestedBy, &sp.RequestedByName, &sp.RequestedAt, &sp.Notes,
+	)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	return &sp, nil
+}
+
+func (r *TicketRepo) MarkSparepartLPBCreated(ctx context.Context, sparepartID, lpbID int64) error {
+	database.MustInTx(ctx)
+	return mustAffectOne(database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE ticket_spareparts
+		SET status = 'LPB_CREATED', lpb_id = $2
+		WHERE id = $1 AND status = 'REQUESTED'`, sparepartID, lpbID))
+}
+
+func (r *TicketRepo) MarkSparepartIssuedByLPB(ctx context.Context, lpbID int64) ([]domain.TicketSparepart, error) {
+	database.MustInTx(ctx)
+	rows, err := database.GetExecutor(ctx, r.pool).Query(ctx, `
+		UPDATE ticket_spareparts ts
+		SET status = 'ISSUED'
+		FROM products p
+		WHERE ts.lpb_id = $1 AND ts.status = 'LPB_CREATED' AND p.id = ts.product_id
+		RETURNING ts.id, ts.ticket_id, ts.product_id, p.sku, p.name, ts.qty, ts.status,
+		          ts.lpb_id, ts.is_billable, ts.requested_by, ts.requested_at, ts.notes`, lpbID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.TicketSparepart
+	for rows.Next() {
+		var sp domain.TicketSparepart
+		if err := rows.Scan(
+			&sp.ID, &sp.TicketID, &sp.ProductID, &sp.SKU, &sp.ProductName, &sp.Qty, &sp.Status,
+			&sp.LPBID, &sp.IsBillable, &sp.RequestedBy, &sp.RequestedAt, &sp.Notes,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, sp)
+	}
+	return out, rows.Err()
+}

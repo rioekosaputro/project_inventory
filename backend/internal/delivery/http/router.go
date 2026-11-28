@@ -499,4 +499,8 @@ func registerTicketRoutes(api *gin.RouterGroup, deps Deps) {
 	g.POST("/:id/assign", write, h.Assign)
 	g.POST("/:id/status", work, h.ChangeStatus)
 	g.POST("/:id/activities", work, h.AddActivity)
+	g.POST("/:id/spareparts", work, h.RequestSparepart)
+
+	lpbCreate := middleware.RequirePermission(domain.PermLPBCreate)
+	api.POST("/ticket-spareparts/:id/lpb", authn, lpbCreate, h.CreateSparepartLPB)
 }

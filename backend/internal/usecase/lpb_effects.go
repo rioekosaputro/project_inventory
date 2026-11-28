@@ -199,6 +199,40 @@ func (u *LPBUsecase) applyDisposal(ctx context.Context, actor domain.Principal, 
 	return entriesFor(results, l.ID), nil
 }
 
+// applySparePartIssue: SPARE_PART_ISSUE — saldo berkurang dari rak asal; unit SN (jika ada) AVAILABLE → RETIRED (terpasang di unit pelanggan).
+func (u *LPBUsecase) applySparePartIssue(ctx context.Context, actor domain.Principal, l *domain.LPB, items []domain.LPBItem) ([]map[string]any, error) {
+	moves := make([]stockMove, 0, len(items))
+	for _, it := range items {
+		ids, err := unitIDs(it)
+		if err != nil {
+			return nil, err
+		}
+		moves = append(moves, stockMove{lpb: l, item: it, rackID: it.RackID, direction: "OUT", serialIDs: ids})
+	}
+	results, err := u.applyMoves(ctx, actor, moves)
+	if err != nil {
+		return nil, err
+	}
+
+	units, err := u.lockUnits(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range items {
+		for _, s := range it.Serials {
+			cur := units[*s.ProductSerialID]
+			rack := it.RackID
+			if err := expectUnit(cur, it.ProductID, domain.SerialAvailable, &rack, it.RackCode); err != nil {
+				return nil, err
+			}
+			if err := u.moveUnit(ctx, actor, cur, domain.SerialRetired, nil, nil, l); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return entriesFor(results, l.ID), nil
+}
+
 // applyTransferIn: TRANSFER_IN (pasangan transfer antar gudang) — saldo rak tujuan bertambah; unit
 // IN_TRANSIT → AVAILABLE di rak tujuan.
 func (u *LPBUsecase) applyTransferIn(ctx context.Context, actor domain.Principal, l *domain.LPB, items []domain.LPBItem) ([]map[string]any, error) {

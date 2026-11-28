@@ -4,12 +4,18 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	"github.com/shopspring/decimal"
+
 	"rental-inventory-api/internal/domain"
+	"rental-inventory-api/pkg/docnum"
+	"rental-inventory-api/pkg/money"
 )
 
 const (
@@ -24,7 +30,8 @@ const (
 func approvable(s domain.LPBSubType) bool {
 	switch s {
 	case domain.LPBPurchase, domain.LPBInitialStock, domain.LPBTransferIn, domain.LPBTransferOut, domain.LPBDisposal,
-		domain.LPBRentalDelivery, domain.LPBConsumableDelivery, domain.LPBRentalReturn, domain.LPBFailedDeliveryRet:
+		domain.LPBRentalDelivery, domain.LPBConsumableDelivery, domain.LPBRentalReturn, domain.LPBFailedDeliveryRet,
+		domain.LPBSparePartIssue:
 		return true
 	}
 	return false
@@ -114,6 +121,8 @@ func (u *LPBUsecase) Approve(ctx context.Context, actor domain.Principal, id int
 			summary, err = u.applyDeliveryOut(ctx, actor, l, items)
 		case domain.LPBRentalReturn, domain.LPBFailedDeliveryRet:
 			summary, err = u.applyRentalReturn(ctx, actor, l, items, racks)
+		case domain.LPBSparePartIssue:
+			summary, err = u.applySparePartIssue(ctx, actor, l, items)
 		}
 		if err != nil {
 			return err
@@ -130,6 +139,18 @@ func (u *LPBUsecase) Approve(ctx context.Context, actor domain.Principal, id int
 		if l.SubType == domain.LPBRentalReturn && l.ReferenceType != nil && *l.ReferenceType == "DELIVERY_ORDER" && l.ReferenceID != nil && u.pod != nil {
 			if err := u.pod.CompleteDOAndMaybeSO(ctx, *l.ReferenceID); err != nil {
 				return err
+			}
+		}
+		if l.SubType == domain.LPBSparePartIssue && u.tickets != nil {
+			issued, err := u.tickets.MarkSparepartIssuedByLPB(ctx, l.ID)
+			if err != nil {
+				return err
+			}
+			if invNum, invID, err := u.maybeCreateServiceInvoice(ctx, actor, l, issued, now); err != nil {
+				return err
+			} else if invID != nil {
+				extra["service_invoice_id"] = *invID
+				extra["service_invoice_number"] = invNum
 			}
 		}
 		after := map[string]any{"status": string(domain.LPBApproved), "items": summary}
@@ -270,4 +291,85 @@ func newVerifyToken() (string, error) {
 		return "", fmt.Errorf("gagal membuat token verifikasi: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// maybeCreateServiceInvoice membuat draft invoice SERVICE bila terdapat sparepart is_billable=true (T3.9).
+func (u *LPBUsecase) maybeCreateServiceInvoice(
+	ctx context.Context,
+	actor domain.Principal,
+	l *domain.LPB,
+	issued []domain.TicketSparepart,
+	now time.Time,
+) (string, *int64, error) {
+	if u.invoices == nil || u.taxes == nil || l.CustomerID == nil {
+		return "", nil, nil
+	}
+	var billable []domain.TicketSparepart
+	for _, sp := range issued {
+		if sp.IsBillable {
+			billable = append(billable, sp)
+		}
+	}
+	if len(billable) == 0 {
+		return "", nil, nil
+	}
+
+	var invItems []domain.InvoiceItem
+	subtotal := decimal.Zero
+	for _, sp := range billable {
+		unitPrice := decimal.Zero
+		if prod, err := u.products.FindByID(ctx, sp.ProductID); err == nil && prod.DefaultSellPrice != nil {
+			unitPrice = *prod.DefaultSellPrice
+		}
+		qtyDec := decimal.NewFromInt(int64(sp.Qty))
+		lineTotal := money.Round2(unitPrice.Mul(qtyDec))
+		subtotal = subtotal.Add(lineTotal)
+		desc := fmt.Sprintf("Sparepart %s (%s) — %s", sp.ProductName, sp.SKU, l.Number)
+		invItems = append(invItems, domain.InvoiceItem{
+			Description: desc,
+			Qty:         qtyDec,
+			UnitPrice:   unitPrice,
+			LineTotal:   lineTotal,
+		})
+	}
+
+	rule := money.PMK131Rule()
+	if ts, err := u.taxes.FindEffective(ctx, domain.TaxCodePPN, now); err == nil {
+		rule = ts.ToMoneyRule()
+	} else if !errors.Is(err, domain.ErrNotFound) {
+		return "", nil, err
+	}
+	tb, err := money.CalculateTax(subtotal, decimal.Zero, true, rule)
+	if err != nil {
+		return "", nil, err
+	}
+
+	num, err := u.docs.Next(ctx, "INV", docnum.ScopeGlobal, now)
+	if err != nil {
+		return "", nil, err
+	}
+	uid := actor.UserID
+	note := fmt.Sprintf("Tagihan sparepart billable dari %s", l.Number)
+	created, err := u.invoices.CreateInvoiceWithItems(ctx, &domain.Invoice{
+		InvoiceNumber:  num,
+		InvoiceType:    domain.InvoiceTypeService,
+		CustomerID:     *l.CustomerID,
+		InvoiceDate:    now,
+		DueDate:        now.AddDate(0, 0, 14),
+		Status:         domain.InvoiceDraft,
+		IsPPN:          true,
+		Subtotal:       tb.Subtotal,
+		DiscountAmount: tb.DiscountAmount,
+		DPP:            tb.DPP,
+		DPPOtherValue:  tb.DPPOtherValue,
+		TaxRate:        tb.TaxRate,
+		TaxAmount:      tb.TaxAmount,
+		GrandTotal:     tb.GrandTotal,
+		Notes:          &note,
+		CreatedBy:      &uid,
+	}, invItems)
+	if err != nil {
+		return "", nil, err
+	}
+	return created.InvoiceNumber, &created.ID, nil
 }

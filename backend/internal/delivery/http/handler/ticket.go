@@ -344,6 +344,78 @@ func (h *TicketHandler) AddActivity(c *gin.Context) {
 	response.Created(c, ticketActivityDTO(act))
 }
 
+type requestSparepartRequest struct {
+	ProductID  int64   `json:"product_id" binding:"required"`
+	Qty        int     `json:"qty" binding:"required,min=1"`
+	IsBillable bool    `json:"is_billable"`
+	Notes      *string `json:"notes"`
+}
+
+type createSparepartLPBRequest struct {
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	RackID      int64   `json:"rack_id" binding:"required"`
+	Notes       *string `json:"notes"`
+}
+
+// RequestSparepart — POST /api/v1/tickets/:id/spareparts (T3.9).
+func (h *TicketHandler) RequestSparepart(c *gin.Context) {
+	actor, ok := middleware.PrincipalFrom(c)
+	if !ok {
+		httperr.Write(c, domain.ErrUnauthorized)
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req requestSparepartRequest
+	if !httperr.BindJSON(c, &req) {
+		return
+	}
+	det, err := h.uc.RequestSparepart(c.Request.Context(), actor, id, usecase.RequestSparepartInput{
+		ProductID:  req.ProductID,
+		Qty:        req.Qty,
+		IsBillable: req.IsBillable,
+		Notes:      req.Notes,
+	})
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.Created(c, ticketDetailDTO(det))
+}
+
+// CreateSparepartLPB — POST /api/v1/ticket-spareparts/:id/lpb (T3.9).
+func (h *TicketHandler) CreateSparepartLPB(c *gin.Context) {
+	actor, ok := middleware.PrincipalFrom(c)
+	if !ok {
+		httperr.Write(c, domain.ErrUnauthorized)
+		return
+	}
+	spID, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req createSparepartLPBRequest
+	if !httperr.BindJSON(c, &req) {
+		return
+	}
+	lpbDoc, err := h.uc.CreateSparepartLPB(c.Request.Context(), actor, spID, usecase.CreateSparepartLPBInput{
+		WarehouseID: req.WarehouseID,
+		RackID:      req.RackID,
+		Notes:       req.Notes,
+	})
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.Created(c, gin.H{
+		"lpb_id":     lpbDoc.ID,
+		"lpb_number": lpbDoc.Number,
+		"status":     lpbDoc.Status,
+	})
+}
+
 func ticketDTO(t *domain.MaintenanceTicket) gin.H {
 	slaBreached := t.SLADueAt != nil &&
 		t.Status != domain.TicketResolved &&

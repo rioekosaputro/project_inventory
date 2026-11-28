@@ -334,7 +334,7 @@ func (h *TrackingHandler) Fail(c *gin.Context) {
 		return
 	}
 
-	logEntry, idempotent, err := h.uc.Fail(c.Request.Context(), actor, lpbID, usecase.DriverFailInput{
+	res, err := h.uc.Fail(c.Request.Context(), actor, lpbID, usecase.DriverFailInput{
 		Reason:        req.Reason,
 		Latitude:      *lat,
 		Longitude:     *lng,
@@ -348,8 +348,10 @@ func (h *TrackingHandler) Fail(c *gin.Context) {
 		return
 	}
 	response.OK(c, gin.H{
-		"checkpoint": trackingLogDTO(logEntry),
-		"idempotent": idempotent,
+		"checkpoint":        trackingLogDTO(res.Log),
+		"idempotent":        res.Idempotent,
+		"return_lpb_id":     res.ReturnLPBID,
+		"return_lpb_number": res.ReturnLPBNumber,
 	})
 }
 

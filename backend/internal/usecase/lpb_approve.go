@@ -24,7 +24,7 @@ const (
 func approvable(s domain.LPBSubType) bool {
 	switch s {
 	case domain.LPBPurchase, domain.LPBInitialStock, domain.LPBTransferIn, domain.LPBTransferOut, domain.LPBDisposal,
-		domain.LPBRentalDelivery, domain.LPBConsumableDelivery, domain.LPBRentalReturn:
+		domain.LPBRentalDelivery, domain.LPBConsumableDelivery, domain.LPBRentalReturn, domain.LPBFailedDeliveryRet:
 		return true
 	}
 	return false
@@ -112,7 +112,7 @@ func (u *LPBUsecase) Approve(ctx context.Context, actor domain.Principal, id int
 			summary, err = u.applyTransferOut(ctx, actor, l, items, now, extra)
 		case domain.LPBRentalDelivery, domain.LPBConsumableDelivery:
 			summary, err = u.applyDeliveryOut(ctx, actor, l, items)
-		case domain.LPBRentalReturn:
+		case domain.LPBRentalReturn, domain.LPBFailedDeliveryRet:
 			summary, err = u.applyRentalReturn(ctx, actor, l, items, racks)
 		}
 		if err != nil {

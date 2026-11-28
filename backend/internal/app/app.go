@@ -90,7 +90,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	deliveryPODRepo := postgres.NewDeliveryPODRepo(pool)
 	trackingUC := usecase.NewTrackingUsecase(
 		txManager, postgres.NewTrackingRepo(pool), lpbRepo, stockRepo, deliveryPODRepo, auditRepo, clk,
-	).WithStorage(uploader)
+	).WithStorage(uploader).WithDocGen(docGen)
 
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),

@@ -27,6 +27,7 @@ type TrackingUsecase struct {
 	stock    domain.StockRepository
 	pod      domain.DeliveryPODRepository
 	audit    domain.AuditRepository
+	docs     domain.DocNumberGenerator
 	clock    clock.Clock
 	storage  storage.Uploader
 }
@@ -53,6 +54,12 @@ func NewTrackingUsecase(
 
 func (u *TrackingUsecase) WithStorage(st storage.Uploader) *TrackingUsecase {
 	u.storage = st
+	return u
+}
+
+// WithDocGen memasang generator nomor dokumen untuk pembuatan otomatis draft LPB FAILED_DELIVERY_RETURN (T3.6).
+func (u *TrackingUsecase) WithDocGen(docs domain.DocNumberGenerator) *TrackingUsecase {
+	u.docs = docs
 	return u
 }
 
@@ -92,6 +99,13 @@ type DriverFailInput struct {
 	ClientTime    *time.Time
 	ClientEventID *string
 	Notes         *string
+}
+
+type DriverFailResult struct {
+	Log             *domain.ShipmentTrackingLog
+	Idempotent      bool
+	ReturnLPBID     *int64
+	ReturnLPBNumber *string
 }
 
 type DriverPickupInput struct {
@@ -370,8 +384,9 @@ func (u *TrackingUsecase) Deliver(ctx context.Context, actor domain.Principal, l
 	}, nil
 }
 
-// Fail menandai pengiriman gagal (FAILED) beserta alasan wajib & checkpoint GPS.
-func (u *TrackingUsecase) Fail(ctx context.Context, actor domain.Principal, lpbID int64, in DriverFailInput) (*domain.ShipmentTrackingLog, bool, error) {
+// Fail menandai pengiriman gagal (FAILED) beserta alasan wajib & checkpoint GPS,
+// lalu secara otomatis membuat draft LPB INBOUND `FAILED_DELIVERY_RETURN` (T3.6).
+func (u *TrackingUsecase) Fail(ctx context.Context, actor domain.Principal, lpbID int64, in DriverFailInput) (*DriverFailResult, error) {
 	reason := strings.TrimSpace(in.Reason)
 	var errs []domain.FieldError
 	if n := utf8.RuneCountInString(reason); n < 3 || n > 500 {
@@ -383,17 +398,17 @@ func (u *TrackingUsecase) Fail(ctx context.Context, actor domain.Principal, lpbI
 		errs = append(errs, *evErr)
 	}
 	if len(errs) > 0 {
-		return nil, false, &domain.ValidationError{Message: "Data gagal kirim tidak valid", Errors: errs}
+		return nil, &domain.ValidationError{Message: "Data gagal kirim tidak valid", Errors: errs}
 	}
 
 	if eventID != nil {
 		if existing, err := u.tracking.FindByClientEventID(ctx, *eventID); err != nil {
-			return nil, false, err
+			return nil, err
 		} else if existing != nil {
 			if existing.LPBID != lpbID || (actor.Role != domain.RoleAdmin && existing.DriverID != actor.UserID) {
-				return nil, false, domain.ErrForbidden
+				return nil, domain.ErrForbidden
 			}
-			return existing, true, nil
+			return &DriverFailResult{Log: existing, Idempotent: true}, nil
 		}
 	}
 
@@ -411,6 +426,9 @@ func (u *TrackingUsecase) Fail(ctx context.Context, actor domain.Principal, lpbI
 		FailureReason: &reason,
 		Notes:         cleanOpt(in.Notes),
 	}
+
+	var retLPBID *int64
+	var retLPBNum *string
 
 	err := u.tx.WithinTransaction(ctx, func(ctx context.Context) error {
 		l, err := u.lpb.FindByIDForUpdate(ctx, lpbID)
@@ -432,21 +450,93 @@ func (u *TrackingUsecase) Fail(ctx context.Context, actor domain.Principal, lpbI
 		if err := u.tracking.UpdateLPBDeliveryStatus(ctx, l.ID, domain.TrackingFailed); err != nil {
 			return err
 		}
+
+		// Buat otomatis draft LPB INBOUND FAILED_DELIVERY_RETURN agar barang yang kembali
+		// bisa langsung di-approve Kepala Gudang tanpa input ulang manual (plan Bagian 5.8, T3.6).
+		if u.docs != nil {
+			items, err := u.lpb.Items(ctx, l.ID)
+			if err != nil {
+				return err
+			}
+			whScope := l.WarehouseCode
+			if whScope == "" {
+				whScope = fmt.Sprintf("WH%d", l.WarehouseID)
+			}
+			num, err := u.docs.Next(ctx, "LPBI", whScope, now)
+			if err != nil {
+				return err
+			}
+			refType := "LPB"
+			refNum := l.Number
+			retNote := "Retur otomatis gagal kirim: " + reason
+			created, err := u.lpb.Create(ctx, &domain.LPB{
+				Number:          num,
+				Type:            domain.LPBInbound,
+				SubType:         domain.LPBFailedDeliveryRet,
+				Status:          domain.LPBDraft,
+				WarehouseID:     l.WarehouseID,
+				DocDate:         clock.DateWIB(now),
+				ReferenceType:   &refType,
+				ReferenceID:     &l.ID,
+				ReferenceNumber: &refNum,
+				CustomerID:      l.CustomerID,
+				CustomerSiteID:  l.CustomerSiteID,
+				Notes:           &retNote,
+				CreatedBy:       actor.UserID,
+			})
+			if err != nil {
+				return err
+			}
+			for _, it := range items {
+				newItemID, err := u.lpb.InsertItem(ctx, created.ID, &domain.LPBItem{
+					ProductID: it.ProductID,
+					RackID:    it.RackID,
+					Qty:       it.Qty,
+					Notes:     it.Notes,
+				})
+				if err != nil {
+					return err
+				}
+				for _, sc := range it.Serials {
+					if _, err := u.lpb.InsertItemSerial(ctx, &domain.LPBItemSerial{
+						LPBItemID:       newItemID,
+						ProductSerialID: sc.ProductSerialID,
+						SerialNumber:    sc.SerialNumber,
+						Condition:       domain.ConditionGood,
+					}); err != nil {
+						return err
+					}
+				}
+			}
+			retLPBID = &created.ID
+			retLPBNum = &created.Number
+		}
+
+		after := map[string]any{
+			"delivery_status": "FAILED",
+			"failure_reason":  reason,
+			"driver_id":       actor.UserID,
+		}
+		if retLPBID != nil {
+			after["return_lpb_id"] = *retLPBID
+			after["return_lpb_number"] = *retLPBNum
+		}
 		return u.audit.Insert(ctx, domain.AuditEntry{
 			Action:     "LPB_DELIVERY_FAILED",
 			EntityType: domain.EntityLPB,
 			EntityID:   &l.ID,
-			After: map[string]any{
-				"delivery_status": "FAILED",
-				"failure_reason":  reason,
-				"driver_id":       actor.UserID,
-			},
+			After:      after,
 		})
 	})
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return logEntry, false, nil
+	return &DriverFailResult{
+		Log:             logEntry,
+		Idempotent:      false,
+		ReturnLPBID:     retLPBID,
+		ReturnLPBNumber: retLPBNum,
+	}, nil
 }
 
 // Pickup menandai unit retur (RENTAL_RETURN) sudah dijemput driver di lokasi pelanggan:

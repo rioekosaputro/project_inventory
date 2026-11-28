@@ -70,8 +70,11 @@ func (f *fakeTrackingRepo) SiteCoordinates(_ context.Context, _ int64) (*domain.
 
 type fakeTrackingLPBRepo struct {
 	domain.LPBRepository
-	lpb   *domain.LPB
-	items []domain.LPBItem
+	lpb            *domain.LPB
+	items          []domain.LPBItem
+	createdLPBs    []*domain.LPB
+	insertedItems  int
+	insertedSerial int
 }
 
 func (f *fakeTrackingLPBRepo) FindByIDForUpdate(_ context.Context, _ int64) (*domain.LPB, error) {
@@ -82,6 +85,26 @@ func (f *fakeTrackingLPBRepo) FindByID(_ context.Context, _ int64) (*domain.LPB,
 }
 func (f *fakeTrackingLPBRepo) Items(_ context.Context, _ int64) ([]domain.LPBItem, error) {
 	return f.items, nil
+}
+func (f *fakeTrackingLPBRepo) Create(_ context.Context, l *domain.LPB) (*domain.LPB, error) {
+	cp := *l
+	cp.ID = int64(500 + len(f.createdLPBs))
+	f.createdLPBs = append(f.createdLPBs, &cp)
+	return &cp, nil
+}
+func (f *fakeTrackingLPBRepo) InsertItem(_ context.Context, _ int64, _ *domain.LPBItem) (int64, error) {
+	f.insertedItems++
+	return int64(600 + f.insertedItems), nil
+}
+func (f *fakeTrackingLPBRepo) InsertItemSerial(_ context.Context, s *domain.LPBItemSerial) (*domain.LPBItemSerial, error) {
+	f.insertedSerial++
+	return s, nil
+}
+
+type fakeDocGen struct{ domain.DocNumberGenerator }
+
+func (fakeDocGen) Next(_ context.Context, prefix, scope string, _ time.Time) (string, error) {
+	return prefix + "/" + scope + "/202611/0001", nil
 }
 
 type fakeTrackingStockRepo struct {
@@ -246,18 +269,25 @@ func TestTrackingUsecase_DeliverWithDistanceWarningAndFail(t *testing.T) {
 	require.NotNil(t, res.DistanceWarning)
 	assert.Contains(t, *res.DistanceWarning, "> 500 m")
 
-	// Uji Fail pada LPB lain.
+	// Uji Fail pada LPB lain → otomatis membuat draft LPB FAILED_DELIVERY_RETURN.
+	uc.WithDocGen(fakeDocGen{})
 	lpbRepo.lpb = &domain.LPB{
 		ID: 3, Number: "LPB/03", Status: domain.LPBApproved, SubType: domain.LPBRentalDelivery,
-		RequiresDelivery: true, DriverID: &driverID,
+		WarehouseID: 1, WarehouseCode: "WH-SMG", RequiresDelivery: true, DriverID: &driverID,
 	}
-	failLog, idem, err := uc.Fail(ctx, driver, 3, usecase.DriverFailInput{
+	failRes, err := uc.Fail(ctx, driver, 3, usecase.DriverFailInput{
 		Reason: "Kantor pelanggan tutup", Latitude: -6.9932, Longitude: 110.4203,
 	})
 	require.NoError(t, err)
-	assert.False(t, idem)
-	assert.Equal(t, domain.TrackingFailed, failLog.Status)
+	assert.False(t, failRes.Idempotent)
+	assert.Equal(t, domain.TrackingFailed, failRes.Log.Status)
 	assert.Equal(t, domain.TrackingFailed, trRepo.updatedSt[3])
+	require.NotNil(t, failRes.ReturnLPBID)
+	require.NotNil(t, failRes.ReturnLPBNumber)
+	require.Len(t, lpbRepo.createdLPBs, 1)
+	assert.Equal(t, domain.LPBFailedDeliveryRet, lpbRepo.createdLPBs[0].SubType)
+	assert.Equal(t, 1, lpbRepo.insertedItems)
+	assert.Equal(t, 1, lpbRepo.insertedSerial)
 }
 
 func TestTrackingUsecase_PickupReturn(t *testing.T) {

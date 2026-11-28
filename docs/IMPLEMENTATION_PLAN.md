@@ -2257,7 +2257,9 @@ volumes: { pgdata: {} }
   - `lpb_effects_do.go`: `applyRentalReturn` kini menempatkan unit `MINOR_DEFECT` atau rak non-sellable ke status `MAINTENANCE` (unit `BROKEN` → `BROKEN`, `GOOD` di rak sellable → `AVAILABLE`), sekaligus melengkapi DO INBOUND & SO terkait.
   - QC endpoint `POST /api/v1/inventory/serials/:id/qc` (`domain/stock.go`, `postgres/stock_repo.go`, `usecase/inventory_qc.go` + `inventory_qc_test.go`, `handler/inventory.go`, `middleware/rbac.go` `RequireAnyPermission`, `router.go`, `app.go`) untuk transisi `MAINTENANCE → AVAILABLE/BROKEN` & `BROKEN → MAINTENANCE` dengan histori `product_serial_histories` + `audit_logs`.
   - UI QC di `SerialDetailView.vue` & `inventoryService.ts`.
-- [ ] **T3.6 Gagal kirim** — FAILED → draft `FAILED_DELIVERY_RETURN` → approve.
+- [x] **T3.6 Gagal kirim** — FAILED → draft `FAILED_DELIVERY_RETURN` → approve.
+  - `usecase/tracking.go` (`Fail` + `WithDocGen`): saat driver melaporkan gagal kirim, dalam transaksi yang sama sistem otomatis membuat draft LPB INBOUND `FAILED_DELIVERY_RETURN` (menyalin seluruh item, rak asal, dan daftar SN) serta mengembalikan `return_lpb_id` & `return_lpb_number`.
+  - `usecase/lpb_approve.go`: `FAILED_DELIVERY_RETURN` ditambahkan ke `approvable` & `applyRentalReturn` untuk mengembalikan saldo rak dan status SN `IN_TRANSIT → AVAILABLE/MAINTENANCE/BROKEN`.
 - [ ] **T3.7 Peta** — `AssetTrackingMap` (pin per site, cluster), rute checkpoint + foto POD.
 
 **Sprint 10 — Tiket maintenance**

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Pola halaman: Detail — Delivery Order, Reservasi Stok/SN, Release/Cancel, Buat Draft LPB (T2.6).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -344,7 +345,7 @@ onMounted(() => {
             Item &amp; Reservasi Gudang ({{ detail.items.length }})
           </h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
             class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
           >

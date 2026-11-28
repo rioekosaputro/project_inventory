@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Halaman Admin Rekonsiliasi Invarian Stok I1–I6 (plan Bagian 5.9 & T4.2).
 import { onMounted, ref } from 'vue'
 import { toApiError, userMessage } from '@/lib/apiError'
@@ -111,7 +112,7 @@ onMounted(runCheck)
       >
         <h2 class="text-sm font-semibold text-rose-800">Detail Anomali</h2>
         <div class="mt-3 overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-xs">
+          <table v-stack-table class="min-w-full divide-y divide-slate-200 text-xs">
             <thead>
               <tr class="text-left text-slate-500">
                 <th class="py-2 pr-3">Kode</th>

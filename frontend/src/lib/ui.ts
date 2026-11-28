@@ -9,6 +9,10 @@ export const btnDanger = `${base} border border-red-300 bg-white text-red-800 ho
 /** Tombol aksi di dalam baris tabel (tetap 44px agar mudah disentuh). */
 export const btnRow = `${base} px-3 text-slate-800 hover:bg-slate-100`
 
+/** Tautan di dalam kalimat/subjudul: boleh membungkus (nama pelanggan panjang di HP). */
+export const textLink =
+  'inline-block py-1.5 font-medium wrap-break-word text-indigo-800 hover:underline'
+
 /** Tautan pada sel utama baris (kode/SKU): area sentuh 44px, tampil sebagai tautan. */
 export const rowLink =
   'inline-flex min-h-11 items-center font-medium whitespace-nowrap text-indigo-800 hover:underline'

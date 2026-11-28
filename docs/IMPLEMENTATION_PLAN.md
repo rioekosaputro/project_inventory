@@ -80,7 +80,7 @@ Platform **Rental ERP-Lite** untuk perusahaan sewa peralatan kantor B2B (printer
 | Migrasi | **golang-migrate** (`migrations/NNNNNN_name.up.sql/.down.sql`) | CLI + library, mudah dijalankan di CI dan Supabase |
 | Uang | `NUMERIC(15,2)` di DB, **`shopspring/decimal`** di Go, string di JSON | Hindari float; JSON number besar bisa kehilangan presisi di JS |
 | Waktu | `TIMESTAMPTZ` di DB (UTC), konversi **Asia/Jakarta** untuk periode tagihan & tampilan | Periode tagihan harus konsisten WIB |
-| Auth | JWT sendiri (access 15 menit, refresh 7–14 hari, rotasi, disimpan hash di DB) | Tidak bergantung Supabase Auth → mudah pindah ke hosting sendiri |
+| Auth | JWT sendiri (access 15 menit, refresh rotasi dengan batas idle 30 menit & maksimum 12 jam, disimpan hash di DB) | Tidak bergantung Supabase Auth → mudah pindah ke hosting sendiri |
 | PDF | Gotenberg 8 (container) | Sesuai blueprint; render HTML/CSS via Chromium |
 | Storage file | Interface `storage.Uploader` dengan implementasi **S3-compatible** (Supabase Storage untuk staging, MinIO/S3/lokal untuk production) | Satu kode, ganti lewat env |
 | Job terjadwal | Fungsi usecase idempoten, dipanggil dari **(a)** `cmd/worker` (robfig/cron) di production, **(b)** endpoint `/internal/jobs/*` + Vercel Cron di staging | Vercel tidak bisa menjalankan proses worker permanen |
@@ -142,6 +142,9 @@ Platform **Rental ERP-Lite** untuk perusahaan sewa peralatan kantor B2B (printer
 - Saat reload halaman: FE memanggil `POST /api/v1/auth/refresh` (cookie terkirim otomatis) → dapat access token baru + data user.
 - Interceptor antrean refresh dari blueprint (Bagian 7.1 PDF) **tetap dipakai**, hanya sumber refresh token berubah ke cookie.
 - Mode fallback (dev lintas origin): env `AUTH_REFRESH_MODE=body|cookie`.
+- **Batas sesi (semua role):** keluar otomatis setelah **30 menit tidak aktif** (`SESSION_IDLE_TTL`), dan wajib login ulang paling lama **12 jam** sejak login (`SESSION_MAX_TTL`) walau terus aktif.
+  - Backend (penegak aturan): refresh token berumur sepanjang batas idle sejak rotasi terakhir; batas absolut dihitung dari token pertama dalam satu *family*; access token tidak melewati batas absolut. Ganti password memulai sesi baru.
+  - Frontend: respons sesi membawa `session_expires_in` & `idle_timeout_seconds`; selama pengguna aktif refresh token dirotasi paling lama tiap 5 menit; setelah keluar otomatis halaman login menjelaskan alasannya. `localStorage` hanya menyimpan cap waktu aktivitas (bukan token).
 
 ### 3.5 Struktur Monorepo
 
@@ -1637,7 +1640,8 @@ DB_MAX_CONNS=10
 
 JWT_ACCESS_SECRET=ganti-dengan-random-64-char
 JWT_ACCESS_TTL=15m
-JWT_REFRESH_TTL=336h
+SESSION_IDLE_TTL=30m                # keluar otomatis setelah tidak aktif
+SESSION_MAX_TTL=12h                 # batas absolut satu sesi sejak login
 AUTH_REFRESH_MODE=cookie            # cookie | body
 COOKIE_SECURE=false
 

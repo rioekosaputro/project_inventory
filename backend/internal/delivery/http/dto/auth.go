@@ -46,6 +46,9 @@ type SessionResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int64  `json:"expires_in"` // detik
+	// Batas sesi (detik, relatif agar tidak bergantung jam perangkat).
+	SessionExpiresIn   int64 `json:"session_expires_in"`
+	IdleTimeoutSeconds int64 `json:"idle_timeout_seconds"`
 	// RefreshToken hanya terisi pada AUTH_REFRESH_MODE=body; mode cookie memakai cookie HttpOnly.
 	RefreshToken string `json:"refresh_token,omitempty"`
 	ProfileResponse

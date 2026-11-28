@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Pola halaman: Detail — Profil Pelanggan, Cabang/Site (+ Leaflet picker), dan Aset Terpasang (T2.2).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -422,7 +423,7 @@ onMounted(() => {
             </p>
 
             <div
-              class="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs"
+              class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs"
             >
               <div class="text-slate-600">
                 <template v-if="site.latitude !== null && site.longitude !== null">
@@ -477,7 +478,7 @@ onMounted(() => {
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead
               class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
             >

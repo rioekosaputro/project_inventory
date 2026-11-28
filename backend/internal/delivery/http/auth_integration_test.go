@@ -70,7 +70,8 @@ func newEnv(t *testing.T, mutate ...func(*config.Config)) *env {
 		CORSAllowedOrigins: []string{"http://localhost:5173"},
 		JWTAccessSecret:    "test-secret-0123456789abcdef0123456789",
 		JWTAccessTTL:       15 * time.Minute,
-		JWTRefreshTTL:      336 * time.Hour,
+		SessionIdleTTL:     30 * time.Minute,
+		SessionMaxTTL:      12 * time.Hour,
 		AuthRefreshMode:    "cookie",
 	}
 	for _, m := range mutate {
@@ -447,27 +448,78 @@ func TestRefresh_InvalidTokens_401(t *testing.T) {
 	}
 }
 
-func TestRefresh_ExpiredToken_401(t *testing.T) {
+// Batas tidak aktif: 30 menit tanpa rotasi refresh token → sesi berakhir.
+func TestRefresh_IdleTimeout_401(t *testing.T) {
 	e := newEnv(t)
 	e.addUser("a@x.id", domain.RoleAdmin)
 	_, rt := e.mustLogin("a@x.id")
 
-	e.clk.Advance(336*time.Hour + time.Second)
+	e.clk.Advance(30*time.Minute + time.Second)
 
 	assert.Equal(t, 401, e.refresh(rt).status())
 }
 
-func TestRefresh_SlidingWindowExtendsOnRotation(t *testing.T) {
+func TestRefresh_ActivityExtendsIdleWindow(t *testing.T) {
 	e := newEnv(t)
 	e.addUser("a@x.id", domain.RoleAdmin)
 	_, rt := e.mustLogin("a@x.id")
 
-	e.clk.Advance(300 * time.Hour) // belum kedaluwarsa (336h)
+	e.clk.Advance(25 * time.Minute)
 	r := e.refresh(rt)
 	require.Equal(t, 200, r.status())
 
-	e.clk.Advance(300 * time.Hour) // total 600h > 336h dari login, tetapi 300h dari refresh terakhir
+	e.clk.Advance(25 * time.Minute) // 50 menit sejak login, tetapi 25 menit sejak rotasi terakhir
 	assert.Equal(t, 200, e.refresh(r.cookie("erp_rt").Value).status())
+}
+
+// Batas absolut: terus aktif pun wajib login ulang 12 jam setelah login.
+func TestRefresh_AbsoluteSessionLimit(t *testing.T) {
+	e := newEnv(t)
+	e.addUser("a@x.id", domain.RoleAdmin)
+
+	login := e.login("a@x.id", testPassword)
+	require.Equal(t, 200, login.status())
+	assert.EqualValues(t, 12*3600, login.data()["session_expires_in"])
+	assert.EqualValues(t, 30*60, login.data()["idle_timeout_seconds"])
+	assert.Equal(t, 30*60, login.cookie("erp_rt").MaxAge)
+	rt := login.cookie("erp_rt").Value
+
+	// 28 × 25 menit = 11 jam 40 menit.
+	var last *reply
+	for i := 0; i < 28; i++ {
+		e.clk.Advance(25 * time.Minute)
+		last = e.refresh(rt)
+		require.Equal(t, 200, last.status(), "rotasi ke-%d", i+1)
+		rt = last.cookie("erp_rt").Value
+	}
+
+	// Sisa 20 menit: cookie dan hitung mundur dipotong di batas absolut.
+	assert.EqualValues(t, 20*60, last.data()["session_expires_in"])
+	assert.Equal(t, 20*60, last.cookie("erp_rt").MaxAge)
+	assert.EqualValues(t, 15*60, last.data()["expires_in"])
+
+	e.clk.Advance(10 * time.Minute)
+	near := e.refresh(rt)
+	require.Equal(t, 200, near.status())
+	assert.EqualValues(t, 10*60, near.data()["expires_in"], "access token tidak boleh melewati batas sesi")
+
+	e.clk.Advance(10*time.Minute + time.Second)
+	assert.Equal(t, 401, e.refresh(near.cookie("erp_rt").Value).status())
+
+	// Login ulang memulai sesi baru.
+	assert.Equal(t, 200, e.login("a@x.id", testPassword).status())
+}
+
+// Token 14 hari yang terbit sebelum aturan ini ikut tunduk pada batas baru.
+func TestRefresh_LegacyLongLivedTokenFollowsNewLimits(t *testing.T) {
+	e := newEnv(t)
+	e.addUser("a@x.id", domain.RoleAdmin)
+	_, rt := e.mustLogin("a@x.id")
+	e.exec(`UPDATE refresh_tokens SET expires_at = created_at + INTERVAL '14 days'`)
+
+	e.clk.Advance(31 * time.Minute)
+
+	assert.Equal(t, 401, e.refresh(rt).status())
 }
 
 func TestRefresh_ParallelUseOfSameToken_OnlyOneWins(t *testing.T) {

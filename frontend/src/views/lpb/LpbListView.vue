@@ -165,12 +165,10 @@ async function submitImport(): Promise<void> {
     :create-to="{ path: '/lpb/baru' }"
     :can-create="can('lpb.create')"
   >
-    <template v-if="can('lpb.create')" #top>
-      <div class="mb-3 flex justify-end">
-        <button type="button" :class="btnSecondary" @click="openImport">
-          <i class="pi pi-upload text-xs" aria-hidden="true" />Import Stok Awal (Excel/CSV)
-        </button>
-      </div>
+    <template v-if="can('lpb.create')" #actions>
+      <button type="button" :class="btnSecondary" @click="openImport">
+        <i class="pi pi-upload text-xs" aria-hidden="true" />Import Stok Awal (Excel/CSV)
+      </button>
     </template>
 
     <template #cell-lpb_number="{ row }">

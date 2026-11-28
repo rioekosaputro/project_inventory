@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Pola halaman: Detail — Sales Order, Rincian Pajak PMK 131/2024, dan Penerbitan DO (T2.5).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -10,7 +11,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { usePermission } from '@/composables/usePermission'
 import { toApiError, userMessage } from '@/lib/apiError'
 import { formatDateTime, formatRupiah } from '@/lib/format'
-import { btnDanger, btnPrimary, btnSecondary, rowLink } from '@/lib/ui'
+import { btnDanger, btnPrimary, btnSecondary, rowLink, textLink } from '@/lib/ui'
 import { warehouseService } from '@/services/masterService'
 import { salesOrderService } from '@/services/salesOrderService'
 import type { Warehouse } from '@/types/master'
@@ -169,9 +170,9 @@ onMounted(() => {
     <div class="space-y-2">
       <BackLink to="/sales-orders" label="Daftar Sales Order" />
       <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="font-mono text-2xl font-semibold text-slate-900">
+            <h1 class="font-mono text-xl font-semibold wrap-anywhere text-slate-900 sm:text-2xl">
               {{ so ? so.so_number : 'Detail Sales Order' }}
             </h1>
             <StatusBadge v-if="so" :value="so.status" />
@@ -183,13 +184,13 @@ onMounted(() => {
             </span>
           </div>
           <p v-if="so" class="mt-1 text-sm text-slate-600">
-            <RouterLink :to="`/pelanggan/${so.customer_id}`" :class="rowLink">
+            <RouterLink :to="`/pelanggan/${so.customer_id}`" :class="textLink">
               {{ so.customer_code }} — {{ so.customer_name }}
             </RouterLink>
             · Site: {{ so.site_name }} ({{ so.site_city }})
             <template v-if="so.contract_id && so.contract_number">
               · Kontrak:
-              <RouterLink :to="`/kontrak/${so.contract_id}`" :class="rowLink">
+              <RouterLink :to="`/kontrak/${so.contract_id}`" :class="textLink">
                 {{ so.contract_number }}
               </RouterLink>
             </template>
@@ -326,7 +327,7 @@ onMounted(() => {
         <div class="border-b border-slate-200 px-5 py-3">
           <h2 class="text-sm font-semibold text-slate-900">Item Pesanan ({{ so.items.length }})</h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
             class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
           >
@@ -388,7 +389,7 @@ onMounted(() => {
         >
           Belum ada Delivery Order diterbitkan untuk SO ini.
         </div>
-        <table v-else class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table v-else class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
             class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
           >

@@ -89,16 +89,14 @@ async function exportExcel(): Promise<void> {
     :filter-defs="filterDefs"
     :can-create="false"
   >
-    <template #top>
-      <div class="mb-3 flex flex-wrap items-center justify-end gap-2">
-        <RouterLink to="/stok/kartu-stok" :class="btnSecondary">
-          <i class="pi pi-file-excel text-xs" aria-hidden="true" />Buka Kartu Stok
-        </RouterLink>
-        <button type="button" :class="btnSecondary" :aria-busy="exporting" @click="exportExcel">
-          <i class="pi pi-download text-xs" aria-hidden="true" />
-          {{ exporting ? 'Menyiapkan Excel…' : 'Export Excel' }}
-        </button>
-      </div>
+    <template #actions>
+      <RouterLink to="/stok/kartu-stok" :class="btnSecondary">
+        <i class="pi pi-file-excel text-xs" aria-hidden="true" />Buka Kartu Stok
+      </RouterLink>
+      <button type="button" :class="btnSecondary" :aria-busy="exporting" @click="exportExcel">
+        <i class="pi pi-download text-xs" aria-hidden="true" />
+        {{ exporting ? 'Menyiapkan Excel…' : 'Export Excel' }}
+      </button>
     </template>
 
     <template #cell-occurred_at="{ row }">

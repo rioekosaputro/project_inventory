@@ -51,7 +51,7 @@ function ariaSort(col: Column): 'ascending' | 'descending' | undefined {
     class="data-table-wrapper"
     :aria-busy="loading"
   >
-    <table class="data-table">
+    <table class="data-table stack-table">
       <caption :id="captionId" class="sr-only">
         {{
           caption
@@ -93,7 +93,12 @@ function ariaSort(col: Column): 'ascending' | 'descending' | undefined {
         </template>
         <template v-else>
           <tr v-for="row in rows" :key="String((row as Record<string, unknown>)[rowKey])">
-            <td v-for="col in columns" :key="col.key" :class="col.class">
+            <td
+              v-for="col in columns"
+              :key="col.key"
+              :class="col.class"
+              :data-label="col.actions ? undefined : col.label"
+            >
               <slot :name="`cell-${col.key}`" :row="row">{{ cell(row, col.key) }}</slot>
             </td>
           </tr>

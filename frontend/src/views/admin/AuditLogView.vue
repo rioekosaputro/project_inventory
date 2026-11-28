@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Halaman Audit Log Viewer untuk Admin & Manajemen (plan Bagian 5.1 & T4.3).
 import { onMounted, ref } from 'vue'
 import { toApiError, userMessage } from '@/lib/apiError'
@@ -182,7 +183,7 @@ onMounted(() => void fetchLogs(1))
 
     <div v-else class="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600">
             <tr>
               <th class="px-4 py-3">Waktu</th>

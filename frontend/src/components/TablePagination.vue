@@ -15,7 +15,7 @@ const from = computed(() => (total.value === 0 ? 0 : (page.value - 1) * limit.va
 const to = computed(() => Math.min(page.value * limit.value, total.value))
 
 const btn =
-  'inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500'
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500'
 </script>
 
 <template>
@@ -31,8 +31,8 @@ const btn =
       <template v-else>Tidak ada data</template>
     </p>
 
-    <div class="flex flex-wrap items-center gap-2">
-      <label class="flex items-center gap-2">
+    <div class="grid w-full grid-cols-2 items-center gap-2 sm:flex sm:w-auto sm:flex-wrap">
+      <label class="col-span-2 flex items-center gap-2">
         <span>Baris per halaman</span>
         <select
           class="min-h-11 rounded-lg border border-slate-300 bg-white px-2"
@@ -52,7 +52,9 @@ const btn =
         <i class="pi pi-chevron-left text-xs" aria-hidden="true" />
         Sebelumnya
       </button>
-      <span class="px-1">Halaman {{ page }} dari {{ pages }}</span>
+      <span class="order-last col-span-2 px-1 text-center sm:order-none"
+        >Halaman {{ page }} dari {{ pages }}</span
+      >
       <button
         type="button"
         :class="btn"

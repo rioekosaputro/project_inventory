@@ -43,9 +43,13 @@ type Config struct {
 
 	JWTAccessSecret string
 	JWTAccessTTL    time.Duration
-	JWTRefreshTTL   time.Duration
 	AuthRefreshMode string
 	CookieSecure    bool
+
+	// SessionIdleTTL: sesi berakhir bila tidak ada rotasi refresh token selama ini (tidak aktif).
+	SessionIdleTTL time.Duration
+	// SessionMaxTTL: batas absolut sejak login; setelahnya wajib login ulang walau terus aktif.
+	SessionMaxTTL time.Duration
 
 	GotenbergURL      string
 	GotenbergUsername string
@@ -126,7 +130,10 @@ func loadFromEnv() (*Config, error) {
 	if c.JWTAccessTTL, err = getDuration("JWT_ACCESS_TTL", 15*time.Minute); err != nil {
 		errs = append(errs, err)
 	}
-	if c.JWTRefreshTTL, err = getDuration("JWT_REFRESH_TTL", 336*time.Hour); err != nil {
+	if c.SessionIdleTTL, err = getDuration("SESSION_IDLE_TTL", 30*time.Minute); err != nil {
+		errs = append(errs, err)
+	}
+	if c.SessionMaxTTL, err = getDuration("SESSION_MAX_TTL", 12*time.Hour); err != nil {
 		errs = append(errs, err)
 	}
 	if c.CookieSecure, err = getBool("COOKIE_SECURE", false); err != nil {
@@ -159,6 +166,9 @@ func loadFromEnv() (*Config, error) {
 	case "local", "s3":
 	default:
 		fail("STORAGE_DRIVER tidak valid: %q (local | s3)", c.StorageDriver)
+	}
+	if c.SessionIdleTTL <= 0 || c.SessionMaxTTL < c.SessionIdleTTL {
+		fail("SESSION_IDLE_TTL harus > 0 dan SESSION_MAX_TTL tidak boleh lebih kecil darinya")
 	}
 	if c.DBMaxConns < 1 {
 		fail("DB_MAX_CONNS harus >= 1")

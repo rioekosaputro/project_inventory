@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Pola halaman: Detail — Invoice, Issue, Void, Pembayaran + PPh 23, Cetak PDF (T2.9).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -10,7 +11,7 @@ import { usePermission } from '@/composables/usePermission'
 import { toApiError, userMessage } from '@/lib/apiError'
 import { formatDateTime, formatRupiah } from '@/lib/format'
 import { openPdfBlob } from '@/lib/pdf'
-import { btnDanger, btnPrimary, btnSecondary, rowLink } from '@/lib/ui'
+import { btnDanger, btnPrimary, btnSecondary, textLink } from '@/lib/ui'
 import { invoiceService } from '@/services/invoiceService'
 import type { InvoiceDetail, PaymentMethod } from '@/types/invoice'
 
@@ -188,20 +189,20 @@ onMounted(() => {
     <div class="space-y-2">
       <BackLink to="/invoices" label="Daftar Tagihan" />
       <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="font-mono text-2xl font-semibold text-slate-900">
+            <h1 class="font-mono text-xl font-semibold wrap-anywhere text-slate-900 sm:text-2xl">
               {{ inv ? inv.invoice_number : 'Detail Invoice' }}
             </h1>
             <StatusBadge v-if="inv" :value="inv.status" />
           </div>
           <p v-if="inv" class="mt-1 text-sm text-slate-600">
-            <RouterLink :to="`/pelanggan/${inv.customer_id}`" :class="rowLink">
+            <RouterLink :to="`/pelanggan/${inv.customer_id}`" :class="textLink">
               {{ inv.customer_code }} — {{ inv.customer_name }}
             </RouterLink>
             <template v-if="inv.contract_id && inv.contract_number">
               · Kontrak:
-              <RouterLink :to="`/kontrak/${inv.contract_id}`" :class="rowLink">
+              <RouterLink :to="`/kontrak/${inv.contract_id}`" :class="textLink">
                 {{ inv.contract_number }}
               </RouterLink>
             </template>
@@ -340,7 +341,7 @@ onMounted(() => {
             Rincian Item ({{ inv.items.length }})
           </h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
             class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
           >
@@ -376,7 +377,7 @@ onMounted(() => {
         <div v-if="inv.payments.length === 0" class="px-5 py-6 text-center text-sm text-slate-500">
           Belum ada pembayaran tercatat.
         </div>
-        <table v-else class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table v-else class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
             class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
           >

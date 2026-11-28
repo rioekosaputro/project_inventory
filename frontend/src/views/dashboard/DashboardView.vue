@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Dashboard Gudang (plan Bagian 9.4 & 9.5: /dashboard).
 import { onMounted, ref } from 'vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -426,7 +427,7 @@ onMounted(async () => {
           Belum ada mutasi stok tercatat.
         </p>
         <div v-else class="mt-3 overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-100 text-sm">
+          <table v-stack-table class="min-w-full divide-y divide-slate-100 text-sm">
             <thead class="text-left text-xs text-slate-500">
               <tr>
                 <th class="py-2 pr-3">Waktu</th>
@@ -544,7 +545,7 @@ onMounted(async () => {
             Peringatan Tiket Melewati Batas SLA ({{ summary.field.sla_breach_alerts.length }})
           </h3>
           <div class="mt-3 overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-xs">
+            <table v-stack-table class="min-w-full divide-y divide-slate-200 text-xs">
               <thead>
                 <tr class="text-left text-slate-500">
                   <th class="py-2 pr-3">Nomor</th>

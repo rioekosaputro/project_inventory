@@ -5,6 +5,9 @@
   di antara base dan utilities Tailwind, sehingga utility Tailwind selalu bisa menimpa gaya PrimeVue.
 */
 
+/* Layar tinggi (mis. 1080p): ada ruang untuk susunan yang lebih longgar. */
+@custom-variant tall (@media (min-height: 56rem));
+
 @theme {
   /* Stack font sistem: tanpa unduhan font eksternal (cepat, tidak membocorkan IP ke pihak ketiga). */
   --font-sans:
@@ -247,4 +250,89 @@ th[aria-sort] .sort-icon {
 }
 .p-toast-top-right {
   inset-inline-end: 1rem;
+}
+
+/* ---------- Tabel di HP: setiap baris menjadi kartu "label: nilai" ----------
+   Dipakai DataTable (class langsung) dan tabel rincian lewat directive v-stack-table. */
+@media (max-width: 39.99rem) {
+  .data-table-wrapper {
+    contain: none;
+    max-block-size: none;
+  }
+  .stack-table,
+  .stack-table > tbody,
+  .stack-table > tbody > tr,
+  .stack-table > tfoot,
+  .stack-table > tfoot > tr {
+    display: block;
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+  .stack-table > thead {
+    display: none;
+  }
+  .stack-table > tbody > tr {
+    padding-block: 0.625rem;
+    border-block-end: 1px solid #e2e8f0;
+  }
+  .stack-table > tbody > tr:last-child {
+    border-block-end: 0;
+  }
+  /* !important: mengalahkan utility perataan/lebar pada sel yang dibuat untuk tata letak tabel. */
+  .stack-table > tbody > tr > td,
+  .stack-table > tfoot > tr > td {
+    display: block;
+    position: relative;
+    inline-size: auto !important;
+    max-inline-size: none !important;
+    min-block-size: 0;
+    border: 0;
+    padding: 0.25rem 1rem !important;
+    text-align: start !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  .stack-table td[data-label] {
+    padding-inline-start: 8.25rem !important;
+    min-block-size: 1.75rem;
+  }
+  .stack-table td[data-label]::before {
+    content: attr(data-label);
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-start: 0.375rem;
+    inline-size: 6.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .stack-table td * {
+    white-space: normal !important;
+  }
+  .stack-table td a {
+    min-block-size: 1.75rem;
+  }
+  .stack-table td:empty {
+    display: none;
+  }
+
+  /* Pada daftar utama, tombol urut tetap tersedia sebagai deretan di atas kartu. */
+  .data-table.stack-table > thead {
+    display: block;
+    position: static;
+  }
+  .data-table.stack-table > thead > tr {
+    display: flex;
+    overflow-x: auto;
+    border-block-end: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .data-table.stack-table > thead > tr > th {
+    display: none;
+    flex: none;
+    border: 0;
+  }
+  .data-table.stack-table > thead > tr > th:has(> button) {
+    display: block;
+  }
 }

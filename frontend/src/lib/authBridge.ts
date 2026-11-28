@@ -13,12 +13,16 @@ export function installAuthBridge(router: Router, auth: ReturnType<typeof useAut
     getToken: () => auth.accessToken,
     refresh: () => auth.refreshSession(),
     onAuthFailure: () => {
+      const hadSession = auth.isAuthenticated
       auth.clear()
       const current = router.currentRoute.value
       if (current.meta.public) return
       void router.replace({
         name: 'login',
-        query: current.fullPath === '/' ? undefined : { redirect: current.fullPath },
+        query: {
+          ...(hadSession ? { reason: 'expired' } : {}),
+          ...(current.fullPath === '/' ? {} : { redirect: current.fullPath }),
+        },
       })
     },
   })

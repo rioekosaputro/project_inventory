@@ -134,22 +134,15 @@ async function exportExcel(): Promise<void> {
     :filter-defs="filterDefs"
     :can-create="false"
   >
-    <template #top>
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        <button type="button" :disabled="exporting" :class="btnSecondary" @click="exportExcel">
-          <i class="pi pi-file-excel text-xs" aria-hidden="true" />
-          {{ exporting ? 'Menyiapkan Excel…' : 'Export Excel (Rekap PPN)' }}
-        </button>
-        <button
-          v-if="can('invoice.create')"
-          type="button"
-          :class="btnPrimary"
-          @click="openGenerate"
-        >
-          <i class="pi pi-bolt text-xs" aria-hidden="true" />
-          Generate Tagihan Bulanan
-        </button>
-      </div>
+    <template #actions>
+      <button type="button" :disabled="exporting" :class="btnSecondary" @click="exportExcel">
+        <i class="pi pi-file-excel text-xs" aria-hidden="true" />
+        {{ exporting ? 'Menyiapkan Excel…' : 'Export Excel (Rekap PPN)' }}
+      </button>
+      <button v-if="can('invoice.create')" type="button" :class="btnPrimary" @click="openGenerate">
+        <i class="pi pi-bolt text-xs" aria-hidden="true" />
+        Generate Tagihan Bulanan
+      </button>
     </template>
 
     <template #cell-invoice_number="{ row }">

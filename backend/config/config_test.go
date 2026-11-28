@@ -15,7 +15,7 @@ func clearEnv(t *testing.T) {
 	for _, k := range []string{
 		"APP_ENV", "PORT", "APP_BASE_URL", "CORS_ALLOWED_ORIGINS", "TZ_APP",
 		"DATABASE_URL", "MIGRATE_DATABASE_URL", "DB_POOLER_MODE", "DB_MAX_CONNS",
-		"JWT_ACCESS_SECRET", "JWT_ACCESS_TTL", "JWT_REFRESH_TTL", "AUTH_REFRESH_MODE", "COOKIE_SECURE",
+		"JWT_ACCESS_SECRET", "JWT_ACCESS_TTL", "SESSION_IDLE_TTL", "SESSION_MAX_TTL", "AUTH_REFRESH_MODE", "COOKIE_SECURE",
 		"STORAGE_DRIVER", "S3_FORCE_PATH_STYLE", "TRUSTED_PROXIES",
 	} {
 		t.Setenv(k, "")
@@ -33,7 +33,8 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, PoolerSession, cfg.DBPoolerMode)
 	assert.Equal(t, 10, cfg.DBMaxConns)
 	assert.Equal(t, 15*time.Minute, cfg.JWTAccessTTL)
-	assert.Equal(t, 336*time.Hour, cfg.JWTRefreshTTL)
+	assert.Equal(t, 30*time.Minute, cfg.SessionIdleTTL)
+	assert.Equal(t, 12*time.Hour, cfg.SessionMaxTTL)
 	assert.Equal(t, []string{"http://localhost:5173"}, cfg.CORSAllowedOrigins)
 	assert.Equal(t, "Asia/Jakarta", cfg.Location.String())
 	assert.True(t, cfg.IsLocal())

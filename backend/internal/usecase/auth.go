@@ -28,16 +28,18 @@ type AccessTokenIssuer interface {
 
 // AuthConfig mengatur umur token dan rate limit login (plan Bagian 10: 5 gagal / 15 menit).
 type AuthConfig struct {
-	RefreshTTL         time.Duration
+	IdleTTL            time.Duration // umur refresh token sejak rotasi terakhir (batas tidak aktif)
+	MaxTTL             time.Duration // batas absolut satu sesi sejak login
 	AttemptWindow      time.Duration
 	MaxFailsPerEmailIP int // percobaan gagal per (IP, email) dalam jendela
 	MaxFailsPerIP      int // batas gabungan per IP — menahan password spraying lintas email
 }
 
 // DefaultAuthConfig memberi nilai bawaan dari plan.
-func DefaultAuthConfig(refreshTTL time.Duration) AuthConfig {
+func DefaultAuthConfig(idleTTL, maxTTL time.Duration) AuthConfig {
 	return AuthConfig{
-		RefreshTTL:         refreshTTL,
+		IdleTTL:            idleTTL,
+		MaxTTL:             maxTTL,
 		AttemptWindow:      15 * time.Minute,
 		MaxFailsPerEmailIP: 5,
 		MaxFailsPerIP:      20,
@@ -51,6 +53,8 @@ type Session struct {
 	AccessExpiresAt  time.Time
 	RefreshToken     string // nilai asli; hanya ada di sini, di DB hanya hash-nya
 	RefreshExpiresAt time.Time
+	SessionExpiresAt time.Time     // batas absolut: setelah ini wajib login ulang
+	IdleTimeout      time.Duration // dipakai FE untuk keluar otomatis saat tidak aktif
 	Profile
 }
 
@@ -133,7 +137,7 @@ func (u *AuthUsecase) Login(ctx context.Context, email, plainPassword string) (*
 	if err != nil {
 		return nil, err
 	}
-	refreshExp := now.Add(u.cfg.RefreshTTL)
+	refreshExp := u.refreshExpiry(now, now)
 
 	err = u.tx.WithinTransaction(ctx, func(ctx context.Context) error {
 		if err := u.attempts.Clear(ctx, email, ip); err != nil {
@@ -142,7 +146,7 @@ func (u *AuthUsecase) Login(ctx context.Context, email, plainPassword string) (*
 		if err := u.users.TouchLastLogin(ctx, user.ID, now); err != nil {
 			return err
 		}
-		if _, err := u.tokens.Create(ctx, &domain.RefreshToken{UserID: user.ID, TokenHash: tokHash, ExpiresAt: refreshExp}, reqctx.ClientFrom(ctx).UserAgent, ip); err != nil {
+		if _, err := u.tokens.Create(ctx, &domain.RefreshToken{UserID: user.ID, TokenHash: tokHash, ExpiresAt: refreshExp, CreatedAt: now}, reqctx.ClientFrom(ctx).UserAgent, ip); err != nil {
 			return err
 		}
 		return u.audit.Insert(ctx, domain.AuditEntry{
@@ -152,7 +156,7 @@ func (u *AuthUsecase) Login(ctx context.Context, email, plainPassword string) (*
 	if err != nil {
 		return nil, err
 	}
-	return u.buildSession(user, raw, refreshExp, now)
+	return u.buildSession(user, raw, refreshExp, now, now)
 }
 
 // ---------------------------------------------------------------- Refresh
@@ -171,9 +175,9 @@ func (u *AuthUsecase) Refresh(ctx context.Context, rawToken string) (*Session, e
 	if err != nil {
 		return nil, err
 	}
-	refreshExp := now.Add(u.cfg.RefreshTTL)
-
 	var (
+		refreshExp, startedAt time.Time
+
 		user     *domain.User
 		denyWith error // ditentukan di dalam tx, dikembalikan SETELAH commit (lihat catatan)
 	)
@@ -209,10 +213,24 @@ func (u *AuthUsecase) Refresh(ctx context.Context, rawToken string) (*Session, e
 			denyWith = domain.ErrInvalidToken
 			return nil
 		}
-		if !now.Before(old.ExpiresAt) {
+		// Batas tidak aktif juga dihitung dari created_at, sehingga token lama yang terlanjur
+		// berumur panjang (sebelum aturan ini) ikut tunduk.
+		if !now.Before(old.ExpiresAt) || !now.Before(old.CreatedAt.Add(u.cfg.IdleTTL)) {
 			denyWith = domain.ErrInvalidToken
 			return nil
 		}
+		startedAt, err = u.tokens.FamilyStartedAt(ctx, old.FamilyID)
+		if err != nil {
+			return err
+		}
+		if !now.Before(startedAt.Add(u.cfg.MaxTTL)) {
+			if _, err := u.tokens.RevokeFamily(ctx, old.FamilyID, now); err != nil {
+				return err
+			}
+			denyWith = domain.ErrInvalidToken
+			return nil
+		}
+		refreshExp = u.refreshExpiry(now, startedAt)
 
 		user, err = u.users.FindByID(ctx, old.UserID)
 		if err != nil {
@@ -232,7 +250,7 @@ func (u *AuthUsecase) Refresh(ctx context.Context, rawToken string) (*Session, e
 
 		client := reqctx.ClientFrom(ctx)
 		created, err := u.tokens.Create(ctx, &domain.RefreshToken{
-			UserID: user.ID, TokenHash: newHash, FamilyID: old.FamilyID, ExpiresAt: refreshExp,
+			UserID: user.ID, TokenHash: newHash, FamilyID: old.FamilyID, ExpiresAt: refreshExp, CreatedAt: now,
 		}, client.UserAgent, client.IP)
 		if err != nil {
 			return err
@@ -245,7 +263,7 @@ func (u *AuthUsecase) Refresh(ctx context.Context, rawToken string) (*Session, e
 	if denyWith != nil {
 		return nil, denyWith
 	}
-	return u.buildSession(user, newRaw, refreshExp, now)
+	return u.buildSession(user, newRaw, refreshExp, startedAt, now)
 }
 
 // ---------------------------------------------------------------- Logout
@@ -343,7 +361,7 @@ func (u *AuthUsecase) ChangePassword(ctx context.Context, p domain.Principal, cu
 	if err != nil {
 		return nil, err
 	}
-	refreshExp := now.Add(u.cfg.RefreshTTL)
+	refreshExp := u.refreshExpiry(now, now)
 
 	err = u.tx.WithinTransaction(ctx, func(ctx context.Context) error {
 		if err := u.users.UpdatePassword(ctx, user.ID, newHash); err != nil {
@@ -355,7 +373,7 @@ func (u *AuthUsecase) ChangePassword(ctx context.Context, p domain.Principal, cu
 		if err := u.attempts.Clear(ctx, user.Email, ip); err != nil {
 			return err
 		}
-		if _, err := u.tokens.Create(ctx, &domain.RefreshToken{UserID: user.ID, TokenHash: tokHash, ExpiresAt: refreshExp}, reqctx.ClientFrom(ctx).UserAgent, ip); err != nil {
+		if _, err := u.tokens.Create(ctx, &domain.RefreshToken{UserID: user.ID, TokenHash: tokHash, ExpiresAt: refreshExp, CreatedAt: now}, reqctx.ClientFrom(ctx).UserAgent, ip); err != nil {
 			return err
 		}
 		return u.audit.Insert(ctx, domain.AuditEntry{
@@ -367,17 +385,28 @@ func (u *AuthUsecase) ChangePassword(ctx context.Context, p domain.Principal, cu
 	}
 
 	user.MustChangePassword = false
-	return u.buildSession(user, raw, refreshExp, now)
+	return u.buildSession(user, raw, refreshExp, now, now)
 }
 
 // ---------------------------------------------------------------- helpers
 
-func (u *AuthUsecase) buildSession(user *domain.User, rawRefresh string, refreshExp, now time.Time) (*Session, error) {
+// refreshExpiry: batas tidak aktif, tetapi tidak pernah melewati batas absolut sesi.
+func (u *AuthUsecase) refreshExpiry(now, startedAt time.Time) time.Time {
+	exp := now.Add(u.cfg.IdleTTL)
+	if end := startedAt.Add(u.cfg.MaxTTL); end.Before(exp) {
+		return end
+	}
+	return exp
+}
+
+func (u *AuthUsecase) buildSession(user *domain.User, rawRefresh string, refreshExp, startedAt, now time.Time) (*Session, error) {
+	sessionEnd := startedAt.Add(u.cfg.MaxTTL)
 	access, accessExp, err := u.issuer.Issue(jwt.Claims{
 		UserID:             user.ID,
 		Role:               string(user.Role),
 		WarehouseID:        user.WarehouseID,
 		MustChangePassword: user.MustChangePassword,
+		NotAfter:           sessionEnd,
 	}, now)
 	if err != nil {
 		return nil, err
@@ -388,6 +417,8 @@ func (u *AuthUsecase) buildSession(user *domain.User, rawRefresh string, refresh
 		AccessExpiresAt:  accessExp,
 		RefreshToken:     rawRefresh,
 		RefreshExpiresAt: refreshExp,
+		SessionExpiresAt: sessionEnd,
+		IdleTimeout:      u.cfg.IdleTTL,
 		Profile:          *newProfile(user),
 	}, nil
 }

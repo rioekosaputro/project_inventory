@@ -39,4 +39,8 @@ export interface SessionDto extends ProfileDto {
   token_type: 'Bearer'
   /** detik */
   expires_in: number
+  /** detik tersisa sampai wajib login ulang (batas absolut sesi) */
+  session_expires_in: number
+  /** detik tanpa aktivitas sebelum keluar otomatis */
+  idle_timeout_seconds: number
 }

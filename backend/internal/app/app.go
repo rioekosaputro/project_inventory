@@ -45,7 +45,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		auditRepo,
 		tokens,
 		clk,
-		usecase.DefaultAuthConfig(cfg.JWTRefreshTTL),
+		usecase.DefaultAuthConfig(cfg.SessionIdleTTL, cfg.SessionMaxTTL),
 	)
 	warehouseRepo := postgres.NewWarehouseRepo(pool)
 	rackRepo := postgres.NewRackRepo(pool)

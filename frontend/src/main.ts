@@ -9,6 +9,7 @@ import ToastService from 'primevue/toastservice'
 import App from './App.vue'
 import { createAppRouter } from './router'
 import { installAuthBridge } from '@/lib/authBridge'
+import { installSessionTimeout } from '@/lib/sessionTimeout'
 import { useAuthStore } from '@/stores/auth'
 import { primeVueOptions } from '@/theme/primevue'
 
@@ -22,6 +23,7 @@ app.use(PrimeVue, primeVueOptions)
 app.use(ToastService)
 
 installAuthBridge(router, useAuthStore(pinia))
+installSessionTimeout(router, useAuthStore(pinia))
 
 app.mount('#app')
 

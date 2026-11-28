@@ -32,6 +32,11 @@ Panduan praktis penggunaan setiap menu pada aplikasi **Rental ERP** (Manajemen G
 
 ## 2. Penjelasan Setiap Menu
 
+### Batas Sesi Login (semua peran)
+- Anda **keluar otomatis setelah 30 menit tidak ada aktivitas** (tidak menyentuh layar, mouse, atau keyboard).
+- Walau terus dipakai, **wajib login ulang paling lama 12 jam** setelah login.
+- Isian yang belum disimpan hilang saat keluar otomatis — simpan draft sebelum meninggalkan perangkat.
+
 ### A. Bagian **UTAMA**
 
 #### 1. **Beranda** (`/beranda`)

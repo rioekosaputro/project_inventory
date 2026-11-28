@@ -128,10 +128,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 func (h *AuthHandler) writeSession(c *gin.Context, s *usecase.Session) {
 	resp := dto.SessionResponse{
-		AccessToken:     s.AccessToken,
-		TokenType:       "Bearer",
-		ExpiresIn:       int64(s.AccessExpiresAt.Sub(s.IssuedAt) / time.Second), // dari clock usecase, bukan jam sistem
-		ProfileResponse: dto.NewProfileResponse(&s.Profile),
+		AccessToken:        s.AccessToken,
+		TokenType:          "Bearer",
+		ExpiresIn:          int64(s.AccessExpiresAt.Sub(s.IssuedAt) / time.Second), // dari clock usecase, bukan jam sistem
+		SessionExpiresIn:   int64(s.SessionExpiresAt.Sub(s.IssuedAt) / time.Second),
+		IdleTimeoutSeconds: int64(s.IdleTimeout / time.Second),
+		ProfileResponse:    dto.NewProfileResponse(&s.Profile),
 	}
 	if h.settings.RefreshMode == RefreshModeBody {
 		resp.RefreshToken = s.RefreshToken

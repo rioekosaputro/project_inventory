@@ -29,7 +29,11 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ create: [] }>()
 
-defineSlots<{ top?: () => unknown; [key: `cell-${string}`]: (props: { row: T }) => unknown }>()
+defineSlots<{
+  top?: () => unknown
+  actions?: () => unknown
+  [key: `cell-${string}`]: (props: { row: T }) => unknown
+}>()
 
 const defs = computed(() => props.filterDefs ?? [])
 const rows = computed(() => props.table.rows.value)
@@ -87,18 +91,21 @@ function onSort(sortKey: string): void {
     <slot name="top" />
 
     <header class="mt-4 flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0">
+      <div class="min-w-0 flex-1 basis-64">
         <h1 class="text-xl font-semibold text-slate-900">{{ title }}</h1>
         <p class="mt-1 text-sm text-slate-600">{{ description }}</p>
       </div>
-      <template v-if="canCreate && createLabel">
-        <RouterLink v-if="createTo" :to="createTo" :class="btnPrimary">
-          <i class="pi pi-plus text-xs" aria-hidden="true" />{{ createLabel }}
-        </RouterLink>
-        <button v-else type="button" :class="btnPrimary" @click="emit('create')">
-          <i class="pi pi-plus text-xs" aria-hidden="true" />{{ createLabel }}
-        </button>
-      </template>
+      <div class="flex flex-wrap items-center gap-2 empty:hidden">
+        <slot name="actions" />
+        <template v-if="canCreate && createLabel">
+          <RouterLink v-if="createTo" :to="createTo" :class="btnPrimary">
+            <i class="pi pi-plus text-xs" aria-hidden="true" />{{ createLabel }}
+          </RouterLink>
+          <button v-else type="button" :class="btnPrimary" @click="emit('create')">
+            <i class="pi pi-plus text-xs" aria-hidden="true" />{{ createLabel }}
+          </button>
+        </template>
+      </div>
     </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">

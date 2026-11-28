@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Papan Kanban & Daftar Tiket Maintenance (T3.8).
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -426,7 +427,7 @@ onMounted(load)
 
     <!-- Mode Tabel -->
     <div v-else class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-      <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600">
           <tr>
             <th class="px-4 py-3">Nomor</th>

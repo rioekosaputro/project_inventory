@@ -27,6 +27,8 @@ export function makeSession(
     access_token: over.token ?? 'access-token-1',
     token_type: 'Bearer',
     expires_in: 900,
+    session_expires_in: 12 * 3600,
+    idle_timeout_seconds: 30 * 60,
     user: makeUser({ ...(over.role ? { role: over.role } : {}), ...over.user }),
     permissions: over.permissions ?? ['lpb.read'],
     default_home: over.default_home ?? '/dashboard',

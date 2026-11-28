@@ -40,7 +40,9 @@ describe('login', () => {
     svc.login.mockResolvedValue(makeSession())
     await useAuthStore().login('a@x.id', 'rahasia')
 
-    expect(localStorage.length).toBe(0)
+    // Satu-satunya yang boleh ada: cap waktu aktivitas untuk batas sesi.
+    expect(Object.keys(localStorage)).toEqual(['erp.last-activity'])
+    expect(localStorage.getItem('erp.last-activity')).toMatch(/^\d+$/)
     expect(sessionStorage.length).toBe(0)
   })
 

@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Layout Peta + Panel Detail -->
-    <div class="grid gap-4 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div class="overflow-hidden rounded-xl border border-slate-200 bg-white lg:col-span-2">
         <div ref="mapContainer" class="h-[460px] w-full" aria-label="Peta interaktif Leaflet" />
       </div>

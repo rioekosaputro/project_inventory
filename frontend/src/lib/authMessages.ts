@@ -6,6 +6,14 @@ export function rateLimitMessage(err: ApiError): string {
   return `Terlalu banyak percobaan. Coba lagi dalam ${minutes} menit.`
 }
 
+/** Penjelasan mengapa pengguna dikembalikan ke halaman masuk (query `?reason=`). */
+export function sessionEndMessage(reason: unknown): string {
+  if (reason === 'idle')
+    return 'Anda dikeluarkan otomatis karena tidak ada aktivitas. Silakan masuk lagi.'
+  if (reason === 'expired') return 'Sesi Anda sudah berakhir. Silakan masuk lagi.'
+  return ''
+}
+
 /** Pesan di atas form login; tidak membedakan "email tidak ada" dari "password salah". */
 export function loginErrorMessage(err: ApiError): string {
   switch (err.code) {

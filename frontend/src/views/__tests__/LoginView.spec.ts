@@ -322,3 +322,18 @@ describe('sudah login', () => {
     expect(router.currentRoute.value.path).toBe('/beranda')
   })
 })
+
+describe('batas sesi', () => {
+  it.each([
+    ['idle', 'tidak ada aktivitas'],
+    ['expired', 'Sesi Anda sudah berakhir'],
+  ])('menjelaskan alasan keluar (?reason=%s)', async (reason, text) => {
+    const { wrapper: w } = await openLogin(`/login?reason=${reason}`)
+    expect(w.text()).toContain(text)
+  })
+
+  it('tanpa reason tidak ada pemberitahuan', async () => {
+    const { wrapper: w } = await openLogin()
+    expect(w.text()).not.toContain('berakhir')
+  })
+})

@@ -32,6 +32,8 @@ type Claims struct {
 	Role               string
 	WarehouseID        *int64
 	MustChangePassword bool
+	// NotAfter (hanya untuk Issue): batas akhir sesi; exp token tidak melewatinya. Nol = tanpa batas.
+	NotAfter time.Time
 }
 
 type wireClaims struct {
@@ -68,6 +70,9 @@ func (m *Manager) TTL() time.Duration { return m.ttl }
 // Issue menerbitkan token yang berlaku dari now selama TTL.
 func (m *Manager) Issue(c Claims, now time.Time) (string, time.Time, error) {
 	exp := now.Add(m.ttl)
+	if !c.NotAfter.IsZero() && c.NotAfter.Before(exp) {
+		exp = c.NotAfter
+	}
 	jti := make([]byte, 8)
 	_, _ = rand.Read(jti)
 

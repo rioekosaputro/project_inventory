@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Kartu Stok per produk/rak (plan Bagian 9.4: /stok/kartu-stok) + Export Excel.
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -117,7 +118,7 @@ async function exportExcel(): Promise<void> {
     </header>
 
     <form
-      class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5"
+      class="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3"
       @submit.prevent="fetchCard"
     >
       <div class="lg:col-span-2">
@@ -159,7 +160,7 @@ async function exportExcel(): Promise<void> {
         />
       </div>
       <div class="flex items-end gap-2">
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
           <label for="sc-to" class="block text-xs font-medium text-slate-600">Sampai</label>
           <input
             id="sc-to"
@@ -205,7 +206,7 @@ async function exportExcel(): Promise<void> {
       </div>
 
       <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600">
             <tr>
               <th class="px-4 py-3">Waktu</th>

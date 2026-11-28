@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Pola halaman: Detail — Kontrak Sewa + Aksi Activate / Terminate / Renew (T2.3).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -10,7 +11,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { usePermission } from '@/composables/usePermission'
 import { toApiError, userMessage } from '@/lib/apiError'
 import { formatDateTime, formatRupiah } from '@/lib/format'
-import { btnDanger, btnPrimary, btnSecondary, rowLink } from '@/lib/ui'
+import { btnDanger, btnPrimary, btnSecondary, textLink } from '@/lib/ui'
 import { contractService } from '@/services/contractService'
 import type { RentalContractDetail } from '@/types/contract'
 
@@ -171,21 +172,21 @@ onMounted(() => {
     <div class="space-y-2">
       <BackLink to="/kontrak" label="Daftar kontrak" />
       <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-3">
-            <h1 class="font-mono text-2xl font-semibold text-slate-900">
+            <h1 class="font-mono text-xl font-semibold wrap-anywhere text-slate-900 sm:text-2xl">
               {{ contract ? contract.contract_number : 'Detail Kontrak' }}
             </h1>
             <StatusBadge v-if="contract" :value="contract.status" />
           </div>
           <p v-if="contract" class="mt-1 text-sm text-slate-600">
             Pelanggan:
-            <RouterLink :to="`/pelanggan/${contract.customer_id}`" :class="rowLink">
+            <RouterLink :to="`/pelanggan/${contract.customer_id}`" :class="textLink">
               {{ contract.customer_code }} — {{ contract.customer_name }}
             </RouterLink>
             <template v-if="contract.renewed_from_id && contract.renewed_from_number">
               · Perpanjangan dari
-              <RouterLink :to="`/kontrak/${contract.renewed_from_id}`" :class="rowLink">
+              <RouterLink :to="`/kontrak/${contract.renewed_from_id}`" :class="textLink">
                 {{ contract.renewed_from_number }}
               </RouterLink>
             </template>
@@ -347,7 +348,7 @@ onMounted(() => {
             Item Tarif Kontrak ({{ contract.items.length }})
           </h2>
         </div>
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead
             class="bg-slate-50 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase"
           >

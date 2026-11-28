@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { authService } from '@/services/authService'
 import { withRefreshLock } from '@/lib/locks'
+import { clearActivity, lastActivity, markActivity } from '@/lib/sessionActivity'
 import type { Permission, SessionDto, UserDto } from '@/types/auth'
 
 /** Rute tujuan bila peran belum punya halaman sendiri. */
@@ -18,8 +19,15 @@ export const useAuthStore = defineStore('auth', () => {
   const defaultHome = ref(FALLBACK_HOME)
   /** true setelah bootstrap() selesai (berhasil atau tidak). */
   const ready = ref(false)
+  /** Batas sesi dari backend; 0 = tidak dikirim (tidak dibatasi di klien). */
+  const idleTimeoutMs = ref(0)
+  const sessionEndsAt = ref(0)
+  const lastRefreshAt = ref(0)
 
   let bootstrapPromise: Promise<void> | null = null
+  let refreshPromise: Promise<string> | null = null
+  // Naik setiap sesi dibersihkan, agar balasan refresh yang terlambat tidak menghidupkannya lagi.
+  let generation = 0
 
   const permissionSet = computed(() => new Set(permissions.value))
   const isAuthenticated = computed(() => accessToken.value !== null && user.value !== null)
@@ -33,7 +41,19 @@ export const useAuthStore = defineStore('auth', () => {
     return list.some((p) => permissionSet.value.has(p))
   }
 
+  /** Alasan sesi harus diakhiri sekarang, atau null bila masih berlaku. */
+  function sessionEndReason(now: number): 'idle' | 'expired' | null {
+    if (sessionEndsAt.value && now >= sessionEndsAt.value) return 'expired'
+    const active = lastActivity()
+    if (idleTimeoutMs.value && active && now - active >= idleTimeoutMs.value) return 'idle'
+    return null
+  }
+
   function applySession(session: SessionDto): void {
+    const now = Date.now()
+    idleTimeoutMs.value = (session.idle_timeout_seconds ?? 0) * 1000
+    sessionEndsAt.value = session.session_expires_in ? now + session.session_expires_in * 1000 : 0
+    lastRefreshAt.value = now
     accessToken.value = session.access_token
     user.value = session.user
     permissions.value = session.permissions
@@ -45,10 +65,16 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     permissions.value = []
     defaultHome.value = FALLBACK_HOME
+    idleTimeoutMs.value = 0
+    sessionEndsAt.value = 0
+    lastRefreshAt.value = 0
+    generation++
+    clearActivity()
   }
 
   async function login(email: string, password: string): Promise<void> {
     applySession(await authService.login(email, password))
+    markActivity()
   }
 
   /**
@@ -57,7 +83,12 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function bootstrap(): Promise<void> {
     bootstrapPromise ??= withRefreshLock(() => authService.refresh())
-      .then(applySession)
+      .then(async (session) => {
+        applySession(session)
+        // Tab dibuka lagi setelah lama ditinggal: jangan pulihkan sesi yang sudah melewati batas.
+        if (sessionEndReason(Date.now())) await logout()
+        else markActivity()
+      })
       .catch(clear)
       .finally(() => {
         ready.value = true
@@ -66,10 +97,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** Dipakai antrean refresh axios saat access token kedaluwarsa. Menolak bila gagal. */
-  async function refreshSession(): Promise<string> {
-    const session = await withRefreshLock(() => authService.refresh())
-    applySession(session)
-    return session.access_token
+  function refreshSession(): Promise<string> {
+    const started = generation
+    refreshPromise ??= withRefreshLock(() => authService.refresh())
+      .then((session) => {
+        if (started !== generation) throw new Error('sesi sudah diakhiri')
+        applySession(session)
+        return session.access_token
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
+    return refreshPromise
   }
 
   async function logout(): Promise<void> {
@@ -85,6 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** Mengganti password; backend menerbitkan sesi baru (semua sesi lama dicabut). */
   async function changePassword(current: string, next: string): Promise<void> {
     applySession(await authService.changePassword(current, next))
+    markActivity()
   }
 
   return {
@@ -93,6 +133,9 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     defaultHome,
     ready,
+    idleTimeoutMs,
+    lastRefreshAt,
+    sessionEndReason,
     isAuthenticated,
     mustChangePassword,
     can,

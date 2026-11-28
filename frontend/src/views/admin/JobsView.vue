@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vStackTable } from '@/directives/stackTable'
 // Halaman Riwayat Eksekusi Job Terjadwal untuk Admin (plan Bagian 6.5 & T4.3).
 import { computed, onMounted, ref } from 'vue'
 import { toApiError, userMessage } from '@/lib/apiError'
@@ -171,7 +172,7 @@ onMounted(() => void loadJobs())
 
     <div v-else class="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table v-stack-table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600">
             <tr>
               <th class="px-4 py-3">Nama Job</th>

@@ -12,6 +12,7 @@ type RefreshToken struct {
 	TokenHash  string // sha256 hex
 	FamilyID   string // UUID; satu keluarga = satu rantai rotasi (satu sesi login)
 	ExpiresAt  time.Time
+	CreatedAt  time.Time // diisi dari clock usecase; dasar batas idle & batas absolut sesi
 	RevokedAt  *time.Time
 	ReplacedBy *int64
 }
@@ -92,6 +93,8 @@ type RefreshTokenRepository interface {
 	LockByHash(ctx context.Context, hash string) (*RefreshToken, error)
 	// MarkRotated menandai token lama sudah dipakai: revoked_at = at, replaced_by = newID.
 	MarkRotated(ctx context.Context, id, newID int64, at time.Time) error
+	// FamilyStartedAt: waktu token pertama dalam keluarga dibuat = waktu login sesi tersebut.
+	FamilyStartedAt(ctx context.Context, familyID string) (time.Time, error)
 	RevokeFamily(ctx context.Context, familyID string, at time.Time) (int64, error)
 	RevokeAllForUser(ctx context.Context, userID int64, at time.Time) (int64, error)
 }

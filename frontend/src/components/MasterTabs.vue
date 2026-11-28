@@ -21,11 +21,11 @@ const isCurrent = (to: string) => route.path === to || route.path.startsWith(`${
 <template>
   <!-- Navigasi antar daftar master (tautan rute, bukan ARIA tabs: tiap item membuka halaman sendiri). -->
   <nav aria-label="Data master" class="overflow-x-auto">
-    <ul class="flex min-w-max gap-1 border-b border-slate-200">
+    <ul class="flex min-w-max justify-between border-b border-slate-200 sm:justify-start sm:gap-1">
       <li v-for="t in tabs" :key="t.to">
         <RouterLink
           :to="t.to"
-          class="-mb-px inline-flex min-h-11 items-center border-b-2 px-4 text-sm font-medium"
+          class="-mb-px inline-flex min-h-11 items-center border-b-2 px-2 text-sm font-medium sm:px-4"
           :class="
             isCurrent(t.to)
               ? 'border-indigo-700 text-indigo-800'

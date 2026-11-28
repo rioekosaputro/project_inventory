@@ -44,7 +44,7 @@ async function printLabel(): Promise<void> {
   printing.value = true
   try {
     const blob = await inventoryService.fetchSerialLabelsPdf([unit.value.id])
-    openPdfBlob(blob, `label-${unit.value.asset_tag}.pdf`)
+    await openPdfBlob(blob, `label-${unit.value.asset_tag}.pdf`)
   } catch (e) {
     toast.add({
       severity: 'error',

@@ -27,7 +27,7 @@ async function printRackLabel(rack: Rack): Promise<void> {
   printingRackId.value = rack.id
   try {
     const blob = await rackService.fetchLabelsPdf([rack.id])
-    openPdfBlob(blob, `label-rak-${rack.code}.pdf`)
+    await openPdfBlob(blob, `label-rak-${rack.code}.pdf`)
   } catch (e) {
     toast.add({
       severity: 'error',

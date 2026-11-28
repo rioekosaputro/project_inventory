@@ -217,7 +217,7 @@ async function printPdf(): Promise<void> {
   printing.value = true
   try {
     const blob = await lpbService.fetchPdf(lpb.value.id)
-    openPdfBlob(blob, `${lpb.value.lpb_number.replace(/\//g, '-')}.pdf`)
+    await openPdfBlob(blob, `${lpb.value.lpb_number.replace(/\//g, '-')}.pdf`)
   } catch (e) {
     toast.add({
       severity: 'error',
@@ -235,7 +235,7 @@ async function printAssetLabels(): Promise<void> {
   printingLabels.value = true
   try {
     const blob = await lpbService.fetchSerialLabelsPdf(registeredSerialIds.value)
-    openPdfBlob(blob, `label-aset-${lpb.value?.lpb_number.replace(/\//g, '-') ?? 'batch'}.pdf`)
+    await openPdfBlob(blob, `label-aset-${lpb.value?.lpb_number.replace(/\//g, '-') ?? 'batch'}.pdf`)
   } catch (e) {
     toast.add({
       severity: 'error',

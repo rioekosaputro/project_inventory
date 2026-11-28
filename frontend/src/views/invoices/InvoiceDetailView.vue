@@ -71,7 +71,7 @@ async function printPdf(): Promise<void> {
   printing.value = true
   try {
     const blob = await invoiceService.fetchPdf(inv.value.id)
-    openPdfBlob(blob, `${inv.value.invoice_number.replace(/\//g, '-')}.pdf`)
+    await openPdfBlob(blob, `${inv.value.invoice_number.replace(/\//g, '-')}.pdf`)
   } catch (err) {
     toast.add({
       severity: 'error',

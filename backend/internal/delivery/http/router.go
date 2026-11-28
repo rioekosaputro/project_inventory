@@ -268,6 +268,13 @@ func registerInventoryRoutes(api *gin.RouterGroup, deps Deps) {
 	g.GET("/serials/:id/history", h.SerialHistory)
 	g.POST("/serials/labels/pdf", h.SerialLabelsPDF)
 
+	// QC unit retur (MAINTENANCE ↔ AVAILABLE/BROKEN, T3.5: Kepala WH, Teknisi, Admin).
+	qcg := api.Group("/inventory",
+		middleware.Authenticate(deps.Tokens, deps.Clock),
+		middleware.RequireAnyPermission(domain.PermLPBApprove, domain.PermTicketWork),
+	)
+	qcg.POST("/serials/:id/qc", h.QCSerial)
+
 	// Buku besar & kartu stok (permission ledger.read: MGMT, STAFF, HEAD, ADMIN).
 	lg := api.Group("/inventory",
 		middleware.Authenticate(deps.Tokens, deps.Clock),

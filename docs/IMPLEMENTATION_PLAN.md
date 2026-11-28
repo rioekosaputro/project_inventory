@@ -2253,7 +2253,10 @@ volumes: { pgdata: {} }
   DoD: diuji di HP Android & iPhone via URL staging HTTPS.
 
 **Sprint 9 — Retur, swap, peta**
-- [ ] **T3.5 Alur penarikan & swap end-to-end** — DO INBOUND, pickup, LPB `RENTAL_RETURN`, QC (MAINTENANCE → AVAILABLE).
+- [x] **T3.5 Alur penarikan & swap end-to-end** — DO INBOUND, pickup, LPB `RENTAL_RETURN`, QC (MAINTENANCE → AVAILABLE).
+  - `lpb_effects_do.go`: `applyRentalReturn` kini menempatkan unit `MINOR_DEFECT` atau rak non-sellable ke status `MAINTENANCE` (unit `BROKEN` → `BROKEN`, `GOOD` di rak sellable → `AVAILABLE`), sekaligus melengkapi DO INBOUND & SO terkait.
+  - QC endpoint `POST /api/v1/inventory/serials/:id/qc` (`domain/stock.go`, `postgres/stock_repo.go`, `usecase/inventory_qc.go` + `inventory_qc_test.go`, `handler/inventory.go`, `middleware/rbac.go` `RequireAnyPermission`, `router.go`, `app.go`) untuk transisi `MAINTENANCE → AVAILABLE/BROKEN` & `BROKEN → MAINTENANCE` dengan histori `product_serial_histories` + `audit_logs`.
+  - UI QC di `SerialDetailView.vue` & `inventoryService.ts`.
 - [ ] **T3.6 Gagal kirim** — FAILED → draft `FAILED_DELIVERY_RETURN` → approve.
 - [ ] **T3.7 Peta** — `AssetTrackingMap` (pin per site, cluster), rute checkpoint + foto POD.
 

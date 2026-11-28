@@ -23,10 +23,21 @@ const (
 type InventoryUsecase struct {
 	repo        domain.InventoryRepository
 	pdfRenderer pdf.Renderer
+	tx          domain.TxManager
+	stock       domain.StockRepository
+	audit       domain.AuditRepository
 }
 
 func NewInventoryUsecase(repo domain.InventoryRepository) *InventoryUsecase {
 	return &InventoryUsecase{repo: repo}
+}
+
+// WithQC memasang dependensi transaksi & stok untuk proses QC unit retur (MAINTENANCE → AVAILABLE/BROKEN, T3.5).
+func (u *InventoryUsecase) WithQC(tx domain.TxManager, stock domain.StockRepository, audit domain.AuditRepository) *InventoryUsecase {
+	u.tx = tx
+	u.stock = stock
+	u.audit = audit
+	return u
 }
 
 // WithPDF memasang renderer PDF (Gotenberg) untuk cetak label asset tag batch.

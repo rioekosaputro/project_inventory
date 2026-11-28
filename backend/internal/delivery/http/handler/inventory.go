@@ -311,3 +311,33 @@ func (h *InventoryHandler) StockCard(c *gin.Context) {
 	}
 	response.OK(c, dto.NewStockCardResponse(card))
 }
+
+type qcSerialRequest struct {
+	ToStatus string  `json:"to_status" binding:"required"`
+	Notes    *string `json:"notes" binding:"omitempty,max=500"`
+}
+
+// QCSerial — POST /inventory/serials/:id/qc (transisi QC unit retur: MAINTENANCE ↔ AVAILABLE/BROKEN, T3.5).
+func (h *InventoryHandler) QCSerial(c *gin.Context) {
+	a, ok := actor(c)
+	if !ok {
+		return
+	}
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	var req qcSerialRequest
+	if !httperr.BindJSON(c, &req) {
+		return
+	}
+	unit, history, err := h.uc.QCSerial(c.Request.Context(), a, id, usecase.QCSerialInput{
+		ToStatus: req.ToStatus,
+		Notes:    req.Notes,
+	})
+	if err != nil {
+		httperr.Write(c, err)
+		return
+	}
+	response.OK(c, dto.NewSerialScanResponse(&usecase.SerialScan{Serial: *unit, History: history}))
+}

@@ -99,7 +99,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Categories: handler.NewCategoryHandler(usecase.NewCategoryUsecase(txManager, categoryRepo, auditRepo)),
 		Products:   handler.NewProductHandler(usecase.NewProductUsecase(txManager, productRepo, categoryRepo, auditRepo)),
 		Suppliers:  handler.NewSupplierHandler(usecase.NewSupplierUsecase(txManager, supplierRepo, auditRepo)),
-		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(inventoryRepo).WithPDF(pdfClient)),
+		Inventory:  handler.NewInventoryHandler(usecase.NewInventoryUsecase(inventoryRepo).WithPDF(pdfClient).WithQC(txManager, stockRepo, auditRepo)),
 		Opname: handler.NewOpnameHandler(usecase.NewOpnameUsecase(
 			txManager, postgres.NewOpnameRepo(pool), lpbRepo, warehouseRepo, rackRepo, productRepo,
 			inventoryRepo, stockRepo, auditRepo, docGen, clk,

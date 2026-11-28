@@ -32,3 +32,26 @@ func RequirePermission(perm domain.Permission) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RequireAnyPermission mengizinkan pemanggil jika memiliki minimal satu dari daftar permission.
+func RequireAnyPermission(perms ...domain.Permission) gin.HandlerFunc {
+	for _, perm := range perms {
+		if !domain.IsKnownPermission(perm) {
+			panic(fmt.Sprintf("middleware: permission tidak dikenal %q", perm))
+		}
+	}
+	return func(c *gin.Context) {
+		p, ok := PrincipalFrom(c)
+		if !ok {
+			httperr.Write(c, domain.ErrUnauthorized)
+			return
+		}
+		for _, perm := range perms {
+			if domain.Can(p.Role, perm) {
+				c.Next()
+				return
+			}
+		}
+		httperr.Write(c, domain.ErrForbidden)
+	}
+}

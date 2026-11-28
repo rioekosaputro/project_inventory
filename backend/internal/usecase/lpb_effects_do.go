@@ -153,8 +153,11 @@ func (u *LPBUsecase) applyRentalReturn(ctx context.Context, actor domain.Princip
 			cond := serialCond[s.ID]
 			rackID := serialRack[s.ID]
 			toStatus := domain.SerialAvailable
-			if cond == domain.ConditionBroken || !racks[rackID].IsSellable {
+			switch {
+			case cond == domain.ConditionBroken:
 				toStatus = domain.SerialBroken
+			case cond == domain.ConditionMinorDefect || !racks[rackID].IsSellable:
+				toStatus = domain.SerialMaintenance
 			}
 			if err := u.stock.ReturnSerialToRack(ctx, s.ID, toStatus, cond, l.WarehouseID, rackID); err != nil {
 				return nil, err

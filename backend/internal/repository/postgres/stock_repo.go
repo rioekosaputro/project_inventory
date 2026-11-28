@@ -192,6 +192,21 @@ func (r *StockRepo) ReturnSerialToRack(ctx context.Context, id int64, status dom
 	return nil
 }
 
+func (r *StockRepo) UpdateSerialQC(ctx context.Context, id int64, status domain.SerialStatus, condition domain.SerialCondition) error {
+	database.MustInTx(ctx)
+	tag, err := database.GetExecutor(ctx, r.pool).Exec(ctx, `
+		UPDATE product_serials
+		SET status = $2, condition = $3, updated_at = NOW()
+		WHERE id = $1`, id, string(status), string(condition))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrSerialNotValid
+	}
+	return nil
+}
+
 func (r *StockRepo) InsertSerial(ctx context.Context, s *domain.NewSerial) (int64, error) {
 	database.MustInTx(ctx)
 	var id int64

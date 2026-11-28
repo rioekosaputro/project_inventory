@@ -84,6 +84,8 @@ type StockRepository interface {
 	DispatchReservedSerial(ctx context.Context, id, doID int64, customerID, siteID *int64) error
 	// ReturnSerialToRack memindahkan unit IN_TRANSIT kembali ke gudang/rak (RENTAL_RETURN) dan mengosongkan customer/site/contract.
 	ReturnSerialToRack(ctx context.Context, id int64, status SerialStatus, condition SerialCondition, warehouseID, rackID int64) error
+	// UpdateSerialQC mengubah status & kondisi unit di gudang saat proses QC (MAINTENANCE ↔ AVAILABLE/BROKEN).
+	UpdateSerialQC(ctx context.Context, id int64, status SerialStatus, condition SerialCondition) error
 	InsertSerialHistory(ctx context.Context, h SerialHistoryEntry) error
 	InsertLedger(ctx context.Context, e LedgerEntry) error
 }

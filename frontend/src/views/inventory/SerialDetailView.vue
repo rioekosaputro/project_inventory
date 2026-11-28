@@ -8,18 +8,64 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { toApiError, userMessage } from '@/lib/apiError'
 import { formatDateTime } from '@/lib/format'
 import { openPdfBlob } from '@/lib/pdf'
-import { btnSecondary } from '@/lib/ui'
+import { btnPrimary, btnSecondary } from '@/lib/ui'
 import { inventoryService } from '@/services/inventoryService'
+import { useAuthStore } from '@/stores/auth'
 import type { SerialDetail } from '@/types/inventory'
 
 const route = useRoute()
 const toast = useToast()
+const auth = useAuthStore()
 
 const id = computed(() => Number(route.params.id))
 const unit = ref<SerialDetail | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const printing = ref(false)
+const qcOpen = ref(false)
+const qcBusy = ref(false)
+const qcStatus = ref<'AVAILABLE' | 'MAINTENANCE' | 'BROKEN'>('AVAILABLE')
+const qcNotes = ref('')
+
+const canQC = computed(
+  () =>
+    (auth.can('lpb.approve') || auth.can('ticket.work')) &&
+    (unit.value?.status === 'MAINTENANCE' || unit.value?.status === 'BROKEN'),
+)
+
+function openQC(): void {
+  if (!unit.value) return
+  qcStatus.value = unit.value.status === 'BROKEN' ? 'MAINTENANCE' : 'AVAILABLE'
+  qcNotes.value = ''
+  qcOpen.value = true
+}
+
+async function submitQC(): Promise<void> {
+  if (!unit.value || qcBusy.value) return
+  qcBusy.value = true
+  try {
+    unit.value = await inventoryService.qcSerial(unit.value.id, {
+      to_status: qcStatus.value,
+      notes: qcNotes.value.trim() || undefined,
+    })
+    qcOpen.value = false
+    toast.add({
+      severity: 'success',
+      summary: 'QC berhasil disimpan',
+      detail: `Status unit diperbarui menjadi ${unit.value.status}.`,
+      life: 4000,
+    })
+  } catch (e) {
+    toast.add({
+      severity: 'error',
+      summary: 'Gagal menyimpan hasil QC',
+      detail: userMessage(toApiError(e)),
+      life: 5000,
+    })
+  } finally {
+    qcBusy.value = false
+  }
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -86,11 +132,64 @@ async function printLabel(): Promise<void> {
             {{ unit.product_name }}
           </p>
         </div>
-        <button type="button" :class="btnSecondary" :aria-busy="printing" @click="printLabel">
-          <i class="pi pi-qrcode text-xs" aria-hidden="true" />
-          {{ printing ? 'Menyiapkan…' : 'Cetak Label Aset' }}
-        </button>
+        <div class="flex flex-wrap gap-2">
+          <button v-if="canQC" type="button" :class="btnPrimary" @click="openQC">
+            <i class="pi pi-check-square text-xs" aria-hidden="true" />
+            Proses QC
+          </button>
+          <button type="button" :class="btnSecondary" :aria-busy="printing" @click="printLabel">
+            <i class="pi pi-qrcode text-xs" aria-hidden="true" />
+            {{ printing ? 'Menyiapkan…' : 'Cetak Label Aset' }}
+          </button>
+        </div>
       </header>
+
+      <section
+        v-if="qcOpen && canQC"
+        class="mt-4 space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4"
+      >
+        <h2 class="text-sm font-semibold text-slate-900">Hasil Inspeksi / Quality Control (QC)</h2>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label for="qc-status" class="block text-xs font-medium text-slate-700"
+              >Status Baru</label
+            >
+            <select
+              id="qc-status"
+              v-model="qcStatus"
+              class="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            >
+              <option v-if="unit.status === 'MAINTENANCE'" value="AVAILABLE">
+                AVAILABLE — Lulus QC (Siap Sewa)
+              </option>
+              <option v-if="unit.status === 'MAINTENANCE'" value="BROKEN">
+                BROKEN — Tidak Lulus QC (Rusak)
+              </option>
+              <option v-if="unit.status === 'BROKEN'" value="MAINTENANCE">
+                MAINTENANCE — Masuk Perbaikan / Inspeksi Ulang
+              </option>
+            </select>
+          </div>
+          <div>
+            <label for="qc-notes" class="block text-xs font-medium text-slate-700"
+              >Catatan QC (opsional)</label
+            >
+            <input
+              id="qc-notes"
+              v-model="qcNotes"
+              type="text"
+              placeholder="Mis. roller diganti, uji cetak normal"
+              class="mt-1 min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" :class="btnSecondary" @click="qcOpen = false">Batal</button>
+          <button type="button" :class="btnPrimary" :disabled="qcBusy" @click="submitQC">
+            {{ qcBusy ? 'Menyimpan…' : 'Simpan Hasil QC' }}
+          </button>
+        </div>
+      </section>
 
       <dl
         class="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-3"

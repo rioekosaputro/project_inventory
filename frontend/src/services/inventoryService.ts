@@ -55,4 +55,8 @@ export const inventoryService = {
     )
     return res.data
   },
+  qcSerial: (
+    id: number,
+    payload: { to_status: 'AVAILABLE' | 'MAINTENANCE' | 'BROKEN'; notes?: string },
+  ): Promise<SerialDetail> => api.post<SerialDetail>(`/inventory/serials/${id}/qc`, payload),
 }

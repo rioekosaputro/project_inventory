@@ -91,6 +91,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 	trackingUC := usecase.NewTrackingUsecase(
 		txManager, postgres.NewTrackingRepo(pool), lpbRepo, stockRepo, deliveryPODRepo, auditRepo, clk,
 	).WithStorage(uploader).WithDocGen(docGen)
+	ticketUC := usecase.NewTicketUsecase(
+		txManager, postgres.NewTicketRepo(pool), auditRepo, docGen, clk,
+	).WithStorage(uploader)
 
 	deps := apihttp.Deps{
 		Users:      handler.NewUserHandler(userUC),
@@ -123,6 +126,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool, clk 
 		Jobs:     handler.NewJobHandler(jobUC),
 		Files:    fileHandler,
 		Tracking: handler.NewTrackingHandler(trackingUC, uploader),
+		Tickets:  handler.NewTicketHandler(ticketUC, uploader),
 		LPB: handler.NewLPBHandler(usecase.NewLPBUsecase(
 			txManager, lpbRepo, warehouseRepo, rackRepo, productRepo, supplierRepo,
 			inventoryRepo, stockRepo, postgres.NewSettingsRepo(pool),

@@ -61,8 +61,9 @@ type Deps struct {
 	// Berkas privat lokal via signed URL (T3.2; hanya aktif bila STORAGE_DRIVER=local).
 	Files *handler.FileHandler
 
-	// Lapangan: driver mobile & rute pengiriman (T3.3).
+	// Lapangan: driver mobile & rute pengiriman (T3.3), tiket maintenance (T3.8).
 	Tracking *handler.TrackingHandler
+	Tickets  *handler.TicketHandler
 
 	// Idempotency untuk aksi kritis (approve LPB, ...). nil = middleware tidak dipasang.
 	Idempotency domain.IdempotencyRepository
@@ -120,6 +121,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, deps Deps, checks ...Rea
 	registerDeliveryOrderRoutes(api, deps)
 	registerInvoiceRoutes(api, deps)
 	registerTrackingRoutes(api, deps)
+	registerTicketRoutes(api, deps)
 	if deps.Jobs != nil {
 		internalJobs := api.Group("/internal/jobs", middleware.RequireCronSecret(cfg.CronSecret))
 		internalJobs.GET("/billing", deps.Jobs.RunBilling)
@@ -476,4 +478,25 @@ func registerTrackingRoutes(api *gin.RouterGroup, deps Deps) {
 	g.POST("/lpb/:id/pickup", driver, h.Pickup)
 	g.GET("/lpb/:id/route", read, h.Route)
 	g.GET("/map/assets", mapRead, h.MapAssets)
+}
+
+// registerTicketRoutes — plan Bagian 8.5 (T3.8: tiket maintenance teknisi).
+func registerTicketRoutes(api *gin.RouterGroup, deps Deps) {
+	h := deps.Tickets
+	if h == nil {
+		return
+	}
+	authn := middleware.Authenticate(deps.Tokens, deps.Clock)
+	read := middleware.RequirePermission(domain.PermTicketRead)
+	write := middleware.RequirePermission(domain.PermTicketWrite)
+	work := middleware.RequirePermission(domain.PermTicketWork)
+
+	g := api.Group("/tickets", authn)
+	g.GET("", read, h.List)
+	g.POST("", write, h.Create)
+	g.GET("/:id", read, h.Get)
+	g.PATCH("/:id", write, h.Update)
+	g.POST("/:id/assign", write, h.Assign)
+	g.POST("/:id/status", work, h.ChangeStatus)
+	g.POST("/:id/activities", work, h.AddActivity)
 }

@@ -2265,7 +2265,9 @@ volumes: { pgdata: {} }
   - Frontend: `views/tracking/AssetTrackingMapView.vue` (`/tracking/map`, Leaflet `L.divIcon` pin ber-badge jumlah unit + detail unit clickable + mode Rute Checkpoint GPS polyline & pratinjau signed URL foto POD via `?lpb_id=`), `services/trackingService.ts`, `router/index.ts`, & `views/__tests__/AssetTrackingMapView.spec.ts`.
 
 **Sprint 10 — Tiket maintenance**
-- [ ] **T3.8 Tiket** — CRUD, assign, status, aktivitas (komentar, foto, check-in GPS), papan kanban.
+- [x] **T3.8 Tiket** — CRUD, assign, status, aktivitas (komentar, foto, check-in GPS), papan kanban.
+  - Backend: `domain/ticket.go`, `postgres/ticket_repo.go`, `usecase/ticket.go` (+ `ticket_test.go`), `handler/ticket.go`, `router.go`, `app.go` (`GET/POST /tickets`, `GET/PATCH /tickets/:id`, `POST /tickets/:id/{assign,status,activities}` dengan upload foto privat via `storage.Uploader` + signed URL dan auto-SLA per prioritas).
+  - Frontend: `services/ticketService.ts`, `views/tickets/{TicketListView,TicketDetailView}.vue` (`/tickets` mode Kanban & Tabel + buat tiket, `/tickets/:id` assign, ubah status, check-in/out GPS, unggah foto kompresi `< 300 KB`), `router/index.ts`, & `views/__tests__/TicketViews.spec.ts`.
 - [ ] **T3.9 Sparepart** — permintaan → LPB `SPARE_PART_ISSUE` → ISSUED; flag `is_billable` → invoice SERVICE.
 - [ ] **T3.10 Eskalasi swap** — tiket → SO `UNIT_SWAP`.
 - [ ] **T3.11 SLA & dashboard lapangan.**

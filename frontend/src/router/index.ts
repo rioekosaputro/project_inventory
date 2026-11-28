@@ -312,6 +312,19 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/tracking/AssetTrackingMapView.vue'),
     meta: { layout: 'app', permission: 'map.read', title: 'Peta Aset' },
   },
+  // Tiket Maintenance (plan Bagian 9.4, T3.8).
+  {
+    path: '/tickets',
+    name: 'tickets',
+    component: () => import('@/views/tickets/TicketListView.vue'),
+    meta: { layout: 'app', permission: 'ticket.read', title: 'Tiket Maintenance' },
+  },
+  {
+    path: '/tickets/:id(\\d+)',
+    name: 'tickets-detail',
+    component: () => import('@/views/tickets/TicketDetailView.vue'),
+    meta: { layout: 'app', permission: 'ticket.read', title: 'Detail Tiket Maintenance' },
+  },
   {
     path: '/403',
     name: 'forbidden',

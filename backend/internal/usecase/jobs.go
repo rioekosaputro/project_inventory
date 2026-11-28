@@ -36,17 +36,24 @@ type DailyJobsResult struct {
 // JobUsecase mengorkestrasi eksekusi job terjadwal dengan pelacakan idempoten di tabel job_runs.
 // Dipakai bersama oleh endpoint HTTP /internal/jobs/* (Vercel Cron) dan binary cmd/worker (production).
 type JobUsecase struct {
-	jobs      domain.JobRepository
-	billing   *BillingUsecase
-	audit     domain.AuditRepository
-	reconcile domain.ReconcileRepository
-	clk       clock.Clock
-	logger    *slog.Logger
+	jobs        domain.JobRepository
+	billing     *BillingUsecase
+	audit       domain.AuditRepository
+	auditReader domain.AuditReader
+	reconcile   domain.ReconcileRepository
+	clk         clock.Clock
+	logger      *slog.Logger
 }
 
 // WithReconcile memasang repository pemeriksaan invarian stok untuk job harian & halaman admin (T4.2).
 func (u *JobUsecase) WithReconcile(repo domain.ReconcileRepository) *JobUsecase {
 	u.reconcile = repo
+	return u
+}
+
+// WithAuditReader memasang reader audit_logs untuk halaman Audit Log Viewer (T4.3).
+func (u *JobUsecase) WithAuditReader(reader domain.AuditReader) *JobUsecase {
+	u.auditReader = reader
 	return u
 }
 
@@ -56,6 +63,19 @@ func (u *JobUsecase) CheckReconcile(ctx context.Context) (*domain.ReconcileRepor
 		return nil, domain.ErrInvalidStateTransition
 	}
 	return u.reconcile.CheckStockInvariants(ctx, u.clk.Now())
+}
+
+// ListJobRuns mengambil daftar eksekusi job terbaru dari tabel job_runs (T4.3).
+func (u *JobUsecase) ListJobRuns(ctx context.Context, limit int) ([]domain.JobRun, error) {
+	return u.jobs.ListRecent(ctx, limit)
+}
+
+// ListAuditLogs mengambil daftar audit_logs dengan filter & paginasi (T4.3).
+func (u *JobUsecase) ListAuditLogs(ctx context.Context, f domain.AuditFilter, p domain.PageParams) ([]domain.AuditLogRow, int64, error) {
+	if u.auditReader == nil {
+		return nil, 0, domain.ErrInvalidStateTransition
+	}
+	return u.auditReader.List(ctx, f, p)
 }
 
 func NewJobUsecase(

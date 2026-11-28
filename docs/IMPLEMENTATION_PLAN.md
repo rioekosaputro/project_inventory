@@ -2288,7 +2288,9 @@ volumes: { pgdata: {} }
 - [x] **T4.2 Rekonsiliasi** — job harian + halaman admin.
   - Backend: `domain/reconcile.go`, `postgres/reconcile_repo.go` (9 pemeriksaan invarian stok I1–I6), sub-job harian `STOCK_RECONCILE` pada `JobUsecase.RunDaily` (`job_runs`), serta endpoint on-demand `GET /api/v1/admin/reconcile` (`PermReconcileRead`).
   - Frontend: `services/adminService.ts`, `views/admin/ReconcileView.vue` (`/admin/rekonsiliasi`), & `router/index.ts`.
-- [ ] **T4.3 Audit log viewer & halaman jobs.**
+- [x] **T4.3 Audit log viewer & halaman jobs.**
+  - Backend: `domain/audit.go` (`AuditLogRow`, `AuditFilter`, `AuditReader`), `AuditRepo.List` terpaginasi dengan join `users` & filter teks/aksi/entitas/tanggal, `JobUsecase.ListJobRuns` & `ListAuditLogs`, serta endpoint `GET /api/v1/admin/jobs` (`PermJobsRead`) & `GET /api/v1/admin/audit-logs` (`PermAuditRead`); teruji di `jobs_integration_test.go`.
+  - Frontend: `services/adminService.ts` (`auditLogs`, `jobs`), `views/admin/AuditLogView.vue` (`/admin/audit`, filter + paginasi + JSON `before_data`/`after_data`), `views/admin/JobsView.vue` (`/admin/jobs`, KPI status + filter + JSON `summary`/`error`), `router/index.ts`, & `AdminViews.spec.ts`.
 - [ ] **T4.4 Laporan** — utilisasi aset, omzet per pelanggan/bulan, aging piutang, SLA tiket, mutasi stok.
 - [ ] **T4.5 E2E Playwright** — 2 alur utama.
 - [ ] **T4.6 Infrastruktur production** — `docker-compose.prod.yml`, Caddy, backup + uji restore, monitoring.

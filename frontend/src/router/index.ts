@@ -11,6 +11,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     /** Layout pembungkus. `auto` = app bila sudah login, selain itu public. */
     layout?: 'app' | 'mobile' | 'public' | 'auto'
+    /** Khusus layout public: tampil penuh layar tanpa pembungkus max-w-md (mis. halaman login split-screen). */
+    fullBleed?: boolean
     /** Dapat dibuka tanpa login. */
     public?: boolean
     /** Rute publik yang tidak relevan bagi yang sudah login (mis. /login) → dialihkan ke beranda. */
@@ -67,7 +69,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { layout: 'public', public: true, guestOnly: true, title: 'Masuk' },
+    meta: { layout: 'public', fullBleed: true, public: true, guestOnly: true, title: 'Masuk' },
   },
   {
     path: '/beranda',
@@ -325,12 +327,24 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/tickets/TicketDetailView.vue'),
     meta: { layout: 'app', permission: 'ticket.read', title: 'Detail Tiket Maintenance' },
   },
-  // Administrasi: Rekonsiliasi Stok (T4.2).
+  // Administrasi: Rekonsiliasi Stok, Log Audit, & Jobs (T4.2–T4.3).
   {
     path: '/admin/rekonsiliasi',
     name: 'admin-reconcile',
     component: () => import('@/views/admin/ReconcileView.vue'),
     meta: { layout: 'app', permission: 'reconcile.read', title: 'Rekonsiliasi Stok' },
+  },
+  {
+    path: '/admin/audit',
+    name: 'admin-audit',
+    component: () => import('@/views/admin/AuditLogView.vue'),
+    meta: { layout: 'app', permission: 'audit.read', title: 'Log Audit' },
+  },
+  {
+    path: '/admin/jobs',
+    name: 'admin-jobs',
+    component: () => import('@/views/admin/JobsView.vue'),
+    meta: { layout: 'app', permission: 'jobs.read', title: 'Jobs' },
   },
   {
     path: '/403',

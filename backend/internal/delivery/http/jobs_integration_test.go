@@ -160,4 +160,20 @@ func TestInternalJobs_BillingAndDailyMaintenance_IdempotencyAndAlerts(t *testing
 	recent, err := postgres.NewJobRepo(e.pool).ListRecent(context.Background(), 10)
 	require.NoError(t, err)
 	assert.Len(t, recent, 6)
+
+	// 6. T4.3: Endpoint admin /admin/jobs (PermJobsRead: hanya ADMIN) dan /admin/audit-logs (PermAuditRead: ADMIN & MANAGEMENT).
+	mgmtTok := e.tokenFor(domain.RoleManagement, nil)
+	assert.Equal(t, 403, e.get(biz, "/api/v1/admin/jobs").status())
+	assert.Equal(t, 403, e.get(mgmtTok, "/api/v1/admin/jobs").status())
+	jobsRes := e.get(adminTok, "/api/v1/admin/jobs?limit=20")
+	require.Equal(t, 200, jobsRes.status(), jobsRes.rec.Body.String())
+	assert.Len(t, jobsRes.list(), 6)
+
+	assert.Equal(t, 403, e.get(biz, "/api/v1/admin/audit-logs").status())
+	auditAdmin := e.get(adminTok, "/api/v1/admin/audit-logs?action=JOB_STOCK_RECONCILE&limit=10")
+	require.Equal(t, 200, auditAdmin.status(), auditAdmin.rec.Body.String())
+	require.GreaterOrEqual(t, len(auditAdmin.list()), 1)
+	auditMgmt := e.get(mgmtTok, "/api/v1/admin/audit-logs?entity_type=job_run&limit=10")
+	require.Equal(t, 200, auditMgmt.status(), auditMgmt.rec.Body.String())
+	require.GreaterOrEqual(t, len(auditMgmt.list()), 1)
 }
